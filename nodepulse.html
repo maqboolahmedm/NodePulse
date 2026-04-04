@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e17">
+<title>NodePulse</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0e17;
+  --surface:  #111827;
+  --surface2: #1a2234;
+  --border:   #1e2d45;
+  --accent:   #00d4aa;
+  --blue:     #38bdf8;
+  --purple:   #a78bfa;
+  --red:      #f87171;
+  --amber:    #fbbf24;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --radius:   14px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overscroll-behavior: none;
+  background-image:
+    radial-gradient(ellipse 100% 40% at 50% 0%, rgba(0,212,170,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 30% at 90% 100%, rgba(56,189,248,0.05) 0%, transparent 50%);
+}
+
+/* ── HEADER ── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,14,23,0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex; align-items: center; gap: 12px;
+}
+
+.logo {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, #00d4aa22, #00d4aa55);
+  border: 1px solid #00d4aa44;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+
+.header-info { flex: 1; }
+.header-info h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 15px; font-weight: 700;
+  color: var(--accent); letter-spacing: -0.3px;
+}
+.header-info p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+.refresh-btn {
+  width: 34px; height: 34px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--muted);
+  transition: all 0.2s; flex-shrink: 0;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MAIN ── */
+main { padding: 16px 16px 100px; max-width: 520px; margin: 0 auto; }
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  background: rgba(248,113,113,0.1);
+  border: 1px solid rgba(248,113,113,0.3);
+  border-left: 4px solid var(--red);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  display: none;
+}
+.alert-banner.show { display: block; }
+.alert-banner strong { color: var(--red); display: block; margin-bottom: 4px; }
+
+/* ── SUMMARY STRIP ── */
+.summary {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; margin-bottom: 16px;
+}
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  text-align: center;
+}
+.summary-card .val {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px; font-weight: 700;
+  line-height: 1;
+}
+.summary-card .lbl { font-size: 10px; color: var(--muted); margin-top: 4px; letter-spacing: 0.5px; }
+.val-green { color: var(--accent); }
+.val-red   { color: var(--red); }
+.val-amber { color: var(--amber); }
+
+/* ── SECTION LABEL ── */
+.section-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  margin: 20px 0 10px 2px;
+}
+
+/* ── NODE CARD ── */
+.node-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s;
+  position: relative; overflow: hidden;
+}
+.node-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent); opacity: 0;
+  transition: opacity 0.2s;
+}
+.node-card.running::before { opacity: 1; }
+.node-card.down { border-color: rgba(248,113,113,0.3); }
+.node-card.down::before { background: var(--red); opacity: 1; }
+.node-card.restarted { border-color: rgba(251,191,36,0.3); }
+.node-card.restarted::before { background: var(--amber); opacity: 1; }
+
+.node-top {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.node-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.dot-green  { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse-green 2s infinite; }
+.dot-red    { background: var(--red);    box-shadow: 0 0 8px var(--red); }
+.dot-amber  { background: var(--amber);  box-shadow: 0 0 8px var(--amber); animation: pulse-amber 2s infinite; }
+@keyframes pulse-green { 0%,100%{box-shadow:0 0 6px var(--accent)} 50%{box-shadow:0 0 12px var(--accent)} }
+@keyframes pulse-amber { 0%,100%{box-shadow:0 0 6px var(--amber)} 50%{box-shadow:0 0 12px var(--amber)} }
+
+.node-license {
+  font-family: 'Space Mono', monospace;
+  font-size: 15px; font-weight: 700; color: var(--text);
+  flex: 1;
+}
+.node-status-badge {
+  font-size: 10px; font-family: 'Space Mono', monospace;
+  padding: 2px 8px; border-radius: 20px;
+}
+.badge-running  { background: rgba(0,212,170,0.12); color: var(--accent); border: 1px solid rgba(0,212,170,0.3); }
+.badge-down     { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+.badge-restarted { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }
+
+.node-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 10px;
+}
+.node-stat {
+  background: var(--surface2);
+  border-radius: 8px; padding: 8px 10px;
+}
+.node-stat .sk { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.node-stat .sv {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px; color: var(--text);
+  word-break: break-all;
+}
+
+.alert-row {
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 8px; padding: 8px 10px;
+  margin-bottom: 10px; font-size: 12px;
+}
+.alert-row .ar-title { color: var(--amber); font-weight: 600; margin-bottom: 4px; }
+.alert-row .ar-line  { color: var(--muted); line-height: 1.5; }
+.alert-row code {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; color: var(--text);
+}
+
+.disk-bar-wrap { margin-top: 4px; }
+.disk-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.disk-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+.disk-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.fill-green { background: var(--accent); }
+.fill-amber { background: var(--amber); }
+.fill-red   { background: var(--red); }
+
+.restart-btn {
+  width: 100%; padding: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted); font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.restart-btn:hover { border-color: var(--amber); color: var(--amber); }
+.restart-btn:active { transform: scale(0.98); }
+
+/* ── BOTTOM ACTION BAR ── */
+.action-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(10,14,23,0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; gap: 10px;
+  max-width: 520px; margin: 0 auto;
+}
+.action-bar-inner {
+  position: fixed; bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%; max-width: 520px;
+  background: rgba(10,14,23,0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; gap: 10px;
+}
+
+.btn {
+  flex: 1; padding: 11px 8px;
+  border-radius: 10px; border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-primary {
+  background: rgba(0,212,170,0.15);
+  border: 1px solid rgba(0,212,170,0.35);
+  color: var(--accent);
+}
+.btn-danger {
+  background: rgba(248,113,113,0.12);
+  border: 1px solid rgba(248,113,113,0.3);
+  color: var(--red);
+}
+.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
+
+/* ── UPDATE INDICATOR ── */
+.updated-row {
+  text-align: center; font-size: 11px;
+  color: var(--muted); margin-bottom: 16px;
+  font-family: 'Space Mono', monospace;
+}
+.dot-live {
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--accent); border-radius: 50%;
+  margin-right: 5px; animation: pulse-green 2s infinite;
+}
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 20px;
+  font-size: 13px; color: var(--text);
+  opacity: 0; transition: all 0.3s; z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── LOADING ── */
+.loading {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 20px; gap: 16px;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.loading p { color: var(--muted); font-size: 13px; }
+
+/* ── CONFIG SCREEN ── */
+.config-screen {
+  padding: 40px 20px;
+  display: none; flex-direction: column; gap: 16px;
+}
+.config-screen.show { display: flex; }
+.config-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 18px; color: var(--accent);
+  text-align: center; margin-bottom: 8px;
+}
+.config-desc { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.6; }
+.config-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 16px;
+  color: var(--text); font-size: 13px;
+  font-family: 'Space Mono', monospace;
+  width: 100%; outline: none;
+  transition: border-color 0.2s;
+}
+.config-input:focus { border-color: var(--accent); }
+.config-input::placeholder { color: var(--muted); }
+.config-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.config-save {
+  width: 100%; padding: 14px;
+  background: rgba(0,212,170,0.15);
+  border: 1px solid rgba(0,212,170,0.35);
+  border-radius: 10px; color: var(--accent);
+  font-size: 14px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: all 0.2s;
+}
+.config-save:hover { background: rgba(0,212,170,0.25); }
+
+.error-box {
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.25);
+  border-radius: 10px; padding: 16px;
+  text-align: center;
+}
+.error-box p { font-size: 13px; color: var(--red); }
+.error-box small { font-size: 11px; color: var(--muted); display: block; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">⬡</div>
+  <div class="header-info">
+    <h1>NodePulse</h1>
+    <p id="header-host">DeNet Node Monitor</p>
+  </div>
+  <button class="refresh-btn" id="refresh-btn" onclick="loadData(true)" title="Refresh">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+    </svg>
+  </button>
+</div>
+
+<!-- CONFIG SCREEN -->
+<div class="config-screen" id="config-screen">
+  <div style="text-align:center;font-size:40px;margin-bottom:8px;">⬡</div>
+  <div class="config-title">NodePulse Setup</div>
+  <div class="config-desc">Enter your VM's status URL and Telegram bot token to connect your nodes.</div>
+
+  <div>
+    <div class="config-label">Status URL (from your VM)</div>
+    <input class="config-input" id="cfg-url" type="url"
+      placeholder="http://100.x.x.x/nodepulse/status.json"
+      value="">
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+      Use your Tailscale IP or DuckDNS domain
+    </div>
+  </div>
+
+  <div>
+    <div class="config-label">Telegram Bot Token</div>
+    <input class="config-input" id="cfg-token" type="text"
+      placeholder="YOUR_TELEGRAM_BOT_TOKEN"
+      value="">
+  </div>
+
+  <div>
+    <div class="config-label">Telegram Chat ID</div>
+    <input class="config-input" id="cfg-chatid" type="text"
+      placeholder="YOUR_TELEGRAM_CHAT_ID"
+      value="">
+  </div>
+
+  <button class="config-save" onclick="saveConfig()">Connect to VM →</button>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<main id="dashboard" style="display:none;">
+
+  <div class="updated-row">
+    <span class="dot-live"></span>
+    <span id="updated-text">Loading...</span>
+  </div>
+
+  <div id="alert-banner" class="alert-banner"></div>
+
+  <div class="summary">
+    <div class="summary-card">
+      <div class="val val-green" id="sum-online">–</div>
+      <div class="lbl">ONLINE</div>
+    </div>
+    <div class="summary-card">
+      <div class="val val-red" id="sum-down">–</div>
+      <div class="lbl">DOWN</div>
+    </div>
+    <div class="summary-card">
+      <div class="val val-amber" id="sum-restarts">–</div>
+      <div class="lbl">RESTARTS</div>
+    </div>
+  </div>
+
+  <div class="section-label">Node Status</div>
+  <div id="nodes-container"></div>
+
+  <div class="section-label">Version</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
+    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);">
+      Binary: <span id="version-text" style="color:var(--text);">–</span>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px;">
+      Host: <span id="host-text" style="color:var(--text);">–</span>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px;">
+    <button onclick="showConfig()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;">
+      ⚙️ Change connection settings
+    </button>
+  </div>
+
+</main>
+
+<!-- LOADING -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p>Connecting to VM...</p>
+</div>
+
+<!-- BOTTOM ACTIONS -->
+<div class="action-bar-inner" id="action-bar" style="display:none;">
+  <button class="btn btn-primary" id="btn-status" onclick="sendCommand('/status')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+    Status
+  </button>
+  <button class="btn btn-danger" id="btn-restartall" onclick="confirmRestartAll()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+    </svg>
+    Restart All
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════
+const DEFAULT_URL      = 'http://100.x.x.x/nodepulse/status.json';
+const DEFAULT_TOKEN    = 'YOUR_TELEGRAM_BOT_TOKEN';
+const DEFAULT_CHAT_ID  = 'YOUR_TELEGRAM_CHAT_ID';
+
+function getCfg() {
+  return {
+    url:    localStorage.getItem('np_url')    || '',
+    token:  localStorage.getItem('np_token')  || DEFAULT_TOKEN,
+    chatId: localStorage.getItem('np_chatid') || DEFAULT_CHAT_ID,
+  };
+}
+
+function saveConfig() {
+  const url    = document.getElementById('cfg-url').value.trim();
+  const token  = document.getElementById('cfg-token').value.trim();
+  const chatId = document.getElementById('cfg-chatid').value.trim();
+  if (!url) { showToast('⚠️ Please enter the status URL'); return; }
+  localStorage.setItem('np_url',    url);
+  localStorage.setItem('np_token',  token);
+  localStorage.setItem('np_chatid', chatId);
+  showConfig(false);
+  loadData(true);
+}
+
+function showConfig(show = true) {
+  document.getElementById('config-screen').style.display = show ? 'flex' : 'none';
+  document.getElementById('dashboard').style.display     = show ? 'none' : 'block';
+  document.getElementById('loading').style.display       = show ? 'none' : 'none';
+  document.getElementById('action-bar').style.display    = show ? 'none' : 'flex';
+  if (show) {
+    const cfg = getCfg();
+    document.getElementById('cfg-url').value    = cfg.url;
+    document.getElementById('cfg-token').value  = cfg.token;
+    document.getElementById('cfg-chatid').value = cfg.chatId;
+  }
+}
+
+// ═══════════════════════════════════════════
+// TELEGRAM
+// ═══════════════════════════════════════════
+async function sendTelegram(text) {
+  const cfg = getCfg();
+  if (!cfg.token || !cfg.chatId) { showToast('⚠️ No bot token configured'); return false; }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: cfg.chatId, text, parse_mode: 'HTML' })
+    });
+    const d = await r.json();
+    return d.ok;
+  } catch(e) {
+    showToast('❌ Telegram send failed');
+    return false;
+  }
+}
+
+async function sendCommand(cmd) {
+  showToast(`Sending ${cmd}...`);
+  const ok = await sendTelegram(cmd);
+  if (ok) showToast(`✅ ${cmd} sent to bot`);
+}
+
+async function sendRestartNode(license) {
+  const ok = await sendTelegram(`/restart ${license}`);
+  if (ok) showToast(`✅ /restart ${license} sent`);
+  else     showToast('❌ Failed to send command');
+}
+
+async function confirmRestartAll() {
+  if (!confirm('⚠️ Restart ALL 6 nodes?\n\nThis costs 6 PEAQ transactions!')) return;
+  showToast('Sending /restartall...');
+  const ok = await sendTelegram('/restartall');
+  if (ok) showToast('✅ /restartall sent to bot');
+  else     showToast('❌ Failed to send command');
+}
+
+// ═══════════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════════
+let autoRefreshTimer = null;
+
+async function loadData(showSpinner = false) {
+  const cfg = getCfg();
+  if (!cfg.url) { showConfigScreen(); return; }
+
+  if (showSpinner) {
+    const btn = document.getElementById('refresh-btn');
+    btn.classList.add('spinning');
+  }
+
+  try {
+    const r = await fetch(cfg.url + '?t=' + Date.now(), {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    renderDashboard(data);
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    document.getElementById('refresh-btn').classList.remove('spinning');
+  }
+}
+
+function showConfigScreen() {
+  document.getElementById('loading').style.display    = 'none';
+  document.getElementById('dashboard').style.display  = 'none';
+  document.getElementById('action-bar').style.display = 'none';
+  document.getElementById('config-screen').style.display = 'flex';
+  const cfg = getCfg();
+  document.getElementById('cfg-url').value    = cfg.url;
+  document.getElementById('cfg-token').value  = cfg.token;
+  document.getElementById('cfg-chatid').value = cfg.chatId;
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display    = 'none';
+  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('action-bar').style.display = 'flex';
+  document.getElementById('dashboard').style.display  = 'block';
+  document.getElementById('nodes-container').innerHTML = `
+    <div class="error-box">
+      <p>❌ Could not reach VM</p>
+      <small>${msg}</small>
+      <small style="margin-top:8px;color:var(--muted);">Check your Tailscale connection and VM status</small>
+    </div>`;
+  document.getElementById('updated-text').textContent = 'Connection failed';
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function renderDashboard(data) {
+  document.getElementById('loading').style.display    = 'none';
+  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display  = 'block';
+  document.getElementById('action-bar').style.display = 'flex';
+
+  document.getElementById('header-host').textContent = data.host || 'Unknown';
+  document.getElementById('updated-text').textContent = 'Updated: ' + (data.updated || '–');
+  document.getElementById('version-text').textContent = data.version || '–';
+  document.getElementById('host-text').textContent    = data.host || '–';
+
+  const nodes    = data.nodes || [];
+  const online   = nodes.filter(n => n.status === 'running').length;
+  const down     = nodes.filter(n => n.status !== 'running').length;
+  const restarts = nodes.reduce((s, n) => s + (n.restarts || 0), 0);
+
+  document.getElementById('sum-online').textContent   = online;
+  document.getElementById('sum-down').textContent     = down;
+  document.getElementById('sum-restarts').textContent = restarts;
+
+  // Alert banner
+  const silentRestarts = nodes.filter(n => n.pid_changed);
+  const alertBanner = document.getElementById('alert-banner');
+  if (silentRestarts.length > 0) {
+    alertBanner.classList.add('show');
+    alertBanner.innerHTML = `<strong>⚠️ Silent Restart Detected</strong>` +
+      silentRestarts.map(n =>
+        `Node ${n.license}: PID ${n.old_pid} → ${n.pid} | Last alive: ${n.last_seen}`
+      ).join('<br>');
+  } else {
+    alertBanner.classList.remove('show');
+  }
+
+  // Render nodes
+  const container = document.getElementById('nodes-container');
+  container.innerHTML = nodes.map(n => renderNode(n)).join('');
+}
+
+function renderNode(n) {
+  const running    = n.status === 'running';
+  const restarted  = n.pid_changed;
+  const cardClass  = restarted ? 'restarted' : (running ? 'running' : 'down');
+  const dotClass   = restarted ? 'dot-amber' : (running ? 'dot-green' : 'dot-red');
+  const badgeClass = restarted ? 'badge-restarted' : (running ? 'badge-running' : 'badge-down');
+  const badgeText  = restarted ? '⚠ RESTARTED' : (running ? 'RUNNING' : 'DOWN');
+
+  const disk = n.disk;
+  let diskHtml = '';
+  if (disk) {
+    const fillClass = disk.pct >= 85 ? 'fill-red' : disk.pct >= 70 ? 'fill-amber' : 'fill-green';
+    diskHtml = `
+      <div class="disk-bar-wrap">
+        <div class="disk-info">
+          <span>💾 ${disk.used} / ${disk.total}</span>
+          <span>Free: ${disk.free}</span>
+        </div>
+        <div class="disk-bar">
+          <div class="disk-fill ${fillClass}" style="width:${disk.pct}%"></div>
+        </div>
+      </div>`;
+  }
+
+  let alertHtml = '';
+  if (restarted) {
+    const dt = n.last_downtime;
+    alertHtml = `
+      <div class="alert-row">
+        <div class="ar-title">⚠️ Silent Restart Detected</div>
+        <div class="ar-line">
+          Old PID: <code>${n.old_pid}</code> → New: <code>${n.pid}</code><br>
+          Last seen alive: <b>${n.last_seen || 'unknown'}</b><br>
+          ${dt ? `Offline for: <b>${dt.offline_duration}</b>` : ''}
+        </div>
+      </div>`;
+  }
+
+  if (!running && n.last_seen) {
+    alertHtml = `
+      <div class="alert-row">
+        <div class="ar-title">🔴 Node is DOWN</div>
+        <div class="ar-line">Last seen alive: <b>${n.last_seen}</b></div>
+      </div>`;
+  }
+
+  return `
+    <div class="node-card ${cardClass}">
+      <div class="node-top">
+        <div class="node-dot ${dotClass}"></div>
+        <div class="node-license">${n.license}</div>
+        <div class="node-status-badge ${badgeClass}">${badgeText}</div>
+      </div>
+      ${alertHtml}
+      <div class="node-grid">
+        <div class="node-stat">
+          <div class="sk">PID</div>
+          <div class="sv">${n.pid || '–'}</div>
+        </div>
+        <div class="node-stat">
+          <div class="sk">UPTIME</div>
+          <div class="sv">${n.uptime || '–'}</div>
+        </div>
+        <div class="node-stat">
+          <div class="sk">RESTARTS</div>
+          <div class="sv">${n.restarts}</div>
+        </div>
+        <div class="node-stat">
+          <div class="sk">DISK</div>
+          <div class="sv">${n.disk ? n.disk.pct + '%' : '–'}</div>
+        </div>
+      </div>
+      ${diskHtml}
+      <button class="restart-btn" onclick="sendRestartNode(${n.license})" style="margin-top:10px;">
+        🔄 Restart node ${n.license}
+      </button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════════
+// TELEGRAM MINI APP INIT
+// ═══════════════════════════════════════════
+function initTelegramApp() {
+  if (window.Telegram && window.Telegram.WebApp) {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    // Apply Telegram theme colours if available
+    if (tg.colorScheme === 'dark' || true) {
+      document.documentElement.style.setProperty('--bg', '#0a0e17');
+    }
+    // Main button for restart all
+    tg.MainButton.setText('🔄 Restart All Nodes');
+    tg.MainButton.color = '#ef4444';
+    tg.MainButton.textColor = '#ffffff';
+    tg.MainButton.onClick(() => confirmRestartAll());
+  }
+}
+
+// ═══════════════════════════════════════════
+// AUTO REFRESH
+// ═══════════════════════════════════════════
+function startAutoRefresh() {
+  clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(() => loadData(false), 30000);
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  initTelegramApp();
+  const cfg = getCfg();
+  if (!cfg.url) {
+    document.getElementById('loading').style.display = 'none';
+    showConfigScreen();
+  } else {
+    loadData(true);
+    startAutoRefresh();
+  }
+});
+
+// Refresh when tab becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) loadData(false);
+});
+</script>
+</body>
+</html>
