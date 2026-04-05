@@ -3,7 +3,7 @@
 # ============================================================
 # DeNet Node Monitor & Auto-Restart Script
 # User: maqbool | Ubuntu VM
-# v4.0 — Per-node uptime, UTC+IST time, DuckDNS, port/RPC per node
+# v4.0 — Per-node uptime, configurable timezone, DuckDNS, port/RPC per node
 # ============================================================
 
 # --- Telegram Config ---
@@ -81,6 +81,13 @@ STORAGE_DRIVES=(
 # --- Daily Summary Config ---
 DAILY_SUMMARY_HOUR=8
 
+# --- Timezone Config ---
+# Set your local timezone. Examples:
+# "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
+# "America/New_York" (US East), "Asia/Manila" (Philippines),
+# "America/Los_Angeles" (US West), "Asia/Singapore"
+LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York, Asia/Manila
+
 # --- Display ---
 export DISPLAY=:0
 export XAUTHORITY="$HOME/.Xauthority"
@@ -94,12 +101,12 @@ now_utc() {
   date -u '+%Y-%m-%d %H:%M:%S UTC'
 }
 
-now_ist() {
-  TZ='Asia/Kolkata' date '+%H:%M:%S IST'
+now_local() {
+  TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'
 }
 
 now_both() {
-  echo "$(now_utc) | $(now_ist)"
+  echo "$(now_utc) | $(now_local)"
 }
 
 # ============================================================
@@ -107,7 +114,7 @@ now_both() {
 # ============================================================
 
 log() {
-  echo "[$(now_utc) | $(now_ist)] $1" | tee -a "$LOG_FILE"
+  echo "[$(now_utc) | $(now_local)] $1" | tee -a "$LOG_FILE"
 }
 
 send_telegram() {
@@ -232,7 +239,7 @@ restart_node() {
 📅 Last seen alive: <b>${WENT_DOWN_UTC}</b>
 ⏱ Was offline for: <b>${OFFLINE_DURATION}</b>
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)"
   else
     log "❌ Node $LICENSE FAILED to restart!"
@@ -242,7 +249,7 @@ restart_node() {
 📅 Last seen alive: <b>${WENT_DOWN_UTC}</b>
 ⏱ Was offline for: <b>${OFFLINE_DURATION}</b>
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)"
   fi
 }
@@ -474,7 +481,7 @@ check_and_update_penalties() {
 🔑 License: <code>${LICENSE}</code>
 📊 Previous penalties: <b>${CURRENT_PENALTIES}</b> → Now: <b>0</b>
 ✅ Proof submitted successfully — cycle reset
-🕐 $(now_utc) | $(now_ist)
+🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
     fi
     return
@@ -492,7 +499,7 @@ check_and_update_penalties() {
 📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
 ⏱ ~$(( (PENALTY_MAX - NEW_PENALTIES) * CYCLE_MINUTES / 60 ))h before pool removal
 💡 Monitor closely — if next cycle fails, penalties increase
-🕐 $(now_utc) | $(now_ist)
+🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
 
     # Critical alert
@@ -502,7 +509,7 @@ check_and_update_penalties() {
 📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
 ⚠️ Only $(( PENALTY_MAX - NEW_PENALTIES )) cycle(s) before pool removal!
 🔄 Consider restarting node now
-🕐 $(now_utc) | $(now_ist)
+🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
 
     # Pool removal
@@ -511,7 +518,7 @@ check_and_update_penalties() {
 🔑 License: <code>${LICENSE}</code>
 📊 Penalties reached: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
 🔄 Restarting node — will auto re-join pool...
-🕐 $(now_utc) | $(now_ist)
+🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
       # Auto restart to trigger re-join
       local OLD_PID
@@ -564,7 +571,7 @@ check_disk_space() {
       send_telegram "⚠️ <b>DeNet Drive Not Mounted</b>
 💾 Drive: <code>${DRIVE}</code>
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)
 
 <i>Check if the drive is connected and mounted correctly.</i>"
@@ -587,7 +594,7 @@ check_disk_space() {
 📦 Used: ${USED} / ${TOTAL}
 🆓 Free: ${FREE}
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)"
     fi
   done
@@ -668,7 +675,7 @@ check_node_errors() {
 🔴 Error: <b>${LABEL}</b>
 📋 Detail: <code>${ERROR_LINE}</code>
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)
 
 <i>Node process is still running. This may auto-resolve.</i>"
@@ -714,7 +721,7 @@ send_daily_summary() {
 
   send_telegram "📊 <b>DeNet Daily Summary Report</b>
 📅 $(now_utc)
-📅 $(now_ist)
+📅 $(now_local)
 📍 Host: $(hostname)
 
 <b>Node Status (${UP_COUNT}/6 online):</b>
@@ -725,7 +732,7 @@ $(echo -e "$STATUS_LINES")
 $(echo -e "$DISK_INFO")
 🔄 <b>Restart Counts (all-time):</b>
 $(get_all_restart_counts)
-<i>Next report tomorrow at ${DAILY_SUMMARY_HOUR}:00 AM IST</i>"
+<i>Next report tomorrow at ${DAILY_SUMMARY_HOUR}:00 AM local time</i>"
 
   log "📊 Daily summary sent to Telegram."
   date +%s > "$DAILY_SUMMARY_FILE"
@@ -733,7 +740,7 @@ $(get_all_restart_counts)
 
 should_send_daily_summary() {
   local CURRENT_HOUR
-  CURRENT_HOUR=$((10#$(TZ='Asia/Kolkata' date '+%H')))
+  CURRENT_HOUR=$((10#$(TZ="${LOCAL_TIMEZONE}" date '+%H')))
   [ "$CURRENT_HOUR" -ne "$DAILY_SUMMARY_HOUR" ] && return 1
 
   if [ ! -f "$DAILY_SUMMARY_FILE" ]; then
@@ -818,7 +825,7 @@ $(echo -e "$RESTART_ALERT_LINES")"
   send_telegram "💓 <b>DeNet Node Monitor HeartBeat</b>
 📍 Host: $(hostname)
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 ${RESTART_SECTION}
 <b>Node Status:</b>
 $(echo -e "$STATUS_LINES")
@@ -996,7 +1003,7 @@ for LICENSE in "${LICENSES[@]}"; do
 🔑 License: <code>${LICENSE}</code>
 🔄 Attempting restart...
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)"
     restart_node "$LICENSE"
   fi

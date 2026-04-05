@@ -27,6 +27,12 @@ PENALTY_MAX=10
 OFFSET_FILE="$HOME/.denode/.bot_offset"
 BOT_LOG="$HOME/.denode/bot-listener.log"
 
+# --- Timezone Config ---
+# Set your local timezone. Examples:
+# "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
+# "America/New_York" (US East), "Asia/Manila" (Philippines)
+LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York, Asia/Manila
+
 mkdir -p "$NODE_LOG_DIR"
 touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
 
@@ -35,14 +41,14 @@ touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" 
 # ============================================================
 
 now_utc() { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
-now_ist() { TZ='Asia/Kolkata' date '+%H:%M:%S IST'; }
+now_local() { TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'; }
 
 # ============================================================
 # Logging
 # ============================================================
 
 log() {
-  echo "[$(now_utc) | $(now_ist)] $1" | tee -a "$BOT_LOG"
+  echo "[$(now_utc) | $(now_local)] $1" | tee -a "$BOT_LOG"
 }
 
 # ============================================================
@@ -203,19 +209,19 @@ get_last_downtime() {
   NEW_PID=$(echo    "$LAST" | cut -d'|' -f6)
 
   # Convert UTC timestamps to IST for display
-  local WENT_DOWN_IST="" RESTART_AT_IST=""
+  local WENT_DOWN_LOCAL="" RESTART_AT_LOCAL=""
   if [ "$WENT_DOWN" != "unknown" ] && [ -n "$WENT_DOWN" ]; then
-    WENT_DOWN_IST=$(TZ='Asia/Kolkata' date -d "$WENT_DOWN" '+%H:%M IST' 2>/dev/null || echo "")
-    [ -n "$WENT_DOWN_IST" ] && WENT_DOWN_IST=" (${WENT_DOWN_IST})"
+    WENT_DOWN_LOCAL=$(TZ="${LOCAL_TIMEZONE}" date -d "$WENT_DOWN" '+%H:%M %Z' 2>/dev/null || echo "")
+    [ -n "$WENT_DOWN_LOCAL" ] && WENT_DOWN_LOCAL=" (${WENT_DOWN_LOCAL})"
   fi
   if [ -n "$RESTART_AT" ]; then
-    RESTART_AT_IST=$(TZ='Asia/Kolkata' date -d "$RESTART_AT" '+%H:%M IST' 2>/dev/null || echo "")
-    [ -n "$RESTART_AT_IST" ] && RESTART_AT_IST=" (${RESTART_AT_IST})"
+    RESTART_AT_LOCAL=$(TZ="${LOCAL_TIMEZONE}" date -d "$RESTART_AT" '+%H:%M %Z' 2>/dev/null || echo "")
+    [ -n "$RESTART_AT_LOCAL" ] && RESTART_AT_LOCAL=" (${RESTART_AT_LOCAL})"
   fi
 
-  echo "📅 Last down: ${WENT_DOWN}${WENT_DOWN_IST}
+  echo "📅 Last down: ${WENT_DOWN}${WENT_DOWN_LOCAL}
 ⏱ Offline: ${DURATION}
-🔄 Restarted: ${RESTART_AT}${RESTART_AT_IST}
+🔄 Restarted: ${RESTART_AT}${RESTART_AT_LOCAL}
 🆔 PID: ${OLD_PID}→${NEW_PID}"
 }
 
@@ -295,7 +301,7 @@ $(echo -e "$RESTART_SECTION")"
 
   send_message "$CHAT_ID" "📊 <b>DeNet Node Monitor HeartBeat</b>
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)
 ${ALERT_BLOCK}
 <b>Node Status:</b>
@@ -374,7 +380,7 @@ Valid licenses: 1072, 1864, 1865, 1866, 1867, 2157"
 🆔 New PID: <code>${NEW_PID}</code>
 🔄 Total Restarts: <b>${TOTAL}</b>
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)
 
 ℹ️ Restart is free while node is in pool"
@@ -440,7 +446,7 @@ cmd_restart_all() {
 ✅ Success: <b>${SUCCESS}/6</b>
 $([ "$FAILED" -gt 0 ] && echo "❌ Failed: <b>${FAILED}/6</b>")
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 📍 Host: $(hostname)
 
 $(echo -e "$RESULT_LINES")"
@@ -587,7 +593,7 @@ log "=========================================="
 send_message "$TELEGRAM_CHAT_ID" "🤖 <b>DeNet Node Monitor Bot Started</b>
 📍 Host: $(hostname)
 🕐 $(now_utc)
-🕐 $(now_ist)
+🕐 $(now_local)
 
 Ready to receive commands. Send /help for the list."
 
