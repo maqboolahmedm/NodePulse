@@ -21,12 +21,12 @@ LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)  # Add all your license 
 
 # Per-node ports (from manager_config.yaml)
 declare -A NODE_PORT
-NODE_PORT[YOUR_LICENSE_1]=YOUR_PORT_1
-NODE_PORT[YOUR_LICENSE_2]=YOUR_PORT_2
-NODE_PORT[YOUR_LICENSE_3]=YOUR_PORT_3
-NODE_PORT[YOUR_LICENSE_4]=YOUR_PORT_4
-NODE_PORT[YOUR_LICENSE_5]=YOUR_PORT_5
-NODE_PORT[YOUR_LICENSE_6]=YOUR_PORT_6
+NODE_PORT[YOUR_LICENSE_1]=55050
+NODE_PORT[YOUR_LICENSE_2]=55056
+NODE_PORT[YOUR_LICENSE_3]=55051
+NODE_PORT[YOUR_LICENSE_4]=55053
+NODE_PORT[YOUR_LICENSE_5]=55057
+NODE_PORT[YOUR_LICENSE_6]=55055
 
 # Per-node private RPC endpoints (from manager_config.yaml)
 declare -A NODE_RPC
@@ -56,9 +56,16 @@ RESTART_COUNT_FILE="$HOME/.denode/.restart_counts"
 PID_STATE_FILE="$HOME/.denode/.node_pids"
 LAST_SEEN_FILE="$HOME/.denode/.node_last_seen"
 DOWNTIME_LOG="$HOME/.denode/.node_downtime_log"
+PENALTY_FILE="$HOME/.denode/.node_penalties"
 STATUS_JSON="/var/www/html/nodepulse/status.json"
 mkdir -p "$NODE_LOG_DIR" "$(dirname $STATUS_JSON)" 2>/dev/null || true
-touch "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG"
+touch "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
+
+# --- Penalty Config ---
+PENALTY_WARN=5       # Warn at this many penalties
+PENALTY_CRITICAL=8   # Critical alert at this many
+PENALTY_MAX=10       # Removed from pool at this many
+CYCLE_MINUTES=90     # Approximate cycle duration in minutes
 
 # --- Disk Config ---
 DISK_ALERT_THRESHOLD=85
@@ -385,6 +392,153 @@ check_pid_change() {
 # NOTE: Telegram command handling moved to denet-bot-listener.sh (systemd service)
 
 # ============================================================
+# Penalty Tracking Functions
+# ============================================================
+
+get_penalty_count() {
+  local LICENSE="$1"
+  local VAL
+  VAL=$(grep "^${LICENSE}=" "$PENALTY_FILE" 2>/dev/null | cut -d= -f2)
+  echo "${VAL:-0}"
+}
+
+set_penalty_count() {
+  local LICENSE="$1"
+  local COUNT="$2"
+  sed -i "/^${LICENSE}=/d" "$PENALTY_FILE" 2>/dev/null
+  echo "${LICENSE}=${COUNT}" >> "$PENALTY_FILE"
+}
+
+increment_penalty() {
+  local LICENSE="$1"
+  local CURRENT
+  CURRENT=$(get_penalty_count "$LICENSE")
+  local NEW=$(( CURRENT + 1 ))
+  set_penalty_count "$LICENSE" "$NEW"
+  echo "$NEW"
+}
+
+reset_penalty() {
+  local LICENSE="$1"
+  set_penalty_count "$LICENSE" "0"
+  log "✅ Node $LICENSE penalties reset to 0 (successful proof cycle)"
+}
+
+# Check node logs for proof submission or missed cycle
+# Returns: "PROOF_OK", "MISSED", or "UNKNOWN"
+check_proof_status() {
+  local LICENSE="$1"
+  local LOG_A="$NODE_LOG_DIR/license-${LICENSE}.log"
+  local LOG_B="$NODE_LOG_DIR/node-${LICENSE}.log"
+  local NODE_LOG=""
+
+  if   [ -f "$LOG_A" ]; then NODE_LOG="$LOG_A"
+  elif [ -f "$LOG_B" ]; then NODE_LOG="$LOG_B"
+  else echo "UNKNOWN"; return; fi
+
+  # Check recent logs for proof submission success
+  local RECENT
+  RECENT=$(tail -100 "$NODE_LOG" 2>/dev/null)
+
+  # DeNet RC12 log patterns for successful proof
+  if echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent"; then
+    echo "PROOF_OK"
+    return
+  fi
+
+  # Patterns for missed cycle / penalty
+  if echo "$RECENT" | grep -qiE "missed|penalty|failed to send proof|proof failed|deadline exceeded"; then
+    echo "MISSED"
+    return
+  fi
+
+  echo "UNKNOWN"
+}
+
+# Full penalty check — call every cron run
+check_and_update_penalties() {
+  local LICENSE="$1"
+  if ! is_node_running "$LICENSE"; then
+    return  # Node is down — handled by restart logic
+  fi
+
+  local PROOF_STATUS
+  PROOF_STATUS=$(check_proof_status "$LICENSE")
+  local CURRENT_PENALTIES
+  CURRENT_PENALTIES=$(get_penalty_count "$LICENSE")
+
+  if [ "$PROOF_STATUS" = "PROOF_OK" ]; then
+    if [ "$CURRENT_PENALTIES" -gt 0 ]; then
+      reset_penalty "$LICENSE"
+      send_telegram "✅ <b>Node ${LICENSE} — Penalties Reset</b>
+🔑 License: <code>${LICENSE}</code>
+📊 Previous penalties: <b>${CURRENT_PENALTIES}</b> → Now: <b>0</b>
+✅ Proof submitted successfully — cycle reset
+🕐 $(now_utc) | $(now_ist)
+📍 Host: $(hostname)"
+    fi
+    return
+  fi
+
+  if [ "$PROOF_STATUS" = "MISSED" ]; then
+    local NEW_PENALTIES
+    NEW_PENALTIES=$(increment_penalty "$LICENSE")
+    log "⚠️ Node $LICENSE missed proof cycle — penalties: ${NEW_PENALTIES}/${PENALTY_MAX}"
+
+    # Warning at threshold
+    if [ "$NEW_PENALTIES" -eq "$PENALTY_WARN" ]; then
+      send_telegram "⚠️ <b>Node ${LICENSE} — Penalty Warning</b>
+🔑 License: <code>${LICENSE}</code>
+📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
+⏱ ~$(( (PENALTY_MAX - NEW_PENALTIES) * CYCLE_MINUTES / 60 ))h before pool removal
+💡 Monitor closely — if next cycle fails, penalties increase
+🕐 $(now_utc) | $(now_ist)
+📍 Host: $(hostname)"
+
+    # Critical alert
+    elif [ "$NEW_PENALTIES" -ge "$PENALTY_CRITICAL" ]; then
+      send_telegram "🚨 <b>Node ${LICENSE} — CRITICAL Penalty Alert</b>
+🔑 License: <code>${LICENSE}</code>
+📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
+⚠️ Only $(( PENALTY_MAX - NEW_PENALTIES )) cycle(s) before pool removal!
+🔄 Consider restarting node now
+🕐 $(now_utc) | $(now_ist)
+📍 Host: $(hostname)"
+
+    # Pool removal
+    elif [ "$NEW_PENALTIES" -ge "$PENALTY_MAX" ]; then
+      send_telegram "🚫 <b>Node ${LICENSE} — REMOVED FROM POOL</b>
+🔑 License: <code>${LICENSE}</code>
+📊 Penalties reached: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
+🔄 Restarting node — will auto re-join pool...
+🕐 $(now_utc) | $(now_ist)
+📍 Host: $(hostname)"
+      # Auto restart to trigger re-join
+      local OLD_PID
+      OLD_PID=$(get_node_pid "$LICENSE")
+      [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+      restart_node "$LICENSE"
+      set_penalty_count "$LICENSE" "0"
+    fi
+  fi
+}
+
+get_penalty_summary() {
+  local LINES=""
+  for LIC in "${LICENSES[@]}"; do
+    local COUNT ICON
+    COUNT=$(get_penalty_count "$LIC")
+    if   [ "$COUNT" -eq 0 ];                      then ICON="🟢"
+    elif [ "$COUNT" -lt "$PENALTY_WARN" ];         then ICON="🟡"
+    elif [ "$COUNT" -lt "$PENALTY_CRITICAL" ];     then ICON="🟠"
+    else                                                ICON="🔴"
+    fi
+    LINES="${LINES}${ICON} Node <code>${LIC}</code> — <b>${COUNT}/${PENALTY_MAX}</b> penalties\n"
+  done
+  echo -e "$LINES"
+}
+
+# ============================================================
 # DuckDNS Update
 # ============================================================
 
@@ -619,8 +773,10 @@ send_heartbeat() {
         OLD_PID=$(echo "$PID_CHECK" | cut -d'|' -f2)
         WENT_DOWN=$(echo "$PID_CHECK" | cut -d'|' -f4)
         OFFLINE_DURATION=$(echo "$PID_CHECK" | cut -d'|' -f5)
+        local PENALTIES
+        PENALTIES=$(get_penalty_count "$LICENSE")
 
-        STATUS_LINES="${STATUS_LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>\n"
+        STATUS_LINES="${STATUS_LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES}⚠️ Node <code>${LICENSE}</code> was restarted silently!\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES}   🔴 Old PID: <code>${OLD_PID}</code> → 🟢 New PID: <code>${PID}</code>\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES}   📅 Last seen alive: <b>${WENT_DOWN}</b>\n"
@@ -628,7 +784,12 @@ send_heartbeat() {
         HAS_RESTART_ALERT=1
         log "⚠️ PID change detected for node $LICENSE: $OLD_PID → $PID (offline ~${OFFLINE_DURATION})"
       else
-        STATUS_LINES="${STATUS_LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>\n"
+        local PENALTIES
+        PENALTIES=$(get_penalty_count "$LICENSE")
+        local PENALTY_ICON="🟢"
+        [ "$PENALTIES" -ge "$PENALTY_WARN" ]     && PENALTY_ICON="🟡"
+        [ "$PENALTIES" -ge "$PENALTY_CRITICAL" ] && PENALTY_ICON="🟠"
+        STATUS_LINES="${STATUS_LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — ${PENALTY_ICON} Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>\n"
       fi
 
       # Update saved PID and last seen timestamp
@@ -696,6 +857,8 @@ pid_file  = os.path.expanduser("$PID_STATE_FILE")
 seen_file = os.path.expanduser("$LAST_SEEN_FILE")
 rc_file   = os.path.expanduser("$RESTART_COUNT_FILE")
 dt_log    = os.path.expanduser("$DOWNTIME_LOG")
+pen_file  = os.path.expanduser("$PENALTY_FILE")
+penalty_max = int("$PENALTY_MAX")
 drives    = ["/mnt/Denet-Storage/" + str(l) for l in licenses]
 
 def read_kv(path):
@@ -711,6 +874,7 @@ def read_kv(path):
 saved_pids  = read_kv(pid_file)
 last_seen   = read_kv(seen_file)
 restart_cnt = read_kv(rc_file)
+penalties   = read_kv(pen_file)
 
 def get_last_downtime(lic):
     try:
@@ -780,6 +944,8 @@ for lic in licenses:
         "pid":            pid or "",
         "uptime":         parse_etime(etime) if running else "",
         "restarts":       int(restart_cnt.get(str(lic), 0)),
+        "penalties":      int(penalties.get(str(lic), 0)),
+        "penalty_max":    penalty_max,
         "pid_changed":    bool(pid_changed),
         "old_pid":        saved_pid if pid_changed else "",
         "last_seen":      last_seen_str,
@@ -845,6 +1011,14 @@ check_disk_space
 log "--- Checking node logs for errors ---"
 for LICENSE in "${LICENSES[@]}"; do
   check_node_errors "$LICENSE"
+done
+
+# 5. Check and update penalties
+log "--- Checking proof cycles and penalties ---"
+for LICENSE in "${LICENSES[@]}"; do
+  check_and_update_penalties "$LICENSE"
+  PENALTIES=$(get_penalty_count "$LICENSE")
+  log "📊 Node $LICENSE — penalties: ${PENALTIES}/${PENALTY_MAX}"
 done
 
 # 5. Hourly heartbeat

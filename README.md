@@ -236,9 +236,45 @@ Now a **NodePulse** button appears in your bot chat — tap to open the dashboar
 
 ---
 
-## ⚠️ Important Notes
+## ⚠️ Known Limitations
 
-- Each node restart costs **1 PEAQ transaction** — minimize unnecessary restarts
+> Feedback from the DeNet community:
+
+- **Process ≠ Online** — NodePulse checks if the node *process* is running, but a running process doesn't mean the node is actively submitting proofs on-chain. A node can be running locally but offline on the blockchain.
+- **No blockchain status** — We don't yet query on-chain data to verify the node is actually ONLINE/PENDING/OFFLINE
+- **No pool monitoring** — Pool number not tracked yet
+- **No connectivity check** — No ping/RPC health check yet
+
+These are being worked on in **v2.0**. See Roadmap below.
+
+---
+
+## 🗺️ Roadmap
+
+### ✅ v1.0 (Current)
+- Auto-restart crashed nodes
+- PID change detection — catches silent restarts
+- Downtime tracking
+- Telegram bot with /restart, /status, /history
+- NodePulse PWA dashboard
+- RC release updater
+
+### 🔜 v2.0 (In Progress)
+- **Blockchain status** — Query nodecheck.old-guys.de for real ONLINE/PENDING/OFFLINE per node
+- **Transaction monitoring** — Detect if node stopped sending proofs (last tx time)
+- **Pool number** — Show which pool each node is in
+- **RPC/connectivity health check** — Ping RPC endpoint before declaring node healthy
+- **Smart restart** — Only restart if both process AND blockchain confirm node is down
+- **Windows & macOS** — Full tested support
+
+### 💡 v3.0 (Planned)
+- AI-powered log analysis
+- Predictive alerts before node goes down
+- Multi-VM support
+
+---
+
+- Restart is free while node is in pool — minimize unnecessary restarts
 - Never delete files in your storage path — contains proof history
 - Always export `DENODE_PASSWORD` before manual restarts
 - The `--port`, `--rpc`, `--storage` flags don't work in rc11/rc12 — denode reads from `manager_config.yaml`
@@ -247,11 +283,13 @@ Now a **NodePulse** button appears in your bot chat — tap to open the dashboar
 
 ## 🖥️ Platform Support
 
-| Platform | Monitor | Bot | Dashboard | Updater |
-|---|---|---|---|---|
-| Linux (Ubuntu) | ✅ cron | ✅ systemd | ✅ nginx | ✅ |
-| Windows | ✅ Task Scheduler | 🔜 | ✅ | 🔜 |
-| macOS | ✅ launchd | 🔜 | ✅ | 🔜 |
+| Platform | Status | Notes |
+|---|---|---|
+| 🐧 Linux (Ubuntu 20.04 / 22.04) | ✅ **Fully Supported** | Tested and production-ready |
+| 🪟 Windows | 🔜 **Coming Soon** | PowerShell templates available but not fully tested |
+| 🍎 macOS | 🔜 **Coming Soon** | launchd templates available but not fully tested |
+
+> **Linux is the recommended platform.** DeNet nodes are designed to run on Linux servers/VMs. Windows and macOS support is planned for future releases.
 
 ---
 

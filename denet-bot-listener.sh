@@ -22,11 +22,13 @@ RESTART_COUNT_FILE="$HOME/.denode/.restart_counts"
 PID_STATE_FILE="$HOME/.denode/.node_pids"
 LAST_SEEN_FILE="$HOME/.denode/.node_last_seen"
 DOWNTIME_LOG="$HOME/.denode/.node_downtime_log"
+PENALTY_FILE="$HOME/.denode/.node_penalties"
+PENALTY_MAX=10
 OFFSET_FILE="$HOME/.denode/.bot_offset"
 BOT_LOG="$HOME/.denode/bot-listener.log"
 
 mkdir -p "$NODE_LOG_DIR"
-touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG"
+touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
 
 # ============================================================
 # Time
@@ -99,6 +101,19 @@ get_restart_count() {
   local COUNT
   COUNT=$(grep "^${LICENSE}=" "$RESTART_COUNT_FILE" 2>/dev/null | cut -d= -f2)
   echo "${COUNT:-0}"
+}
+
+get_penalty_count() {
+  local LICENSE="$1"
+  local VAL
+  VAL=$(grep "^${LICENSE}=" "$PENALTY_FILE" 2>/dev/null | cut -d= -f2)
+  echo "${VAL:-0}"
+}
+
+reset_penalty_count() {
+  local LICENSE="$1"
+  sed -i "/^${LICENSE}=/d" "$PENALTY_FILE" 2>/dev/null
+  echo "${LICENSE}=0" >> "$PENALTY_FILE"
 }
 
 increment_restart_count() {
@@ -182,11 +197,26 @@ get_last_downtime() {
   if [ -z "$LAST" ]; then echo "No recorded downtime."; return; fi
   local RESTART_AT WENT_DOWN DURATION OLD_PID NEW_PID
   RESTART_AT=$(echo "$LAST" | cut -d'|' -f2)
-  WENT_DOWN=$(echo "$LAST" | cut -d'|' -f3)
-  DURATION=$(echo "$LAST" | cut -d'|' -f4)
-  OLD_PID=$(echo "$LAST" | cut -d'|' -f5)
-  NEW_PID=$(echo "$LAST" | cut -d'|' -f6)
-  echo "Last down: ${WENT_DOWN} | Offline: ${DURATION} | Restarted: ${RESTART_AT} | PID: ${OLD_PID}→${NEW_PID}"
+  WENT_DOWN=$(echo  "$LAST" | cut -d'|' -f3)
+  DURATION=$(echo   "$LAST" | cut -d'|' -f4)
+  OLD_PID=$(echo    "$LAST" | cut -d'|' -f5)
+  NEW_PID=$(echo    "$LAST" | cut -d'|' -f6)
+
+  # Convert UTC timestamps to IST for display
+  local WENT_DOWN_IST="" RESTART_AT_IST=""
+  if [ "$WENT_DOWN" != "unknown" ] && [ -n "$WENT_DOWN" ]; then
+    WENT_DOWN_IST=$(TZ='Asia/Kolkata' date -d "$WENT_DOWN" '+%H:%M IST' 2>/dev/null || echo "")
+    [ -n "$WENT_DOWN_IST" ] && WENT_DOWN_IST=" (${WENT_DOWN_IST})"
+  fi
+  if [ -n "$RESTART_AT" ]; then
+    RESTART_AT_IST=$(TZ='Asia/Kolkata' date -d "$RESTART_AT" '+%H:%M IST' 2>/dev/null || echo "")
+    [ -n "$RESTART_AT_IST" ] && RESTART_AT_IST=" (${RESTART_AT_IST})"
+  fi
+
+  echo "📅 Last down: ${WENT_DOWN}${WENT_DOWN_IST}
+⏱ Offline: ${DURATION}
+🔄 Restarted: ${RESTART_AT}${RESTART_AT_IST}
+🆔 PID: ${OLD_PID}→${NEW_PID}"
 }
 
 # ============================================================
@@ -347,7 +377,7 @@ Valid licenses: 1072, 1864, 1865, 1866, 1867, 2157"
 🕐 $(now_ist)
 📍 Host: $(hostname)
 
-⚠️ This used 1 PEAQ transaction"
+ℹ️ Restart is free while node is in pool"
   else
     log "Node $LICENSE FAILED to restart!"
     send_message "$CHAT_ID" "❌ <b>Node ${LICENSE} Failed to Restart!</b>
@@ -365,7 +395,7 @@ cmd_restart_all() {
 🕐 $(now_utc)
 📍 Host: $(hostname)
 
-⚠️ This will cost <b>6 PEAQ transactions</b>
+ℹ️ Nodes will restart — <b>free while in pool</b>
 <i>Starting restart sequence...</i>"
 
   log "Manual restart ALL requested"
@@ -488,6 +518,40 @@ $(echo -e "$LINES")
 <i>Use /history for last event per node</i>"
 }
 
+cmd_penalties() {
+  local CHAT_ID="$1"
+  local LINES=""
+  local HAS_ISSUES=0
+
+  for LICENSE in "${LICENSES[@]}"; do
+    local COUNT ICON STATUS_MSG
+    COUNT=$(get_penalty_count "$LICENSE")
+
+    if   [ "$COUNT" -eq 0 ];  then ICON="🟢"; STATUS_MSG="Clean"
+    elif [ "$COUNT" -lt 5 ];  then ICON="🟡"; STATUS_MSG="Watch"
+    elif [ "$COUNT" -lt 8 ];  then ICON="🟠"; STATUS_MSG="Warning! $(( PENALTY_MAX - COUNT )) cycles left"
+                                   HAS_ISSUES=1
+    elif [ "$COUNT" -lt 10 ]; then ICON="🔴"; STATUS_MSG="CRITICAL! $(( PENALTY_MAX - COUNT )) cycle(s) left"
+                                   HAS_ISSUES=1
+    else                           ICON="🚫"; STATUS_MSG="Pool removal threshold reached"
+                                   HAS_ISSUES=1
+    fi
+
+    LINES="${LINES}${ICON} <code>${LICENSE}</code> — <b>${COUNT}/${PENALTY_MAX}</b> — ${STATUS_MSG}\n"
+  done
+
+  local FOOTER=""
+  [ "$HAS_ISSUES" -eq 1 ] && FOOTER="\n⚠️ <i>Penalties reset to 0 after a successful proof cycle</i>"
+
+  send_message "$CHAT_ID" "📊 <b>DeNet Node Penalty Status</b>
+🕐 $(now_utc)
+📍 Host: $(hostname)
+
+$(echo -e "$LINES")
+<b>Scale:</b> 0=Clean · 5=Watch · 8=Critical · 10=Pool removed
+<i>~90 min per cycle · 10 missed cycles ≈ 15 hours</i>${FOOTER}"
+}
+
 cmd_help() {
   local CHAT_ID="$1"
   send_message "$CHAT_ID" "🤖 <b>DeNet Node Monitor Bot</b>
@@ -495,12 +559,13 @@ cmd_help() {
 
 🔄 <b>Restart Commands:</b>
 /restart 1072 — Restart a specific node
-/restartall — Restart all 6 nodes
-⚠️ Each restart = 1 PEAQ transaction!
+/restartall — Restart all nodes
+ℹ️ Restart is free while node is in pool
 
 📊 <b>Status Commands:</b>
-/status — Live status + PID change detection
+/status — Live status with PID change detection
 /restarts — Restart count per node
+/penalties — Penalty count per node
 /history — Last downtime event per node
 /disk — Storage drive usage
 /version — Current denode binary version
@@ -578,6 +643,9 @@ for update in results:
         ;;
       /restarts|/restart_counts|/rc)
         cmd_restarts "$CHAT_ID"
+        ;;
+      /penalties|/penalty|/pen)
+        cmd_penalties "$CHAT_ID"
         ;;
       /restartall|/restart_all)
         cmd_restart_all "$CHAT_ID"

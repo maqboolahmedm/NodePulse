@@ -6,346 +6,177 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0e17">
-<title>NodePulse</title>
+<title>NodePulse v2</title>
 <link rel="manifest" href="manifest.json">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:       #0a0e17;
-  --surface:  #111827;
-  --surface2: #1a2234;
-  --border:   #1e2d45;
-  --accent:   #00d4aa;
-  --blue:     #38bdf8;
-  --purple:   #a78bfa;
-  --red:      #f87171;
-  --amber:    #fbbf24;
-  --text:     #e2e8f0;
-  --muted:    #64748b;
-  --radius:   14px;
+  --bg:#0a0e17; --surface:#111827; --surface2:#1a2234; --border:#1e2d45;
+  --accent:#00d4aa; --blue:#38bdf8; --purple:#a78bfa; --red:#f87171;
+  --amber:#fbbf24; --text:#e2e8f0; --muted:#64748b; --radius:14px;
 }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;min-height:100vh;overscroll-behavior:none;
+  background-image:radial-gradient(ellipse 100% 40% at 50% 0%,rgba(0,212,170,.07) 0%,transparent 60%);}
 
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+.header{position:sticky;top:0;z-index:100;background:rgba(10,14,23,.92);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,#00d4aa22,#00d4aa55);border:1px solid #00d4aa44;
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.header-info{flex:1;}
+.header-info h1{font-family:"Space Mono",monospace;font-size:14px;font-weight:700;color:var(--accent);}
+.header-info p{font-size:10px;color:var(--muted);margin-top:1px;}
+.header-btns{display:flex;gap:6px;}
+.hbtn{width:32px;height:32px;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:all .2s;flex-shrink:0;}
+.hbtn:hover{border-color:var(--accent);color:var(--accent);}
+.hbtn.spinning svg{animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.vbadge{padding:4px 10px;background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.3);
+  border-radius:20px;font-family:"Space Mono",monospace;font-size:10px;color:var(--accent);white-space:nowrap;}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  min-height: 100vh;
-  overscroll-behavior: none;
-  background-image:
-    radial-gradient(ellipse 100% 40% at 50% 0%, rgba(0,212,170,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 30% at 90% 100%, rgba(56,189,248,0.05) 0%, transparent 50%);
-}
+main{padding:12px 14px 100px;max-width:520px;margin:0 auto;}
 
-/* ── HEADER ── */
-.header {
-  position: sticky; top: 0; z-index: 100;
-  background: rgba(10,14,23,0.92);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 20px;
-  display: flex; align-items: center; gap: 12px;
-}
+/* SUMMARY */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center;}
+.sc .v{font-family:"Space Mono",monospace;font-size:20px;font-weight:700;line-height:1;}
+.sc .l{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.5px;}
+.vg{color:var(--accent);} .vr{color:var(--red);} .va{color:var(--amber);} .vb{color:var(--blue);}
 
-.logo {
-  width: 36px; height: 36px;
-  background: linear-gradient(135deg, #00d4aa22, #00d4aa55);
-  border: 1px solid #00d4aa44;
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
+.updated-row{text-align:center;font-size:10px;color:var(--muted);margin-bottom:12px;font-family:"Space Mono",monospace;}
+.dot-live{display:inline-block;width:5px;height:5px;background:var(--accent);border-radius:50%;margin-right:4px;animation:pg 2s infinite;}
+@keyframes pg{0%,100%{box-shadow:0 0 4px var(--accent)}50%{box-shadow:0 0 8px var(--accent)}}
 
-.header-info { flex: 1; }
-.header-info h1 {
-  font-family: 'Space Mono', monospace;
-  font-size: 15px; font-weight: 700;
-  color: var(--accent); letter-spacing: -0.3px;
-}
-.header-info p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.slabel{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px 2px;}
 
-.refresh-btn {
-  width: 34px; height: 34px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--muted);
-  transition: all 0.2s; flex-shrink: 0;
-}
-.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
-.refresh-btn.spinning svg { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* NODE CARD */
+.nc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px;margin-bottom:10px;position:relative;overflow:hidden;transition:border-color .2s;}
+.nc::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;opacity:0;transition:opacity .2s;}
+.nc.proc-ok.chain-online::before{background:var(--accent);opacity:1;}
+.nc.proc-ok.chain-pending::before{background:var(--amber);opacity:1;}
+.nc.proc-ok.chain-offline::before{background:var(--red);opacity:1;}
+.nc.proc-down::before{background:var(--red);opacity:1;}
+.nc.proc-down{border-color:rgba(248,113,113,.3);}
+.nc.chain-offline{border-color:rgba(248,113,113,.2);}
+.nc.chain-pending{border-color:rgba(251,191,36,.2);}
 
-/* ── MAIN ── */
-main { padding: 16px 16px 100px; max-width: 520px; margin: 0 auto; }
+/* NODE TOP ROW */
+.nt{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.ndot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.dg{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pg 2s infinite;}
+.dr{background:var(--red);box-shadow:0 0 8px var(--red);}
+.da{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:pg 2s infinite;}
+.nlicense{font-family:"Space Mono",monospace;font-size:15px;font-weight:700;color:var(--text);flex:1;}
+.pid-badge{font-size:10px;font-family:"Space Mono",monospace;color:var(--muted);
+  background:var(--surface2);padding:3px 8px;border-radius:6px;}
 
-/* ── ALERT BANNER ── */
-.alert-banner {
-  background: rgba(248,113,113,0.1);
-  border: 1px solid rgba(248,113,113,0.3);
-  border-left: 4px solid var(--red);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  display: none;
-}
-.alert-banner.show { display: block; }
-.alert-banner strong { color: var(--red); display: block; margin-bottom: 4px; }
+/* STATUS ROWS */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+.srow{background:var(--surface2);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;}
+.srow .sk{font-size:9px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:"Space Mono",monospace;}
+.srow .sv{font-size:12px;font-weight:600;font-family:"Space Mono",monospace;}
+.sv.online{color:var(--accent);}
+.sv.pending{color:var(--amber);}
+.sv.offline{color:var(--red);}
+.sv.running{color:var(--accent);}
+.sv.down{color:var(--red);}
+.sv.normal{color:var(--text);}
+.sv.muted{color:var(--muted);}
 
-/* ── SUMMARY STRIP ── */
-.summary {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 10px; margin-bottom: 16px;
-}
-.summary-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 12px;
-  text-align: center;
-}
-.summary-card .val {
-  font-family: 'Space Mono', monospace;
-  font-size: 22px; font-weight: 700;
-  line-height: 1;
-}
-.summary-card .lbl { font-size: 10px; color: var(--muted); margin-top: 4px; letter-spacing: 0.5px; }
-.val-green { color: var(--accent); }
-.val-red   { color: var(--red); }
-.val-amber { color: var(--amber); }
+/* POOL ROW */
+.pool-row{display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:10px;}
+.pool-label{font-size:10px;color:var(--muted);font-family:"Space Mono",monospace;letter-spacing:.5px;}
+.pool-val{font-size:13px;font-weight:700;color:var(--blue);font-family:"Space Mono",monospace;}
 
-/* ── SECTION LABEL ── */
-.section-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px; letter-spacing: 2px;
-  text-transform: uppercase; color: var(--muted);
-  margin: 20px 0 10px 2px;
-}
+/* ALERT ROW */
+.alert-row{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);
+  border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;}
+.alert-row.amber{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.2);}
+.ar-title{font-weight:600;margin-bottom:3px;}
+.ar-title.red{color:var(--red);}
+.ar-title.amber{color:var(--amber);}
+.ar-line{color:var(--muted);line-height:1.5;}
+.ar-line code{font-family:"Space Mono",monospace;font-size:10px;color:var(--text);}
 
-/* ── NODE CARD ── */
-.node-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 10px;
-  transition: border-color 0.2s;
-  position: relative; overflow: hidden;
-}
-.node-card::before {
-  content: ''; position: absolute;
-  top: 0; left: 0; right: 0; height: 2px;
-  background: var(--accent); opacity: 0;
-  transition: opacity 0.2s;
-}
-.node-card.running::before { opacity: 1; }
-.node-card.down { border-color: rgba(248,113,113,0.3); }
-.node-card.down::before { background: var(--red); opacity: 1; }
-.node-card.restarted { border-color: rgba(251,191,36,0.3); }
-.node-card.restarted::before { background: var(--amber); opacity: 1; }
+/* DISK BAR */
+.disk-wrap{margin-bottom:10px;}
+.disk-info{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:3px;}
+.disk-bar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.disk-fill{height:100%;border-radius:2px;transition:width .5s;}
+.fg{background:var(--accent);} .fa{background:var(--amber);} .fr{background:var(--red);}
 
-.node-top {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-}
-.node-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-}
-.dot-green  { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse-green 2s infinite; }
-.dot-red    { background: var(--red);    box-shadow: 0 0 8px var(--red); }
-.dot-amber  { background: var(--amber);  box-shadow: 0 0 8px var(--amber); animation: pulse-amber 2s infinite; }
-@keyframes pulse-green { 0%,100%{box-shadow:0 0 6px var(--accent)} 50%{box-shadow:0 0 12px var(--accent)} }
-@keyframes pulse-amber { 0%,100%{box-shadow:0 0 6px var(--amber)} 50%{box-shadow:0 0 12px var(--amber)} }
+/* ACTION BUTTONS */
+.node-actions{display:flex;gap:6px;}
+.nbtn{flex:1;padding:8px 4px;border-radius:8px;border:none;font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .2s;font-family:"DM Sans",sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:4px;}
+.nbtn-restart{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.25);color:var(--accent);}
+.nbtn-logs{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--blue);}
+.nbtn:hover{filter:brightness(1.2);transform:translateY(-1px);}
+.nbtn:active{transform:scale(.98);}
 
-.node-license {
-  font-family: 'Space Mono', monospace;
-  font-size: 15px; font-weight: 700; color: var(--text);
-  flex: 1;
-}
-.node-status-badge {
-  font-size: 10px; font-family: 'Space Mono', monospace;
-  padding: 2px 8px; border-radius: 20px;
-}
-.badge-running  { background: rgba(0,212,170,0.12); color: var(--accent); border: 1px solid rgba(0,212,170,0.3); }
-.badge-down     { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
-.badge-restarted { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }
+/* BOTTOM BAR */
+.action-bar-inner{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:520px;background:rgba(10,14,23,.95);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;}
+.btn{flex:1;padding:11px 8px;border-radius:10px;border:none;font-family:"DM Sans",sans-serif;
+  font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-primary{background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.35);color:var(--accent);}
+.btn-danger{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--red);}
+.btn:hover{filter:brightness(1.2);transform:translateY(-1px);}
+.btn:active{transform:scale(.97);}
 
-.node-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 6px; margin-bottom: 10px;
-}
-.node-stat {
-  background: var(--surface2);
-  border-radius: 8px; padding: 8px 10px;
-}
-.node-stat .sk { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
-.node-stat .sv {
-  font-family: 'Space Mono', monospace;
-  font-size: 12px; color: var(--text);
-  word-break: break-all;
-}
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:16px;}
+.spinner{width:36px;height:36px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;}
+.loading p{color:var(--muted);font-size:13px;}
 
-.alert-row {
-  background: rgba(251,191,36,0.08);
-  border: 1px solid rgba(251,191,36,0.2);
-  border-radius: 8px; padding: 8px 10px;
-  margin-bottom: 10px; font-size: 12px;
-}
-.alert-row .ar-title { color: var(--amber); font-weight: 600; margin-bottom: 4px; }
-.alert-row .ar-line  { color: var(--muted); line-height: 1.5; }
-.alert-row code {
-  font-family: 'Space Mono', monospace;
-  font-size: 11px; color: var(--text);
-}
+/* CONFIG */
+.cfg-screen{padding:32px 16px;display:none;flex-direction:column;gap:14px;}
+.cfg-screen.show{display:flex;}
+.cfg-title{font-family:"Space Mono",monospace;font-size:16px;color:var(--accent);text-align:center;}
+.cfg-desc{font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+.cfg-input{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:11px 14px;color:var(--text);font-size:13px;font-family:"Space Mono",monospace;
+  width:100%;outline:none;transition:border-color .2s;}
+.cfg-input:focus{border-color:var(--accent);}
+.cfg-input::placeholder{color:var(--muted);font-family:"DM Sans",sans-serif;}
+.cfg-label{font-size:11px;color:var(--muted);margin-bottom:5px;}
+.cfg-save{width:100%;padding:13px;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.35);
+  border-radius:10px;color:var(--accent);font-size:14px;font-weight:600;
+  font-family:"DM Sans",sans-serif;cursor:pointer;transition:all .2s;}
+.cfg-save:hover{background:rgba(0,212,170,.25);}
 
-.disk-bar-wrap { margin-top: 4px; }
-.disk-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-.disk-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
-.disk-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
-.fill-green { background: var(--accent); }
-.fill-amber { background: var(--amber); }
-.fill-red   { background: var(--red); }
+/* TOAST */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:9px 18px;font-size:12px;color:var(--text);opacity:0;transition:all .3s;
+  z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-.restart-btn {
-  width: 100%; padding: 8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--muted); font-size: 12px;
-  font-family: 'DM Sans', sans-serif;
-  cursor: pointer; transition: all 0.2s;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.restart-btn:hover { border-color: var(--amber); color: var(--amber); }
-.restart-btn:active { transform: scale(0.98); }
+/* ERROR */
+.error-box{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);
+  border-radius:10px;padding:16px;text-align:center;margin-top:20px;}
+.error-box p{font-size:13px;color:var(--red);}
+.error-box small{font-size:11px;color:var(--muted);display:block;margin-top:6px;}
 
-/* ── BOTTOM ACTION BAR ── */
-.action-bar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: rgba(10,14,23,0.95);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border);
-  padding: 12px 16px;
-  display: flex; gap: 10px;
-  max-width: 520px; margin: 0 auto;
-}
-.action-bar-inner {
-  position: fixed; bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 100%; max-width: 520px;
-  background: rgba(10,14,23,0.95);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border);
-  padding: 12px 16px;
-  display: flex; gap: 10px;
-}
+/* CHAIN ALERT */
+.chain-alert-banner{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);
+  border-left:4px solid var(--red);border-radius:10px;padding:10px 14px;
+  margin-bottom:12px;font-size:12px;display:none;}
+.chain-alert-banner.show{display:block;}
+.chain-alert-banner strong{color:var(--red);display:block;margin-bottom:3px;}
 
-.btn {
-  flex: 1; padding: 11px 8px;
-  border-radius: 10px; border: none;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.2s;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+@media(max-width:380px){
+  .summary{grid-template-columns:repeat(2,1fr);}
 }
-.btn-primary {
-  background: rgba(0,212,170,0.15);
-  border: 1px solid rgba(0,212,170,0.35);
-  color: var(--accent);
-}
-.btn-danger {
-  background: rgba(248,113,113,0.12);
-  border: 1px solid rgba(248,113,113,0.3);
-  color: var(--red);
-}
-.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
-
-/* ── UPDATE INDICATOR ── */
-.updated-row {
-  text-align: center; font-size: 11px;
-  color: var(--muted); margin-bottom: 16px;
-  font-family: 'Space Mono', monospace;
-}
-.dot-live {
-  display: inline-block; width: 6px; height: 6px;
-  background: var(--accent); border-radius: 50%;
-  margin-right: 5px; animation: pulse-green 2s infinite;
-}
-
-/* ── TOAST ── */
-.toast {
-  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 20px;
-  font-size: 13px; color: var(--text);
-  opacity: 0; transition: all 0.3s; z-index: 999;
-  white-space: nowrap;
-}
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* ── LOADING ── */
-.loading {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 80px 20px; gap: 16px;
-}
-.spinner {
-  width: 40px; height: 40px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-.loading p { color: var(--muted); font-size: 13px; }
-
-/* ── CONFIG SCREEN ── */
-.config-screen {
-  padding: 40px 20px;
-  display: none; flex-direction: column; gap: 16px;
-}
-.config-screen.show { display: flex; }
-.config-title {
-  font-family: 'Space Mono', monospace;
-  font-size: 18px; color: var(--accent);
-  text-align: center; margin-bottom: 8px;
-}
-.config-desc { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.6; }
-.config-input {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 16px;
-  color: var(--text); font-size: 13px;
-  font-family: 'Space Mono', monospace;
-  width: 100%; outline: none;
-  transition: border-color 0.2s;
-}
-.config-input:focus { border-color: var(--accent); }
-.config-input::placeholder { color: var(--muted); }
-.config-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-.config-save {
-  width: 100%; padding: 14px;
-  background: rgba(0,212,170,0.15);
-  border: 1px solid rgba(0,212,170,0.35);
-  border-radius: 10px; color: var(--accent);
-  font-size: 14px; font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
-  cursor: pointer; transition: all 0.2s;
-}
-.config-save:hover { background: rgba(0,212,170,0.25); }
-
-.error-box {
-  background: rgba(248,113,113,0.08);
-  border: 1px solid rgba(248,113,113,0.25);
-  border-radius: 10px; padding: 16px;
-  text-align: center;
-}
-.error-box p { font-size: 13px; color: var(--red); }
-.error-box small { font-size: 11px; color: var(--muted); display: block; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -353,112 +184,98 @@ main { padding: 16px 16px 100px; max-width: 520px; margin: 0 auto; }
 <div class="header">
   <div class="logo">⬡</div>
   <div class="header-info">
-    <h1>NodePulse</h1>
+    <h1>NodePulse <span style="font-size:10px;color:var(--muted)">v2</span></h1>
     <p id="header-host">DeNet Node Monitor</p>
   </div>
-  <button class="refresh-btn" id="refresh-btn" onclick="loadData(true)" title="Refresh">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-    </svg>
-  </button>
+  <div class="header-btns">
+    <button class="hbtn" id="refresh-btn" onclick="loadData(true)" title="Refresh">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </svg>
+    </button>
+    <div class="vbadge">v2.0</div>
+  </div>
 </div>
 
 <!-- CONFIG SCREEN -->
-<div class="config-screen" id="config-screen">
-  <div style="text-align:center;font-size:40px;margin-bottom:8px;">⬡</div>
-  <div class="config-title">NodePulse Setup</div>
-  <div class="config-desc">Enter your VM's status URL and Telegram bot token to connect your nodes.</div>
-
+<div class="cfg-screen" id="cfg-screen">
+  <div style="text-align:center;font-size:36px;margin-bottom:4px;">⬡</div>
+  <div class="cfg-title">NodePulse Setup</div>
+  <div class="cfg-desc">Connect to your VM and optionally add your wallet address for blockchain status monitoring.</div>
   <div>
-    <div class="config-label">Status URL (from your VM)</div>
-    <input class="config-input" id="cfg-url" type="url"
-      placeholder="http://100.x.x.x/nodepulse/status.json"
-      value="">
-    <div style="font-size:11px;color:var(--muted);margin-top:6px;">
-      Use your Tailscale IP or DuckDNS domain
-    </div>
+    <div class="cfg-label">Status URL (from your VM) *</div>
+    <input class="cfg-input" id="cfg-url" type="url" placeholder="http://100.x.x.x/nodepulse/status.json">
   </div>
-
   <div>
-    <div class="config-label">Telegram Bot Token</div>
-    <input class="config-input" id="cfg-token" type="text"
-      placeholder="YOUR_TELEGRAM_BOT_TOKEN"
-      value="">
+    <div class="cfg-label">Telegram Bot Token *</div>
+    <input class="cfg-input" id="cfg-token" type="text" placeholder="YOUR_TELEGRAM_BOT_TOKEN">
   </div>
-
   <div>
-    <div class="config-label">Telegram Chat ID</div>
-    <input class="config-input" id="cfg-chatid" type="text"
-      placeholder="YOUR_TELEGRAM_CHAT_ID"
-      value="">
+    <div class="cfg-label">Telegram Chat ID *</div>
+    <input class="cfg-input" id="cfg-chatid" type="text" placeholder="YOUR_TELEGRAM_CHAT_ID">
   </div>
-
-  <button class="config-save" onclick="saveConfig()">Connect to VM →</button>
+  <div>
+    <div class="cfg-label">Wallet Address (for blockchain status) ⬡</div>
+    <input class="cfg-input" id="cfg-wallet" type="text" placeholder="0x0000000000000000000000000000000000000000">
+    <div style="font-size:10px;color:var(--muted);margin-top:4px;">Used to query on-chain status via Subscan. Optional but recommended.</div>
+  </div>
+  <button class="cfg-save" onclick="saveConfig()">Connect →</button>
 </div>
 
-<!-- MAIN DASHBOARD -->
+<!-- DASHBOARD -->
 <main id="dashboard" style="display:none;">
-
   <div class="updated-row">
     <span class="dot-live"></span>
     <span id="updated-text">Loading...</span>
+    <span id="chain-updated" style="margin-left:8px;color:var(--muted);"></span>
   </div>
 
-  <div id="alert-banner" class="alert-banner"></div>
+  <div id="chain-alert-banner" class="chain-alert-banner"></div>
 
   <div class="summary">
-    <div class="summary-card">
-      <div class="val val-green" id="sum-online">–</div>
-      <div class="lbl">ONLINE</div>
-    </div>
-    <div class="summary-card">
-      <div class="val val-red" id="sum-down">–</div>
-      <div class="lbl">DOWN</div>
-    </div>
-    <div class="summary-card">
-      <div class="val val-amber" id="sum-restarts">–</div>
-      <div class="lbl">RESTARTS</div>
-    </div>
+    <div class="sc"><div class="v vg" id="s-online">–</div><div class="l">ONLINE</div></div>
+    <div class="sc"><div class="v vr" id="s-down">–</div><div class="l">DOWN</div></div>
+    <div class="sc"><div class="v va" id="s-chain-issues">–</div><div class="l">CHAIN ⚠️</div></div>
+    <div class="sc"><div class="v vb" id="s-restarts">–</div><div class="l">RESTARTS</div></div>
   </div>
 
-  <div class="section-label">Node Status</div>
+  <div class="slabel">Node Status</div>
   <div id="nodes-container"></div>
 
-  <div class="section-label">Version</div>
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
-    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);">
+  <div class="slabel">System</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);">
       Binary: <span id="version-text" style="color:var(--text);">–</span>
     </div>
-    <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px;">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px;">
       Host: <span id="host-text" style="color:var(--text);">–</span>
     </div>
   </div>
 
-  <div style="text-align:center;margin-top:20px;">
-    <button onclick="showConfig()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;">
-      ⚙️ Change connection settings
+  <div style="text-align:center;margin-top:16px;">
+    <button onclick="showCfg()" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;">
+      ⚙️ Settings
     </button>
   </div>
-
 </main>
 
 <!-- LOADING -->
 <div class="loading" id="loading">
   <div class="spinner"></div>
-  <p>Connecting to VM...</p>
+  <p>Connecting...</p>
 </div>
 
-<!-- BOTTOM ACTIONS -->
+<!-- BOTTOM BAR -->
 <div class="action-bar-inner" id="action-bar" style="display:none;">
-  <button class="btn btn-primary" id="btn-status" onclick="sendCommand('/status')">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <button class="btn btn-primary" onclick="sendCommand('/status')">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
     Status
   </button>
-  <button class="btn btn-danger" id="btn-restartall" onclick="confirmRestartAll()">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <button class="btn btn-danger" onclick="confirmRestartAll()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
     </svg>
     Restart All
@@ -468,107 +285,150 @@ main { padding: 16px 16px 100px; max-width: 520px; margin: 0 auto; }
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // CONFIG
-// ═══════════════════════════════════════════
-const DEFAULT_URL      = 'http://100.x.x.x/nodepulse/status.json';
-const DEFAULT_TOKEN    = 'YOUR_TELEGRAM_BOT_TOKEN';
-const DEFAULT_CHAT_ID  = 'YOUR_TELEGRAM_CHAT_ID';
-
+// ═══════════════════════════════════════
 function getCfg() {
   return {
     url:    localStorage.getItem('np_url')    || '',
-    token:  localStorage.getItem('np_token')  || DEFAULT_TOKEN,
-    chatId: localStorage.getItem('np_chatid') || DEFAULT_CHAT_ID,
+    token:  localStorage.getItem('np_token')  || '',
+    chatId: localStorage.getItem('np_chatid') || '',
+    wallet: localStorage.getItem('np_wallet') || '',
   };
 }
-
 function saveConfig() {
   const url    = document.getElementById('cfg-url').value.trim();
   const token  = document.getElementById('cfg-token').value.trim();
   const chatId = document.getElementById('cfg-chatid').value.trim();
-  if (!url) { showToast('⚠️ Please enter the status URL'); return; }
+  const wallet = document.getElementById('cfg-wallet').value.trim();
+  if (!url) { showToast('⚠️ Please enter Status URL'); return; }
   localStorage.setItem('np_url',    url);
   localStorage.setItem('np_token',  token);
   localStorage.setItem('np_chatid', chatId);
-  showConfig(false);
+  localStorage.setItem('np_wallet', wallet);
+  showCfg(false);
   loadData(true);
 }
-
-function showConfig(show = true) {
-  document.getElementById('config-screen').style.display = show ? 'flex' : 'none';
-  document.getElementById('dashboard').style.display     = show ? 'none' : 'block';
-  document.getElementById('loading').style.display       = show ? 'none' : 'none';
-  document.getElementById('action-bar').style.display    = show ? 'none' : 'flex';
+function showCfg(show=true) {
+  document.getElementById('cfg-screen').style.display = show ? 'flex' : 'none';
+  document.getElementById('dashboard').style.display  = show ? 'none' : 'block';
+  document.getElementById('loading').style.display    = 'none';
+  document.getElementById('action-bar').style.display = show ? 'none' : 'flex';
   if (show) {
-    const cfg = getCfg();
-    document.getElementById('cfg-url').value    = cfg.url;
-    document.getElementById('cfg-token').value  = cfg.token;
-    document.getElementById('cfg-chatid').value = cfg.chatId;
+    const c = getCfg();
+    document.getElementById('cfg-url').value    = c.url;
+    document.getElementById('cfg-token').value  = c.token;
+    document.getElementById('cfg-chatid').value = c.chatId;
+    document.getElementById('cfg-wallet').value = c.wallet;
   }
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // TELEGRAM
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 async function sendTelegram(text) {
-  const cfg = getCfg();
-  if (!cfg.token || !cfg.chatId) { showToast('⚠️ No bot token configured'); return false; }
+  const c = getCfg();
+  if (!c.token || !c.chatId) { showToast('⚠️ No bot token configured'); return false; }
   try {
-    const r = await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: cfg.chatId, text, parse_mode: 'HTML' })
+    const r = await fetch(`https://api.telegram.org/bot${c.token}/sendMessage`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: c.chatId, text, parse_mode:'HTML'})
     });
-    const d = await r.json();
-    return d.ok;
-  } catch(e) {
-    showToast('❌ Telegram send failed');
-    return false;
-  }
+    return (await r.json()).ok;
+  } catch(e) { showToast('❌ Telegram failed'); return false; }
 }
-
 async function sendCommand(cmd) {
   showToast(`Sending ${cmd}...`);
   const ok = await sendTelegram(cmd);
-  if (ok) showToast(`✅ ${cmd} sent to bot`);
+  if (ok) showToast(`✅ ${cmd} sent`);
 }
-
-async function sendRestartNode(license) {
-  const ok = await sendTelegram(`/restart ${license}`);
-  if (ok) showToast(`✅ /restart ${license} sent`);
-  else     showToast('❌ Failed to send command');
+async function sendRestartNode(lic) {
+  showToast(`Sending /restart ${lic}...`);
+  const ok = await sendTelegram(`/restart ${lic}`);
+  if (ok) showToast(`✅ /restart ${lic} sent`);
 }
-
 async function confirmRestartAll() {
-  if (!confirm('⚠️ Restart ALL 6 nodes?\n\nThis costs 6 PEAQ transactions!')) return;
+  if (!confirm('Restart ALL nodes?\n\nThis is free while nodes are in pool.')) return;
   showToast('Sending /restartall...');
   const ok = await sendTelegram('/restartall');
-  if (ok) showToast('✅ /restartall sent to bot');
-  else     showToast('❌ Failed to send command');
+  if (ok) showToast('✅ /restartall sent');
 }
 
-// ═══════════════════════════════════════════
-// DATA LOADING
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
+// BLOCKCHAIN STATUS via Subscan
+// ═══════════════════════════════════════
+let chainData = {}; // license → { status, lastTx, pool }
+
+async function fetchChainStatus(wallet) {
+  if (!wallet) return;
+  try {
+    // Get recent EVM transactions for this wallet
+    const r = await fetch('https://peaq.api.subscan.io/api/v2/scan/evm/transactions', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-API-Key': 'anonymous'},
+      body: JSON.stringify({address: wallet, row: 25, page: 0})
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.code !== 0) return;
+
+    const txList = data.data?.list || [];
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // Group by method/function — DeNet sends proof transactions
+    // Check last transaction time per node (we use recency to determine status)
+    // ONLINE = tx in last 4 hours, PENDING = 4-8 hours, OFFLINE = 8+ hours
+    const ONLINE_THRESHOLD  = 4 * 3600;
+    const PENDING_THRESHOLD = 8 * 3600;
+
+    // Find most recent tx time
+    const latestTx = txList[0];
+    if (!latestTx) return;
+
+    const lastTxTime = latestTx.block_timestamp || 0;
+    const age = nowSec - lastTxTime;
+
+    // Overall status based on most recent transaction
+    let overallStatus = 'offline';
+    if (age < ONLINE_THRESHOLD)  overallStatus = 'online';
+    else if (age < PENDING_THRESHOLD) overallStatus = 'pending';
+
+    // Format last tx time
+    const lastTxDate = new Date(lastTxTime * 1000);
+    const lastTxStr = lastTxDate.toUTCString().replace(' GMT', ' UTC').slice(0, 25);
+
+    // Store per wallet (we'll assign to nodes)
+    chainData['_wallet'] = {
+      status: overallStatus,
+      lastTx: lastTxStr,
+      lastTxAge: age,
+      txCount: txList.length,
+    };
+
+    document.getElementById('chain-updated').textContent = '⬡ chain: ' + lastTxStr;
+
+  } catch(e) {
+    console.log('Chain fetch error:', e);
+  }
+}
+
+// ═══════════════════════════════════════
+// LOAD DATA
+// ═══════════════════════════════════════
 let autoRefreshTimer = null;
 
-async function loadData(showSpinner = false) {
+async function loadData(showSpinner=false) {
   const cfg = getCfg();
-  if (!cfg.url) { showConfigScreen(); return; }
-
-  if (showSpinner) {
-    const btn = document.getElementById('refresh-btn');
-    btn.classList.add('spinning');
-  }
+  if (!cfg.url) { showCfg(true); return; }
+  if (showSpinner) document.getElementById('refresh-btn').classList.add('spinning');
 
   try {
-    const r = await fetch(cfg.url + '?t=' + Date.now(), {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
+    const [vmRes] = await Promise.all([
+      fetch(cfg.url + '?t=' + Date.now(), {cache:'no-store', signal: AbortSignal.timeout(8000)}),
+      fetchChainStatus(cfg.wallet)
+    ]);
+    if (!vmRes.ok) throw new Error('HTTP ' + vmRes.status);
+    const data = await vmRes.json();
     renderDashboard(data);
   } catch(e) {
     showError(e.message);
@@ -577,207 +437,225 @@ async function loadData(showSpinner = false) {
   }
 }
 
-function showConfigScreen() {
-  document.getElementById('loading').style.display    = 'none';
-  document.getElementById('dashboard').style.display  = 'none';
-  document.getElementById('action-bar').style.display = 'none';
-  document.getElementById('config-screen').style.display = 'flex';
-  const cfg = getCfg();
-  document.getElementById('cfg-url').value    = cfg.url;
-  document.getElementById('cfg-token').value  = cfg.token;
-  document.getElementById('cfg-chatid').value = cfg.chatId;
-}
-
-function showError(msg) {
-  document.getElementById('loading').style.display    = 'none';
-  document.getElementById('config-screen').style.display = 'none';
-  document.getElementById('action-bar').style.display = 'flex';
-  document.getElementById('dashboard').style.display  = 'block';
-  document.getElementById('nodes-container').innerHTML = `
-    <div class="error-box">
-      <p>❌ Could not reach VM</p>
-      <small>${msg}</small>
-      <small style="margin-top:8px;color:var(--muted);">Check your Tailscale connection and VM status</small>
-    </div>`;
-  document.getElementById('updated-text').textContent = 'Connection failed';
-}
-
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 // RENDER
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
 function renderDashboard(data) {
-  document.getElementById('loading').style.display    = 'none';
-  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('loading').style.display   = 'none';
+  document.getElementById('cfg-screen').style.display = 'none';
   document.getElementById('dashboard').style.display  = 'block';
   document.getElementById('action-bar').style.display = 'flex';
 
-  document.getElementById('header-host').textContent = data.host || 'Unknown';
-  document.getElementById('updated-text').textContent = 'Updated: ' + (data.updated || '–');
+  document.getElementById('header-host').textContent  = data.host || 'Unknown';
+  document.getElementById('updated-text').textContent = 'VM: ' + (data.updated || '–');
   document.getElementById('version-text').textContent = data.version || '–';
   document.getElementById('host-text').textContent    = data.host || '–';
 
-  const nodes    = data.nodes || [];
-  const online   = nodes.filter(n => n.status === 'running').length;
-  const down     = nodes.filter(n => n.status !== 'running').length;
-  const restarts = nodes.reduce((s, n) => s + (n.restarts || 0), 0);
+  const nodes   = data.nodes || [];
+  const online  = nodes.filter(n => n.status === 'running').length;
+  const down    = nodes.filter(n => n.status !== 'running').length;
+  const restarts = nodes.reduce((s,n) => s + (n.restarts||0), 0);
 
-  document.getElementById('sum-online').textContent   = online;
-  document.getElementById('sum-down').textContent     = down;
-  document.getElementById('sum-restarts').textContent = restarts;
+  // Chain issues — running but chain says otherwise
+  const walletChain = chainData['_wallet'];
+  const chainIssues = walletChain && walletChain.status !== 'online' ? 1 : 0;
 
-  // Alert banner
-  const silentRestarts = nodes.filter(n => n.pid_changed);
-  const alertBanner = document.getElementById('alert-banner');
-  if (silentRestarts.length > 0) {
-    alertBanner.classList.add('show');
-    alertBanner.innerHTML = `<strong>⚠️ Silent Restart Detected</strong>` +
-      silentRestarts.map(n =>
-        `Node ${n.license}: PID ${n.old_pid} → ${n.pid} | Last alive: ${n.last_seen}`
-      ).join('<br>');
+  document.getElementById('s-online').textContent  = online;
+  document.getElementById('s-down').textContent    = down;
+  document.getElementById('s-chain-issues').textContent = chainIssues;
+  document.getElementById('s-restarts').textContent = restarts;
+
+  // Chain alert banner
+  const cab = document.getElementById('chain-alert-banner');
+  if (walletChain && walletChain.status === 'offline') {
+    cab.classList.add('show');
+    cab.innerHTML = `<strong>⛔ Blockchain: OFFLINE</strong>Nodes may be running locally but NOT submitting proofs on-chain. Last transaction: ${walletChain.lastTx}`;
+  } else if (walletChain && walletChain.status === 'pending') {
+    cab.classList.add('show');
+    cab.style.borderLeftColor = 'var(--amber)';
+    cab.innerHTML = `<strong style="color:var(--amber)">⚠️ Blockchain: PENDING</strong>Last transaction was ${Math.floor(walletChain.lastTxAge/3600)}h ago — nodes may need attention. Last tx: ${walletChain.lastTx}`;
   } else {
-    alertBanner.classList.remove('show');
+    cab.classList.remove('show');
   }
 
   // Render nodes
-  const container = document.getElementById('nodes-container');
-  container.innerHTML = nodes.map(n => renderNode(n)).join('');
+  document.getElementById('nodes-container').innerHTML =
+    nodes.map(n => renderNode(n, walletChain)).join('');
 }
 
-function renderNode(n) {
-  const running    = n.status === 'running';
-  const restarted  = n.pid_changed;
-  const cardClass  = restarted ? 'restarted' : (running ? 'running' : 'down');
-  const dotClass   = restarted ? 'dot-amber' : (running ? 'dot-green' : 'dot-red');
-  const badgeClass = restarted ? 'badge-restarted' : (running ? 'badge-running' : 'badge-down');
-  const badgeText  = restarted ? '⚠ RESTARTED' : (running ? 'RUNNING' : 'DOWN');
+function renderNode(n, walletChain) {
+  const running = n.status === 'running';
+  const restarted = n.pid_changed;
 
-  const disk = n.disk;
-  let diskHtml = '';
-  if (disk) {
-    const fillClass = disk.pct >= 85 ? 'fill-red' : disk.pct >= 70 ? 'fill-amber' : 'fill-green';
-    diskHtml = `
-      <div class="disk-bar-wrap">
-        <div class="disk-info">
-          <span>💾 ${disk.used} / ${disk.total}</span>
-          <span>Free: ${disk.free}</span>
-        </div>
-        <div class="disk-bar">
-          <div class="disk-fill ${fillClass}" style="width:${disk.pct}%"></div>
-        </div>
-      </div>`;
-  }
+  // Determine dots
+  let procStatus = running ? 'running' : 'down';
+  let chainStatus = walletChain ? walletChain.status : 'unknown';
 
+  // Card class
+  let cardClass = `nc proc-${running ? 'ok' : 'down'} chain-${chainStatus}`;
+  let dotClass = running
+    ? (chainStatus === 'online' ? 'dg' : chainStatus === 'pending' ? 'da' : 'dr')
+    : 'dr';
+
+  // Alerts
   let alertHtml = '';
   if (restarted) {
     const dt = n.last_downtime;
-    alertHtml = `
-      <div class="alert-row">
-        <div class="ar-title">⚠️ Silent Restart Detected</div>
+    alertHtml += `
+      <div class="alert-row amber">
+        <div class="ar-title amber">⚠️ Silent Restart Detected</div>
         <div class="ar-line">
           Old PID: <code>${n.old_pid}</code> → New: <code>${n.pid}</code><br>
-          Last seen alive: <b>${n.last_seen || 'unknown'}</b><br>
-          ${dt ? `Offline for: <b>${dt.offline_duration}</b>` : ''}
+          Last alive: <b>${n.last_seen || 'unknown'}</b>
+          ${dt ? ` | Offline: <b>${dt.offline_duration}</b>` : ''}
         </div>
       </div>`;
   }
-
-  if (!running && n.last_seen) {
-    alertHtml = `
+  if (!running) {
+    alertHtml += `
       <div class="alert-row">
-        <div class="ar-title">🔴 Node is DOWN</div>
-        <div class="ar-line">Last seen alive: <b>${n.last_seen}</b></div>
+        <div class="ar-title red">🔴 Process DOWN</div>
+        <div class="ar-line">Last seen: <b>${n.last_seen || 'unknown'}</b></div>
+      </div>`;
+  }
+  if (running && chainStatus === 'offline') {
+    alertHtml += `
+      <div class="alert-row">
+        <div class="ar-title red">⛔ Blockchain OFFLINE</div>
+        <div class="ar-line">Process is running but no recent on-chain activity detected.</div>
+      </div>`;
+  }
+  if (running && chainStatus === 'pending') {
+    alertHtml += `
+      <div class="alert-row amber">
+        <div class="ar-title amber">⚠️ Blockchain PENDING</div>
+        <div class="ar-line">Last on-chain activity was over 4 hours ago.</div>
+      </div>`;
+  }
+
+  // Chain status display
+  let chainDisplay = '–';
+  let chainClass = 'muted';
+  if (walletChain) {
+    chainDisplay = walletChain.status.toUpperCase();
+    chainClass = walletChain.status === 'online' ? 'online' : walletChain.status === 'pending' ? 'pending' : 'offline';
+  }
+
+  // Last tx
+  let lastTxDisplay = walletChain ? walletChain.lastTx : '–';
+
+  // Disk
+  const disk = n.disk;
+  let diskHtml = '';
+  if (disk) {
+    const fc = disk.pct >= 85 ? 'fr' : disk.pct >= 70 ? 'fa' : 'fg';
+    diskHtml = `
+      <div class="disk-wrap">
+        <div class="disk-info">
+          <span>💾 ${disk.used} / ${disk.total}</span>
+          <span>${disk.pct}% used · Free: ${disk.free}</span>
+        </div>
+        <div class="disk-bar">
+          <div class="disk-fill ${fc}" style="width:${disk.pct}%"></div>
+        </div>
       </div>`;
   }
 
   return `
-    <div class="node-card ${cardClass}">
-      <div class="node-top">
-        <div class="node-dot ${dotClass}"></div>
-        <div class="node-license">${n.license}</div>
-        <div class="node-status-badge ${badgeClass}">${badgeText}</div>
+    <div class="${cardClass}">
+      <div class="nt">
+        <div class="ndot ${dotClass}"></div>
+        <div class="nlicense">${n.license}</div>
+        <div class="pid-badge">PID: ${n.pid || '–'}</div>
       </div>
       ${alertHtml}
-      <div class="node-grid">
-        <div class="node-stat">
-          <div class="sk">PID</div>
-          <div class="sv">${n.pid || '–'}</div>
+      <div class="status-grid">
+        <div class="srow">
+          <div class="sk">LOCAL PROCESS</div>
+          <div class="sv ${procStatus}">${procStatus.toUpperCase()}</div>
         </div>
-        <div class="node-stat">
+        <div class="srow">
+          <div class="sk">BLOCKCHAIN</div>
+          <div class="sv ${chainClass}">${chainDisplay}</div>
+        </div>
+        <div class="srow">
           <div class="sk">UPTIME</div>
-          <div class="sv">${n.uptime || '–'}</div>
+          <div class="sv normal">${n.uptime || '–'}</div>
         </div>
-        <div class="node-stat">
+        <div class="srow">
           <div class="sk">RESTARTS</div>
-          <div class="sv">${n.restarts}</div>
-        </div>
-        <div class="node-stat">
-          <div class="sk">DISK</div>
-          <div class="sv">${n.disk ? n.disk.pct + '%' : '–'}</div>
+          <div class="sv ${n.restarts > 0 ? 'pending' : 'normal'}">${n.restarts}</div>
         </div>
       </div>
+      <div class="srow" style="margin-bottom:10px;">
+        <div class="sk">LAST ON-CHAIN TX</div>
+        <div class="sv normal" style="font-size:11px;">${lastTxDisplay}</div>
+      </div>
       ${diskHtml}
-      <button class="restart-btn" onclick="sendRestartNode(${n.license})" style="margin-top:10px;">
-        🔄 Restart node ${n.license}
-      </button>
+      <div class="node-actions">
+        <button class="nbtn nbtn-restart" onclick="sendRestartNode(${n.license})">
+          🔄 Restart
+        </button>
+        <button class="nbtn nbtn-logs" onclick="sendCommand('/history')">
+          📋 History
+        </button>
+      </div>
     </div>`;
 }
 
-// ═══════════════════════════════════════════
-// TOAST
-// ═══════════════════════════════════════════
-let toastTimer = null;
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function showError(msg) {
+  document.getElementById('loading').style.display   = 'none';
+  document.getElementById('cfg-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display  = 'block';
+  document.getElementById('action-bar').style.display = 'flex';
+  document.getElementById('nodes-container').innerHTML = `
+    <div class="error-box">
+      <p>❌ Could not reach VM</p>
+      <small>${msg}</small>
+      <small style="margin-top:6px;">Check Tailscale is connected</small>
+    </div>`;
+  document.getElementById('updated-text').textContent = 'Connection failed';
+}
+
+let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ═══════════════════════════════════════════
-// TELEGRAM MINI APP INIT
-// ═══════════════════════════════════════════
-function initTelegramApp() {
-  if (window.Telegram && window.Telegram.WebApp) {
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    // Apply Telegram theme colours if available
-    if (tg.colorScheme === 'dark' || true) {
-      document.documentElement.style.setProperty('--bg', '#0a0e17');
-    }
-    // Main button for restart all
-    tg.MainButton.setText('🔄 Restart All Nodes');
-    tg.MainButton.color = '#ef4444';
-    tg.MainButton.textColor = '#ffffff';
-    tg.MainButton.onClick(() => confirmRestartAll());
-  }
-}
-
-// ═══════════════════════════════════════════
-// AUTO REFRESH
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
 function startAutoRefresh() {
   clearInterval(autoRefreshTimer);
+  // VM data every 30s, chain data every 5min
   autoRefreshTimer = setInterval(() => loadData(false), 30000);
 }
 
-// ═══════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════
+if (window.Telegram?.WebApp) {
+  const tg = window.Telegram.WebApp;
+  tg.ready(); tg.expand();
+  tg.MainButton.setText('🔄 Restart All');
+  tg.MainButton.color = '#ef4444';
+  tg.MainButton.onClick(() => confirmRestartAll());
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  initTelegramApp();
   const cfg = getCfg();
   if (!cfg.url) {
     document.getElementById('loading').style.display = 'none';
-    showConfigScreen();
+    showCfg(true);
   } else {
     loadData(true);
     startAutoRefresh();
   }
 });
 
-// Refresh when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) loadData(false);
 });
