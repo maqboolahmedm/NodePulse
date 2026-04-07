@@ -17,7 +17,7 @@ DUCKDNS_DOMAIN="YOUR_DUCKDNS_DOMAIN"
 # --- Node Config ---
 DENODE_BIN="/usr/bin/denode"
 WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
-LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)  # Add all your license numbers
+LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)
 
 # Per-node ports (from manager_config.yaml)
 declare -A NODE_PORT
@@ -86,7 +86,7 @@ DAILY_SUMMARY_HOUR=8
 # "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
 # "America/New_York" (US East), "Asia/Manila" (Philippines),
 # "America/Los_Angeles" (US West), "Asia/Singapore"
-LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York, Asia/Manila
+LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York
 
 # --- Display ---
 export DISPLAY=:0
@@ -197,7 +197,12 @@ get_node_uptime() {
 restart_node() {
   local LICENSE="$1"
   local OLD_PID
+
+  # Try live process first, fall back to saved PID file
   OLD_PID=$(get_node_pid "$LICENSE")
+  if [ -z "$OLD_PID" ]; then
+    OLD_PID=$(get_saved_pid "$LICENSE")
+  fi
 
   # Calculate downtime before restart
   local LAST_SEEN OFFLINE_DURATION WENT_DOWN_UTC
@@ -994,7 +999,9 @@ for LICENSE in "${LICENSES[@]}"; do
     PID=$(get_node_pid "$LICENSE")
     UPTIME=$(get_node_uptime "$LICENSE")
     log "✅ Node $LICENSE is running (PID: $PID, Uptime: $UPTIME)"
-    # Always update last-seen so we know exactly when it was last alive
+    # Save PID and last-seen every run — not just hourly
+    # This ensures we always have the latest PID even before heartbeat
+    save_pid "$LICENSE" "$PID"
     update_last_seen "$LICENSE"
   else
     log "⚠️  Node $LICENSE is DOWN — attempting restart..."
