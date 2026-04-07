@@ -202,22 +202,30 @@ main{padding:12px 14px 100px;max-width:520px;margin:0 auto;}
 <div class="cfg-screen" id="cfg-screen">
   <div style="text-align:center;font-size:36px;margin-bottom:4px;">⬡</div>
   <div class="cfg-title">NodePulse Setup</div>
-  <div class="cfg-desc">Connect to your VM and optionally add your wallet address for blockchain status monitoring.</div>
+  <div class="cfg-desc">Fill in your details. Each field saves automatically as you type.</div>
   <div>
     <div class="cfg-label">Status URL (from your VM) *</div>
-    <input class="cfg-input" id="cfg-url" type="url" placeholder="http://100.x.x.x/nodepulse/status.json">
+    <input class="cfg-input" id="cfg-url" type="url"
+      placeholder="http://100.x.x.x/nodepulse/status.json"
+      oninput="autoSave('cfg-url','np_url')">
   </div>
   <div>
     <div class="cfg-label">Telegram Bot Token *</div>
-    <input class="cfg-input" id="cfg-token" type="text" placeholder="YOUR_TELEGRAM_BOT_TOKEN">
+    <input class="cfg-input" id="cfg-token" type="text"
+      placeholder="YOUR_TELEGRAM_BOT_TOKEN"
+      oninput="autoSave('cfg-token','np_token')">
   </div>
   <div>
     <div class="cfg-label">Telegram Chat ID *</div>
-    <input class="cfg-input" id="cfg-chatid" type="text" placeholder="YOUR_TELEGRAM_CHAT_ID">
+    <input class="cfg-input" id="cfg-chatid" type="text"
+      placeholder="YOUR_TELEGRAM_CHAT_ID"
+      oninput="autoSave('cfg-chatid','np_chatid')">
   </div>
   <div>
     <div class="cfg-label">Wallet Address (for blockchain status) ⬡</div>
-    <input class="cfg-input" id="cfg-wallet" type="text" placeholder="0x0000000000000000000000000000000000000000">
+    <input class="cfg-input" id="cfg-wallet" type="text"
+      placeholder="0x0000000000000000000000000000000000000000"
+      oninput="autoSave('cfg-wallet','np_wallet')">
     <div style="font-size:10px;color:var(--muted);margin-top:4px;">Used to query on-chain status via Subscan. Optional but recommended.</div>
   </div>
   <button class="cfg-save" onclick="saveConfig()">Connect →</button>
@@ -296,19 +304,29 @@ function getCfg() {
     wallet: localStorage.getItem('np_wallet') || '',
   };
 }
+
+// Auto-save each field as user types — nothing gets lost
+function autoSave(field, key) {
+  const val = document.getElementById(field).value;
+  localStorage.setItem(key, val);
+}
+
 function saveConfig() {
   const url    = document.getElementById('cfg-url').value.trim();
   const token  = document.getElementById('cfg-token').value.trim();
   const chatId = document.getElementById('cfg-chatid').value.trim();
   const wallet = document.getElementById('cfg-wallet').value.trim();
-  if (!url) { showToast('⚠️ Please enter Status URL'); return; }
+  if (!url)    { showToast('⚠️ Please enter Status URL'); return; }
+  if (!token)  { showToast('⚠️ Please enter Bot Token'); return; }
+  if (!chatId) { showToast('⚠️ Please enter Chat ID'); return; }
   localStorage.setItem('np_url',    url);
   localStorage.setItem('np_token',  token);
   localStorage.setItem('np_chatid', chatId);
   localStorage.setItem('np_wallet', wallet);
-  showCfg(false);
-  loadData(true);
+  showToast('✅ Settings saved!');
+  setTimeout(() => { showCfg(false); loadData(true); }, 800);
 }
+
 function showCfg(show=true) {
   document.getElementById('cfg-screen').style.display = show ? 'flex' : 'none';
   document.getElementById('dashboard').style.display  = show ? 'none' : 'block';
