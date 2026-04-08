@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/bin/bash
 
 # ============================================================
@@ -119,3 +120,6 @@ echo "  tail -f ~/.denode/bot-listener.log    — Watch bot logs"
 echo "  tail -f ~/.denode/monitor.log         — Watch monitor logs"
 echo "  denet-update --check                  — Check for new releases"
 echo ""
+=======
+
+>>>>>>> ea719db645f5f3824483919fc75481022eac4da8

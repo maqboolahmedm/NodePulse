@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #!/bin/bash
 
 # ============================================================
@@ -690,3 +691,6 @@ Send /help for the list of commands."
   echo "$OFFSET" > "$OFFSET_FILE"
 
 done
+=======
+
+>>>>>>> ea719db645f5f3824483919fc75481022eac4da8
