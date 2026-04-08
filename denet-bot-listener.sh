@@ -2,7 +2,7 @@
 
 # ============================================================
 # DeNet Telegram Bot Listener
-# User: maqbool | Ubuntu VM
+# User: Ubuntu VM
 # Runs as a systemd service — always alive, instant response
 # v1.0
 # ============================================================
