@@ -86,7 +86,7 @@ DAILY_SUMMARY_HOUR=8
 # "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
 # "America/New_York" (US East), "Asia/Manila" (Philippines),
 # "America/Los_Angeles" (US West), "Asia/Singapore"
-LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York, Asia/Manila
+LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York
 
 # --- Display ---
 export DISPLAY=:0
@@ -853,6 +853,115 @@ should_send_heartbeat() {
 }
 
 # ============================================================
+# Blockchain Status — Query Subscan from VM (no CORS issues)
+# ============================================================
+
+CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
+CHAIN_STATUS_INTERVAL=300  # fetch every 5 min
+
+fetch_chain_status() {
+  local WALLET="$WALLET_ADDRESS"
+  if [ -z "$WALLET" ]; then
+    log "⚠️ No wallet address set — skipping chain status fetch"
+    return
+  fi
+
+  log "⛓ Fetching on-chain status from Subscan..."
+
+  local RESULT
+  RESULT=$(curl -s --max-time 15 \
+    -X POST "https://peaq.api.subscan.io/api/v2/scan/evm/transactions" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: anonymous" \
+    -d "{\"address\":\"${WALLET}\",\"row\":10,\"page\":0}" 2>/dev/null)
+
+  if [ -z "$RESULT" ]; then
+    log "⚠️ Subscan API returned empty response"
+    return
+  fi
+
+  # Parse with python3 — extract last tx time and determine status
+  python3 - <<CHAINEOF
+import json, os, sys
+from datetime import datetime, timezone
+
+try:
+    data = json.loads('''${RESULT}''')
+    if data.get('code') != 0:
+        print(f"Subscan error: {data.get('message','unknown')}")
+        sys.exit(1)
+
+    tx_list = data.get('data', {}).get('list') or []
+    now_sec = int(datetime.now(timezone.utc).timestamp())
+
+    if not tx_list:
+        result = {
+            "status": "offline",
+            "last_tx": "No transactions found",
+            "last_tx_age_hours": 999,
+            "tx_count": 0,
+            "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        }
+    else:
+        latest = tx_list[0]
+        last_ts = latest.get('block_timestamp', 0)
+        age_sec = now_sec - last_ts
+        age_hours = age_sec / 3600
+
+        if age_hours < 4:
+            status = "online"
+        elif age_hours < 8:
+            status = "pending"
+        else:
+            status = "offline"
+
+        last_tx_dt = datetime.fromtimestamp(last_ts, tz=timezone.utc)
+        last_tx_str = last_tx_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        result = {
+            "status": status,
+            "last_tx": last_tx_str,
+            "last_tx_age_hours": round(age_hours, 1),
+            "tx_count": len(tx_list),
+            "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        }
+
+    out = os.path.expanduser("$CHAIN_STATUS_FILE")
+    with open(out, 'w') as f:
+        json.dump(result, f)
+    print(f"Chain status: {result['status']} | Last TX: {result['last_tx']}")
+
+except Exception as e:
+    print(f"Chain status parse error: {e}")
+CHAINEOF
+
+  if [ $? -eq 0 ]; then
+    log "⛓ Chain status saved to $CHAIN_STATUS_FILE"
+  fi
+}
+
+should_fetch_chain_status() {
+  [ ! -f "$CHAIN_STATUS_FILE" ] && return 0
+  local LAST_FETCH NOW DIFF
+  LAST_FETCH=$(python3 -c "
+import json
+try:
+    d=json.load(open('$CHAIN_STATUS_FILE'))
+    from datetime import datetime,timezone
+    ft=d.get('fetched_at','')
+    if ft:
+        dt=datetime.strptime(ft,'%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=timezone.utc)
+        print(int(dt.timestamp()))
+    else: print(0)
+except: print(0)
+" 2>/dev/null || echo 0)
+  NOW=$(date +%s)
+  DIFF=$(( NOW - LAST_FETCH ))
+  [ "$DIFF" -ge "$CHAIN_STATUS_INTERVAL" ] && return 0
+  return 1
+}
+
+# ============================================================
 # NodePulse — Write status.json for PWA Dashboard
 # ============================================================
 
@@ -966,11 +1075,12 @@ for lic in licenses:
     })
 
 data = {
-    "app":     "NodePulse",
-    "version": "${DENODE_VERSION}",
-    "host":    "$(hostname)",
-    "updated": now_ts,
-    "nodes":   nodes
+    "app":          "NodePulse",
+    "version":      "${DENODE_VERSION}",
+    "host":         "$(hostname)",
+    "updated":      now_ts,
+    "nodes":        nodes,
+    "chain_status": json.load(open(os.path.expanduser("$CHAIN_STATUS_FILE"))) if os.path.exists(os.path.expanduser("$CHAIN_STATUS_FILE")) else None
 }
 
 out = "$STATUS_JSON"
@@ -1034,6 +1144,11 @@ for LICENSE in "${LICENSES[@]}"; do
   PENALTIES=$(get_penalty_count "$LICENSE")
   log "📊 Node $LICENSE — penalties: ${PENALTIES}/${PENALTY_MAX}"
 done
+
+# 6. Fetch blockchain status from Subscan (every 5 min, runs on VM — no CORS)
+if should_fetch_chain_status; then
+  fetch_chain_status
+fi
 
 # 5. Hourly heartbeat
 if should_send_heartbeat; then
