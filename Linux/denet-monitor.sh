@@ -86,7 +86,7 @@ DAILY_SUMMARY_HOUR=8
 # "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
 # "America/New_York" (US East), "Asia/Manila" (Philippines),
 # "America/Los_Angeles" (US West), "Asia/Singapore"
-LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York
+LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
 # --- Display ---
 export DISPLAY=:0
@@ -866,14 +866,15 @@ fetch_chain_status() {
     return
   fi
 
-  log "⛓ Fetching on-chain status from Subscan..."
+  log "⛓ Fetching on-chain status from Blockscout..."
 
   local RESULT
+  # Using Blockscout REST API — free, no API key required
+  # peaq mainnet Blockscout: https://scout.peaq.xyz
   RESULT=$(curl -s --max-time 15 \
-    -X POST "https://peaq.api.subscan.io/api/v2/scan/evm/transactions" \
-    -H "Content-Type: application/json" \
-    -H "X-API-Key: anonymous" \
-    -d "{\"address\":\"${WALLET}\",\"row\":10,\"page\":0}" 2>/dev/null)
+    "https://scout.peaq.xyz/api/v2/addresses/${WALLET}/transactions?filter=from&limit=10" \
+    -H "Accept: application/json" \
+    2>/dev/null)
 
   if [ -z "$RESULT" ]; then
     log "⚠️ Subscan API returned empty response"
@@ -887,11 +888,9 @@ from datetime import datetime, timezone
 
 try:
     data = json.loads('''${RESULT}''')
-    if data.get('code') != 0:
-        print(f"Subscan error: {data.get('message','unknown')}")
-        sys.exit(1)
 
-    tx_list = data.get('data', {}).get('list') or []
+    # Blockscout REST API v2 returns: {"items":[...], "next_page_params":...}
+    tx_list = data.get('items') or []
     now_sec = int(datetime.now(timezone.utc).timestamp())
 
     if not tx_list:
@@ -903,36 +902,43 @@ try:
             "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         }
     else:
-        latest = tx_list[0]
-        last_ts = latest.get('block_timestamp', 0)
-        age_sec = now_sec - last_ts
+        latest   = tx_list[0]
+        # Blockscout v2 uses ISO timestamp e.g. "2026-04-09T09:15:22.000000Z"
+        ts_str   = latest.get('timestamp','')
+        if ts_str:
+            ts_str_clean = ts_str.replace('Z','+00:00')
+            last_dt  = datetime.fromisoformat(ts_str_clean)
+            last_ts  = int(last_dt.timestamp())
+        else:
+            last_ts  = 0
+
+        age_sec   = now_sec - last_ts
         age_hours = age_sec / 3600
 
-        if age_hours < 4:
-            status = "online"
-        elif age_hours < 8:
-            status = "pending"
-        else:
-            status = "offline"
+        if age_hours < 4:   status = "online"
+        elif age_hours < 8: status = "pending"
+        else:               status = "offline"
 
-        last_tx_dt = datetime.fromtimestamp(last_ts, tz=timezone.utc)
+        last_tx_dt  = datetime.fromtimestamp(last_ts, tz=timezone.utc)
         last_tx_str = last_tx_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
         result = {
-            "status": status,
-            "last_tx": last_tx_str,
+            "status":            status,
+            "last_tx":           last_tx_str,
             "last_tx_age_hours": round(age_hours, 1),
-            "tx_count": len(tx_list),
-            "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            "tx_count":          len(tx_list),
+            "tx_hash":           latest.get('hash',''),
+            "fetched_at":        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         }
 
     out = os.path.expanduser("$CHAIN_STATUS_FILE")
     with open(out, 'w') as f:
-        json.dump(result, f)
+        json.dump(result, f, indent=2)
     print(f"Chain status: {result['status']} | Last TX: {result['last_tx']}")
 
 except Exception as e:
     print(f"Chain status parse error: {e}")
+    import traceback; traceback.print_exc()
 CHAINEOF
 
   if [ $? -eq 0 ]; then
@@ -1145,10 +1151,12 @@ for LICENSE in "${LICENSES[@]}"; do
   log "📊 Node $LICENSE — penalties: ${PENALTIES}/${PENALTY_MAX}"
 done
 
-# 6. Fetch blockchain status from Subscan (every 5 min, runs on VM — no CORS)
-if should_fetch_chain_status; then
-  fetch_chain_status
-fi
+# 6. Blockchain status fetch — temporarily disabled
+# Blockscout and Subscan APIs require keys or have connectivity issues
+# Will be re-enabled when a reliable free API is confirmed
+# if should_fetch_chain_status; then
+#   fetch_chain_status
+# fi
 
 # 5. Hourly heartbeat
 if should_send_heartbeat; then
