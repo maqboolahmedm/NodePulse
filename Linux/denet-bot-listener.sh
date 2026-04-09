@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #!/bin/bash
 
 # ============================================================
@@ -24,6 +23,7 @@ PID_STATE_FILE="$HOME/.denode/.node_pids"
 LAST_SEEN_FILE="$HOME/.denode/.node_last_seen"
 DOWNTIME_LOG="$HOME/.denode/.node_downtime_log"
 PENALTY_FILE="$HOME/.denode/.node_penalties"
+CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
 PENALTY_MAX=10
 OFFSET_FILE="$HOME/.denode/.bot_offset"
 BOT_LOG="$HOME/.denode/bot-listener.log"
@@ -32,7 +32,7 @@ BOT_LOG="$HOME/.denode/bot-listener.log"
 # Set your local timezone. Examples:
 # "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
 # "America/New_York" (US East), "Asia/Manila" (Philippines)
-LOCAL_TIMEZONE="YOUR_TIMEZONE"  # e.g. Asia/Kolkata, Europe/Berlin, America/New_York, Asia/Manila
+LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
 mkdir -p "$NODE_LOG_DIR"
 touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
@@ -465,12 +465,12 @@ cmd_disk() {
   local CHAT_ID="$1"
   local LINES=""
   local STORAGE_DRIVES=(
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
+    "/mnt/Denet-Storage/1072"
+    "/mnt/Denet-Storage/1864"
+    "/mnt/Denet-Storage/1865"
+    "/mnt/Denet-Storage/1866"
+    "/mnt/Denet-Storage/1867"
+    "/mnt/Denet-Storage/2157"
   )
 
   for DRIVE in "${STORAGE_DRIVES[@]}"; do
@@ -559,6 +559,104 @@ $(echo -e "$LINES")
 <i>~90 min per cycle · 10 missed cycles ≈ 15 hours</i>${FOOTER}"
 }
 
+cmd_chain() {
+  local CHAT_ID="$1"
+
+  # Read chain status from file written by monitor
+  if [ ! -f "$CHAIN_STATUS_FILE" ]; then
+    send_message "$CHAT_ID" "⛓ <b>Blockchain Status</b>
+📍 Host: $(hostname)
+🕐 $(now_utc)
+
+⚠️ No chain data yet.
+Wait for next monitor run (~5 min) or check:
+<code>cat ~/.denode/.chain_status</code>"
+    return
+  fi
+
+  # Parse chain status with python3
+  local CHAIN_INFO
+  CHAIN_INFO=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$CHAIN_STATUS_FILE'))
+    status   = d.get('status','unknown').upper()
+    last_tx  = d.get('last_tx','unknown')
+    age_h    = d.get('last_tx_age_hours', 0)
+    tx_count = d.get('tx_count', 0)
+    fetched  = d.get('fetched_at','unknown')
+
+    if status == 'ONLINE':   icon = '🟢'
+    elif status == 'PENDING': icon = '🟡'
+    else:                     icon = '🔴'
+
+    if age_h < 1:    age_str = f'{int(age_h*60)}m ago'
+    elif age_h < 24: age_str = f'{age_h:.1f}h ago'
+    else:            age_str = f'{age_h/24:.1f}d ago'
+
+    print(f'{icon}|{status}|{last_tx}|{age_str}|{tx_count}|{fetched}')
+except Exception as e:
+    print(f'ERROR|{e}')
+" 2>/dev/null)
+
+  if echo "$CHAIN_INFO" | grep -q "^ERROR"; then
+    send_message "$CHAT_ID" "❌ Could not parse chain status. Try again in 5 min."
+    return
+  fi
+
+  local ICON STATUS LAST_TX AGE TX_COUNT FETCHED
+  ICON=$(echo "$CHAIN_INFO"     | cut -d'|' -f1)
+  STATUS=$(echo "$CHAIN_INFO"   | cut -d'|' -f2)
+  LAST_TX=$(echo "$CHAIN_INFO"  | cut -d'|' -f3)
+  AGE=$(echo "$CHAIN_INFO"      | cut -d'|' -f4)
+  TX_COUNT=$(echo "$CHAIN_INFO" | cut -d'|' -f5)
+  FETCHED=$(echo "$CHAIN_INFO"  | cut -d'|' -f6)
+
+  # Build per-node status — all nodes share same wallet so same chain status
+  # But show each node's local process status alongside chain status
+  local NODE_LINES=""
+  for LICENSE in "${LICENSES[@]}"; do
+    local PROC_ICON="🟢"
+    local PROC_STATUS="RUNNING"
+    if ! is_node_running "$LICENSE"; then
+      PROC_ICON="🔴"
+      PROC_STATUS="DOWN"
+    fi
+    local PEN
+    PEN=$(get_penalty_count "$LICENSE")
+    local PEN_ICON="🟢"
+    [ "$PEN" -ge 5 ] && PEN_ICON="🟡"
+    [ "$PEN" -ge 8 ] && PEN_ICON="🔴"
+    NODE_LINES="${NODE_LINES}${PROC_ICON} <code>${LICENSE}</code> — Process: <b>${PROC_STATUS}</b> — ${ICON} Chain: <b>${STATUS}</b> — ${PEN_ICON} Penalties: <b>${PEN}/${PENALTY_MAX}</b>\n"
+  done
+
+  # Alert message based on status
+  local ALERT=""
+  if [ "$STATUS" = "OFFLINE" ]; then
+    ALERT="
+🚨 <b>ACTION REQUIRED</b> — Nodes not submitting proofs on-chain!
+Check RPC connection and node logs."
+  elif [ "$STATUS" = "PENDING" ]; then
+    ALERT="
+⚠️ <b>Watch closely</b> — Last on-chain activity was ${AGE}."
+  fi
+
+  send_message "$CHAT_ID" "⛓ <b>DeNet Blockchain Status</b>
+🕐 $(now_utc) | $(now_local)
+📍 Host: $(hostname)
+
+${ICON} <b>Overall Chain Status: ${STATUS}</b>
+📅 Last on-chain TX: <b>${LAST_TX}</b>
+⏱ Age: <b>${AGE}</b>
+📊 Recent TXs checked: <b>${TX_COUNT}</b>
+🔄 Data fetched: <b>${FETCHED}</b>
+${ALERT}
+
+<b>Per Node:</b>
+$(echo -e "$NODE_LINES")
+<i>Chain data shared across all nodes (same wallet)</i>"
+}
+
 cmd_help() {
   local CHAT_ID="$1"
   send_message "$CHAT_ID" "🤖 <b>DeNet Node Monitor Bot</b>
@@ -571,8 +669,9 @@ cmd_help() {
 
 📊 <b>Status Commands:</b>
 /status — Live status with PID change detection
+/chain — Blockchain status + last on-chain TX
+/penalties — Penalty count per node (0–10)
 /restarts — Restart count per node
-/penalties — Penalty count per node
 /history — Last downtime event per node
 /disk — Storage drive usage
 /version — Current denode binary version
@@ -648,6 +747,9 @@ for update in results:
       /status|/s)
         cmd_status "$CHAT_ID"
         ;;
+      /chain|/blockchain|/txn)
+        cmd_chain "$CHAT_ID"
+        ;;
       /restarts|/restart_counts|/rc)
         cmd_restarts "$CHAT_ID"
         ;;
@@ -691,6 +793,3 @@ Send /help for the list of commands."
   echo "$OFFSET" > "$OFFSET_FILE"
 
 done
-=======
-
->>>>>>> ea719db645f5f3824483919fc75481022eac4da8
