@@ -561,100 +561,36 @@ $(echo -e "$LINES")
 
 cmd_chain() {
   local CHAT_ID="$1"
+  local WALLET_SHORT="${WALLET_ADDRESS:0:10}...${WALLET_ADDRESS: -6}"
 
-  # Read chain status from file written by monitor
-  if [ ! -f "$CHAIN_STATUS_FILE" ]; then
-    send_message "$CHAT_ID" "⛓ <b>Blockchain Status</b>
-📍 Host: $(hostname)
-🕐 $(now_utc)
-
-⚠️ No chain data yet.
-Wait for next monitor run (~5 min) or check:
-<code>cat ~/.denode/.chain_status</code>"
-    return
-  fi
-
-  # Parse chain status with python3
-  local CHAIN_INFO
-  CHAIN_INFO=$(python3 -c "
-import json, sys
-try:
-    d = json.load(open('$CHAIN_STATUS_FILE'))
-    status   = d.get('status','unknown').upper()
-    last_tx  = d.get('last_tx','unknown')
-    age_h    = d.get('last_tx_age_hours', 0)
-    tx_count = d.get('tx_count', 0)
-    fetched  = d.get('fetched_at','unknown')
-
-    if status == 'ONLINE':   icon = '🟢'
-    elif status == 'PENDING': icon = '🟡'
-    else:                     icon = '🔴'
-
-    if age_h < 1:    age_str = f'{int(age_h*60)}m ago'
-    elif age_h < 24: age_str = f'{age_h:.1f}h ago'
-    else:            age_str = f'{age_h/24:.1f}d ago'
-
-    print(f'{icon}|{status}|{last_tx}|{age_str}|{tx_count}|{fetched}')
-except Exception as e:
-    print(f'ERROR|{e}')
-" 2>/dev/null)
-
-  if echo "$CHAIN_INFO" | grep -q "^ERROR"; then
-    send_message "$CHAT_ID" "❌ Could not parse chain status. Try again in 5 min."
-    return
-  fi
-
-  local ICON STATUS LAST_TX AGE TX_COUNT FETCHED
-  ICON=$(echo "$CHAIN_INFO"     | cut -d'|' -f1)
-  STATUS=$(echo "$CHAIN_INFO"   | cut -d'|' -f2)
-  LAST_TX=$(echo "$CHAIN_INFO"  | cut -d'|' -f3)
-  AGE=$(echo "$CHAIN_INFO"      | cut -d'|' -f4)
-  TX_COUNT=$(echo "$CHAIN_INFO" | cut -d'|' -f5)
-  FETCHED=$(echo "$CHAIN_INFO"  | cut -d'|' -f6)
-
-  # Build per-node status — all nodes share same wallet so same chain status
-  # But show each node's local process status alongside chain status
+  # Build per-node process + penalty status
   local NODE_LINES=""
   for LICENSE in "${LICENSES[@]}"; do
-    local PROC_ICON="🟢"
-    local PROC_STATUS="RUNNING"
+    local PROC_ICON="🟢" PROC_STATUS="RUNNING"
     if ! is_node_running "$LICENSE"; then
-      PROC_ICON="🔴"
-      PROC_STATUS="DOWN"
+      PROC_ICON="🔴"; PROC_STATUS="DOWN"
     fi
-    local PEN
+    local PEN PEN_ICON
     PEN=$(get_penalty_count "$LICENSE")
-    local PEN_ICON="🟢"
+    PEN_ICON="🟢"
     [ "$PEN" -ge 5 ] && PEN_ICON="🟡"
     [ "$PEN" -ge 8 ] && PEN_ICON="🔴"
-    NODE_LINES="${NODE_LINES}${PROC_ICON} <code>${LICENSE}</code> — Process: <b>${PROC_STATUS}</b> — ${ICON} Chain: <b>${STATUS}</b> — ${PEN_ICON} Penalties: <b>${PEN}/${PENALTY_MAX}</b>\n"
+    NODE_LINES="${NODE_LINES}${PROC_ICON} <code>${LICENSE}</code> — <b>${PROC_STATUS}</b> — ${PEN_ICON} Penalties: <b>${PEN}/${PENALTY_MAX}</b>\n"
   done
 
-  # Alert message based on status
-  local ALERT=""
-  if [ "$STATUS" = "OFFLINE" ]; then
-    ALERT="
-🚨 <b>ACTION REQUIRED</b> — Nodes not submitting proofs on-chain!
-Check RPC connection and node logs."
-  elif [ "$STATUS" = "PENDING" ]; then
-    ALERT="
-⚠️ <b>Watch closely</b> — Last on-chain activity was ${AGE}."
-  fi
-
-  send_message "$CHAT_ID" "⛓ <b>DeNet Blockchain Status</b>
+  send_message "$CHAT_ID" "⛓ <b>DeNet On-Chain Status</b>
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)
+👛 Wallet: <code>${WALLET_SHORT}</code>
 
-${ICON} <b>Overall Chain Status: ${STATUS}</b>
-📅 Last on-chain TX: <b>${LAST_TX}</b>
-⏱ Age: <b>${AGE}</b>
-📊 Recent TXs checked: <b>${TX_COUNT}</b>
-🔄 Data fetched: <b>${FETCHED}</b>
-${ALERT}
-
-<b>Per Node:</b>
+<b>Local Node Status:</b>
 $(echo -e "$NODE_LINES")
-<i>Chain data shared across all nodes (same wallet)</i>"
+🔗 <b>Check on-chain transactions:</b>
+<a href=\"https://peaq.subscan.io/account/${WALLET_ADDRESS}\">Subscan — Transaction History</a>
+
+<i>Tip: ONLINE = transactions in last 4h
+PENDING = 4–8h since last tx
+OFFLINE = 8h+ since last tx</i>"
 }
 
 cmd_help() {
