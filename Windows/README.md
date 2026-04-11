@@ -1,6 +1,34 @@
 # 🪟 NodePulse — Windows Setup Guide
 
-> Status: 🔜 Coming Soon — Template available, needs community testing
+> Status: 🔜 **Coming Soon** — Template available, needs community testing
+
+---
+
+## ⚠️ Important — Before Running Any PowerShell Script
+
+Windows blocks PowerShell scripts by default for security reasons.
+You must allow script execution **once** before NodePulse will work.
+
+**Open PowerShell as Administrator** and run:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+When asked to confirm — type **Y** and press Enter.
+
+> 🔒 This only allows scripts you downloaded — it does not disable Windows security.
+> You only need to do this once.
+
+---
+
+## ⚠️ Script Status
+
+The current `denet-monitor.ps1` was translated from the Linux bash version.
+It may contain errors and **has not been fully tested** on a real Windows setup.
+
+If you test it and find issues — please open a GitHub issue! Your feedback
+will help make the Windows version production-ready.
 
 ---
 
@@ -15,13 +43,23 @@
 ## Prerequisites
 
 - Windows 10 / 11
-- PowerShell 5.1 or later
+- PowerShell 5.1 or later (built into Windows)
 - DeNet node binary installed
 - Telegram bot created via @BotFather
 
 ---
 
-## Step 1 — Configure
+## Step 1 — Allow Script Execution
+
+Open PowerShell **as Administrator**:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+## Step 2 — Configure
 
 Open `denet-monitor.ps1` in Notepad or VS Code and fill in:
 
@@ -30,12 +68,13 @@ $TELEGRAM_BOT_TOKEN = "your_bot_token"
 $TELEGRAM_CHAT_ID   = "your_chat_id"
 $DENODE_BIN         = "C:\Program Files\DeNet\denode.exe"
 $WALLET_ADDRESS     = "0x..."
-$LICENSES           = @("1072", "1864", "1865")
+$LICENSES           = @("YOUR_LICENSE_1", "YOUR_LICENSE_2")
 $DENODE_PASSWORD    = "your_password"
-$LOCAL_TIMEZONE     = "W. Europe Standard Time"  # Your Windows timezone
+$LOCAL_TIMEZONE     = "W. Europe Standard Time"
 ```
 
 ### Windows Timezone Names
+
 | Region | Timezone String |
 |---|---|
 | India | `India Standard Time` |
@@ -49,23 +88,14 @@ Full list: https://learn.microsoft.com/en-us/windows-hardware/manufacture/deskto
 
 ---
 
-## Step 2 — Allow PowerShell Scripts
-
-Open PowerShell as Administrator:
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
----
-
 ## Step 3 — Test Manually
 
 ```powershell
-cd C:\path\to\NodePulse\windows
+cd C:\path\to\NodePulse\Windows
 .\denet-monitor.ps1
 ```
 
-Check Telegram for heartbeat message ✅
+Check Telegram for message ✅
 
 ---
 
@@ -73,16 +103,19 @@ Check Telegram for heartbeat message ✅
 
 1. Open **Task Scheduler**
 2. Click **Create Task**
-3. **General** tab: Name it `DeNet Node Monitor`
-4. **Triggers** tab: New → **On a schedule** → Repeat every **5 minutes**
-5. **Actions** tab: New →
+3. **General** → Name: `DeNet Node Monitor`
+4. **Triggers** → New → On a schedule → Repeat every **5 minutes**
+5. **Actions** → New:
    - Program: `powershell.exe`
    - Arguments: `-ExecutionPolicy Bypass -File "C:\path\to\denet-monitor.ps1"`
-6. **Conditions** tab: Uncheck "Start only if on AC power"
+6. **Conditions** → Uncheck "Start only if on AC power"
 7. Click **OK**
 
 ---
 
-## ⚠️ Note
+## 🙏 Help Wanted
 
-Windows support is a community template. If you test it successfully, please open an issue on GitHub with your results so we can mark it as fully supported!
+If you test and it works → open a GitHub issue ✅
+If you find a bug → open a GitHub issue with the error 🐛
+
+Together we make Windows fully supported!
