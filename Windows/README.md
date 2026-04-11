@@ -6,29 +6,55 @@
 
 ## ⚠️ Important — Before Running Any PowerShell Script
 
-Windows blocks PowerShell scripts by default for security reasons.
-You must allow script execution **once** before NodePulse will work.
+### 1. Allow Script Execution
 
-**Open PowerShell as Administrator** and run:
+Windows blocks PowerShell scripts by default.
+Open PowerShell **as Administrator** and run:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-When asked to confirm — type **Y** and press Enter.
+Type **Y** and press Enter. You only need to do this once.
 
-> 🔒 This only allows scripts you downloaded — it does not disable Windows security.
-> You only need to do this once.
+---
+
+### 2. Required Network Ports (Outbound)
+
+Make sure these outbound ports are open on your firewall/router:
+
+| Port | Protocol | Purpose |
+|---|---|---|
+| 443 | HTTPS | Telegram API — required for bot messages |
+| 80 | HTTP | DuckDNS updates — required if using DuckDNS |
+| 55050–55057 | TCP | DeNet node ports — required for node operation |
+
+> These are **outbound** ports from your PC/VM to the internet.
+> Most home networks have these open by default.
+> Corporate networks or strict firewalls may block them.
+
+---
+
+### 3. UTF-8 Encoding
+
+Telegram requires UTF-8 encoding for emojis and special characters.
+This is already handled at the top of the script:
+
+```powershell
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+```
+
+If emojis show as `????` in Telegram — your system encoding may need adjustment.
 
 ---
 
 ## ⚠️ Script Status
 
 The current `denet-monitor.ps1` was translated from the Linux bash version.
-It may contain errors and **has not been fully tested** on a real Windows setup.
+It may contain errors and **has not been fully tested** on Windows.
 
-If you test it and find issues — please open a GitHub issue! Your feedback
-will help make the Windows version production-ready.
+If you test it and find issues — please open a GitHub issue! 🐛
 
 ---
 
@@ -43,15 +69,14 @@ will help make the Windows version production-ready.
 ## Prerequisites
 
 - Windows 10 / 11
-- PowerShell 5.1 or later (built into Windows)
+- PowerShell 5.1 or later
 - DeNet node binary installed
 - Telegram bot created via @BotFather
+- Port 443 + 80 outbound open
 
 ---
 
 ## Step 1 — Allow Script Execution
-
-Open PowerShell **as Administrator**:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -61,7 +86,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ## Step 2 — Configure
 
-Open `denet-monitor.ps1` in Notepad or VS Code and fill in:
+Open `denet-monitor.ps1` and fill in:
 
 ```powershell
 $TELEGRAM_BOT_TOKEN = "your_bot_token"

@@ -3,7 +3,16 @@
 # NodePulse v2.0
 # Template: Replace YOUR_XXX_HERE with your actual values
 # Runs via Windows Task Scheduler (every 5 minutes)
+#
+# REQUIREMENTS:
+# 1. Run once as Admin: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+# 2. Port 443 outbound open (Telegram API)
+# 3. Port 80 outbound open (DuckDNS updates)
 # ============================================================
+
+# UTF-8 encoding — required for Telegram emojis and special characters
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Telegram Config ---
 $TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
