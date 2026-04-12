@@ -465,12 +465,12 @@ cmd_disk() {
   local CHAT_ID="$1"
   local LINES=""
   local STORAGE_DRIVES=(
-    "/mnt/Denet-Storage/1072"
-    "/mnt/Denet-Storage/1864"
-    "/mnt/Denet-Storage/1865"
-    "/mnt/Denet-Storage/1866"
-    "/mnt/Denet-Storage/1867"
-    "/mnt/Denet-Storage/2157"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
   )
 
   for DRIVE in "${STORAGE_DRIVES[@]}"; do
@@ -561,36 +561,64 @@ $(echo -e "$LINES")
 
 cmd_chain() {
   local CHAT_ID="$1"
-  local WALLET_SHORT="${WALLET_ADDRESS:0:10}...${WALLET_ADDRESS: -6}"
 
-  # Build per-node process + penalty status
-  local NODE_LINES=""
-  for LICENSE in "${LICENSES[@]}"; do
-    local PROC_ICON="🟢" PROC_STATUS="RUNNING"
-    if ! is_node_running "$LICENSE"; then
-      PROC_ICON="🔴"; PROC_STATUS="DOWN"
-    fi
-    local PEN PEN_ICON
-    PEN=$(get_penalty_count "$LICENSE")
-    PEN_ICON="🟢"
-    [ "$PEN" -ge 5 ] && PEN_ICON="🟡"
-    [ "$PEN" -ge 8 ] && PEN_ICON="🔴"
-    NODE_LINES="${NODE_LINES}${PROC_ICON} <code>${LICENSE}</code> — <b>${PROC_STATUS}</b> — ${PEN_ICON} Penalties: <b>${PEN}/${PENALTY_MAX}</b>\n"
-  done
+  if [ ! -f "$CHAIN_STATUS_FILE" ]; then
+    send_message "$CHAT_ID" "⛓ <b>Chain Status</b>
+⚠️ No data yet — wait for next monitor run (~5 min)
+📍 Host: $(hostname)"
+    return
+  fi
 
-  send_message "$CHAT_ID" "⛓ <b>DeNet On-Chain Status</b>
+  local LINES=""
+  local CHAIN_JSON
+  CHAIN_JSON=$(cat "$CHAIN_STATUS_FILE" 2>/dev/null)
+
+  LINES=$(python3 -c "
+import json, sys
+
+try:
+    data = json.loads('''${CHAIN_JSON}''')
+    nodes = data.get('nodes', {})
+    fetched = data.get('fetched_at','unknown')
+    lines = []
+
+    for lic, info in nodes.items():
+        status = info.get('status','unknown').upper()
+        last_proof = info.get('last_proof','unknown')
+        age = info.get('age','unknown')
+        pool = info.get('pool','')
+        stage = info.get('stage','')
+        err = info.get('last_error','')
+
+        if status == 'ONLINE':   icon = '🟢'
+        elif status == 'PENDING': icon = '🟡'
+        elif status == 'OFFLINE': icon = '🔴'
+        else:                     icon = '⚪'
+
+        pool_str = f' | Pool: {pool}' if pool else ''
+        stage_str = f' | {stage}' if stage else ''
+        err_str = f'\n   ⚠️ {err[:80]}' if err and status != 'ONLINE' else ''
+        lines.append(f'{icon} <code>{lic}</code> — <b>{status}</b>{pool_str}{stage_str}\n   📅 Last proof: {age}{err_str}')
+
+    print('\n'.join(lines))
+    print(f'FETCHED:{fetched}')
+except Exception as e:
+    print(f'Parse error: {e}')
+" 2>/dev/null)
+
+  local FETCHED=$(echo "$LINES" | grep "^FETCHED:" | cut -d: -f2-)
+  LINES=$(echo "$LINES" | grep -v "^FETCHED:")
+
+  send_message "$CHAT_ID" "⛓ <b>On-Chain Status (from node logs)</b>
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)
-👛 Wallet: <code>${WALLET_SHORT}</code>
+🔄 Data: ${FETCHED}
 
-<b>Local Node Status:</b>
-$(echo -e "$NODE_LINES")
-🔗 <b>Check on-chain transactions:</b>
-<a href=\"https://peaq.subscan.io/account/${WALLET_ADDRESS}\">Subscan — Transaction History</a>
+${LINES}
 
-<i>Tip: ONLINE = transactions in last 4h
-PENDING = 4–8h since last tx
-OFFLINE = 8h+ since last tx</i>"
+<i>ONLINE = proof in last 95min
+PENDING = 95–190min since last proof
+OFFLINE = 190min+ no proof activity</i>"
 }
 
 cmd_help() {

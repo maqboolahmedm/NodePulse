@@ -11,8 +11,8 @@
 
 | Your Setup | Use |
 |---|---|
-| 1 wallet, any number of nodes | 📁 `Linux-Single-Wallet/` |
-| 2–4 wallets, different passwords | 📁 `Linux-Multi-Wallet/` |
+| 1 wallet, any number of nodes | 📁 `Linux-Single-Wallet/` → `denet-monitor-lsw.sh` |
+| 2–4 wallets, different passwords | 📁 `Linux-Multi-Wallet/` → `denet-monitor-lmw.sh` |
 | Windows PC | 📁 `Windows/` |
 | macOS | 📁 `macOS/` |
 
@@ -23,34 +23,32 @@
 ```
 NodePulse/
 │
-├── 📁 Linux-Single-Wallet/     ← Beginner friendly — 1 wallet
-│   ├── denet-monitor.sh        Monitor + auto-restart (cron every 5 min)
-│   ├── denet-bot-listener.sh   Telegram bot (systemd service)
-│   ├── denet-update.sh         RC release updater
-│   ├── setup-monitor-linux.sh  One-click installer
-│   └── start-nodes.sh          Simple node starter
+├── 📁 Linux-Single-Wallet/         ← 1 wallet, any number of nodes
+│   ├── denet-monitor-lsw.sh        Monitor + auto-restart (cron every 5 min)
+│   ├── denet-bot-listener-lsw.sh   Telegram bot (systemd service)
+│   ├── denet-update-lsw.sh         RC release updater
+│   └── setup-monitor-lsw.sh        One-click installer
 │
-├── 📁 Linux-Multi-Wallet/      ← Advanced — up to 4 wallets
-│   ├── denet-monitor.sh        Multi-wallet monitor
-│   ├── denet-bot-listener.sh   Bot — groups nodes by wallet
-│   ├── denet-update.sh         RC release updater
-│   ├── setup-monitor-linux.sh  One-click installer
-│   └── start-nodes.sh          Node starter
+├── 📁 Linux-Multi-Wallet/          ← 2–4 wallets, different passwords
+│   ├── denet-monitor-lmw.sh        Multi-wallet monitor
+│   ├── denet-bot-listener-lmw.sh   Bot — groups nodes by wallet
+│   ├── denet-update-lsw.sh         RC release updater
+│   └── setup-monitor-lsw.sh        One-click installer
 │
-├── 📁 Windows/                 ← 🔜 Coming Soon
-│   ├── denet-monitor.ps1       PowerShell monitor template
+├── 📁 Windows/                     ← 🔜 Coming Soon
+│   ├── denet-monitor-win.ps1       PowerShell monitor template
 │   └── README.md
 │
-├── 📁 macOS/                   ← 🔜 Coming Soon
-│   ├── denet-monitor.sh        macOS monitor template
+├── 📁 macOS/                       ← 🔜 Coming Soon
+│   ├── denet-monitor-macos.sh      macOS monitor template
 │   └── README.md
 │
 ├── 📁 docs/
-│   └── NodePulse_Community_Guide.docx
+│   └── NodePulse_Community_Guide_v2.docx
 │
-├── nodepulse.html              PWA Dashboard + Telegram Mini App
-├── nodepulse-wizard.html       Setup Wizard — generates configured scripts
-└── manifest.json               PWA manifest
+├── nodepulse.html                  PWA Dashboard + Telegram Mini App
+├── nodepulse-wizard.html           Setup Wizard — generates configured scripts
+└── manifest.json                   PWA manifest
 ```
 
 ---

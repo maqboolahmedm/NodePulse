@@ -51,7 +51,7 @@ If emojis show as `????` in Telegram — your system encoding may need adjustmen
 
 ## ⚠️ Script Status
 
-The current `denet-monitor.ps1` was translated from the Linux bash version.
+The current `denet-monitor-win.ps1` was translated from the Linux bash version.
 It may contain errors and **has not been fully tested** on Windows.
 
 If you test it and find issues — please open a GitHub issue! 🐛
@@ -62,7 +62,7 @@ If you test it and find issues — please open a GitHub issue! 🐛
 
 | File | Purpose |
 |---|---|
-| `denet-monitor.ps1` | Main monitor — PowerShell script |
+| `denet-monitor-win.ps1` | Main monitor — PowerShell script |
 
 ---
 
@@ -86,7 +86,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ## Step 2 — Configure
 
-Open `denet-monitor.ps1` and fill in:
+Open `denet-monitor-win.ps1` and fill in:
 
 ```powershell
 $TELEGRAM_BOT_TOKEN = "your_bot_token"
@@ -117,7 +117,7 @@ Full list: https://learn.microsoft.com/en-us/windows-hardware/manufacture/deskto
 
 ```powershell
 cd C:\path\to\NodePulse\Windows
-.\denet-monitor.ps1
+.\denet-monitor-win.ps1
 ```
 
 Check Telegram for message ✅
@@ -132,7 +132,7 @@ Check Telegram for message ✅
 4. **Triggers** → New → On a schedule → Repeat every **5 minutes**
 5. **Actions** → New:
    - Program: `powershell.exe`
-   - Arguments: `-ExecutionPolicy Bypass -File "C:\path\to\denet-monitor.ps1"`
+   - Arguments: `-ExecutionPolicy Bypass -File "C:\path\to\denet-monitor-win.ps1"`
 6. **Conditions** → Uncheck "Start only if on AC power"
 7. Click **OK**
 

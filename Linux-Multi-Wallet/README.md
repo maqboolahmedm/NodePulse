@@ -18,14 +18,14 @@
 
 | File | Purpose | How it runs |
 |---|---|---|
-| `denet-monitor.sh` | Multi-wallet monitor | cron every 5 min |
-| `denet-bot-listener.sh` | Telegram bot — groups nodes by wallet | systemd service |
+| `denet-monitor-lmw.sh` | Multi-wallet monitor | cron every 5 min |
+| `denet-bot-listener-lmw.sh` | Telegram bot — groups nodes by wallet | systemd service |
 
 ---
 
 ## Configuration
 
-Open `denet-monitor.sh` and fill in your wallet details:
+Open `denet-monitor-lmw.sh` and fill in your wallet details:
 
 ```bash
 # Wallet 1
@@ -59,7 +59,7 @@ NODE_STORAGE[1072]="/mnt/storage/1072"
 NODE_RPC[1072]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_KEY"
 ```
 
-Do the same in `denet-bot-listener.sh`.
+Do the same in `denet-bot-listener-lmw.sh`.
 
 ---
 
@@ -67,11 +67,11 @@ Do the same in `denet-bot-listener.sh`.
 
 ```bash
 mkdir -p ~/DeNet/multi-wallet
-cp denet-monitor.sh denet-bot-listener.sh ~/DeNet/multi-wallet/
+cp denet-monitor-lmw.sh denet-bot-listener-lmw.sh ~/DeNet/multi-wallet/
 chmod +x ~/DeNet/multi-wallet/*.sh
 
 # Add cron job
-(crontab -l 2>/dev/null; echo "*/5 * * * * /home/YOUR_USERNAME/DeNet/multi-wallet/denet-monitor.sh") | crontab -
+(crontab -l 2>/dev/null; echo "*/5 * * * * /home/YOUR_USERNAME/DeNet/multi-wallet/denet-monitor-lmw.sh") | crontab -
 
 # Create systemd service
 sudo tee /etc/systemd/system/denet-bot-multi.service << 'EOF'
@@ -82,7 +82,7 @@ After=network-online.target
 [Service]
 Type=simple
 User=YOUR_USERNAME
-ExecStart=/home/YOUR_USERNAME/DeNet/multi-wallet/denet-bot-listener.sh
+ExecStart=/home/YOUR_USERNAME/DeNet/multi-wallet/denet-bot-listener-lmw.sh
 Restart=always
 RestartSec=10
 

@@ -8,10 +8,10 @@
 
 | File | Purpose | How it runs |
 |---|---|---|
-| `denet-monitor.sh` | Main monitor — auto-restart, PID tracking, penalty alerts | cron every 5 min |
-| `denet-bot-listener.sh` | Telegram bot — /restart, /status, /penalties, /history | systemd service |
-| `denet-update.sh` | RC release updater | Run manually |
-| `setup-monitor-linux.sh` | One-click installer | Run once |
+| `denet-monitor-lsw.sh` | Main monitor — auto-restart, PID tracking, penalty alerts | cron every 5 min |
+| `denet-bot-listener-lsw.sh` | Telegram bot — /restart, /status, /penalties, /history | systemd service |
+| `denet-update-lsw.sh` | RC release updater | Run manually |
+| `setup-monitor-lsw.sh` | One-click installer | Run once |
 | `start-nodes.sh` | Simple node starter | Run manually |
 
 ---
@@ -19,7 +19,7 @@
 ## Quick Start
 
 ### Step 1 — Configure your credentials
-Edit `denet-monitor.sh` and `denet-bot-listener.sh`:
+Edit `denet-monitor-lsw.sh` and `denet-bot-listener-lsw.sh`:
 
 ```bash
 TELEGRAM_BOT_TOKEN="your_bot_token"
@@ -33,9 +33,9 @@ LOCAL_TIMEZONE="Europe/Berlin"    # your timezone
 ### Step 2 — Install
 ```bash
 mkdir -p ~/DeNet
-cp denet-monitor.sh denet-bot-listener.sh denet-update.sh \
-   setup-monitor-linux.sh start-nodes.sh ~/DeNet/
-bash ~/DeNet/setup-monitor-linux.sh
+cp denet-monitor-lsw.sh denet-bot-listener-lsw.sh denet-update-lsw.sh \
+   setup-monitor-lsw.sh start-nodes.sh ~/DeNet/
+bash ~/DeNet/setup-monitor-lsw.sh
 ```
 
 ### Step 3 — Verify
@@ -68,7 +68,7 @@ Check Telegram — bot sends startup message ✅
 
 ```bash
 # Install as system command
-sudo cp ~/DeNet/denet-update.sh /usr/local/bin/denet-update
+sudo cp ~/DeNet/denet-update-lsw.sh /usr/local/bin/denet-update
 sudo chmod +x /usr/local/bin/denet-update
 
 # Usage

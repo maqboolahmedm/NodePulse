@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #!/bin/bash
 
 # ============================================================
@@ -460,6 +459,3 @@ Use /restartall in the bot to restart all nodes, or run the monitor script manua
 $([ "$(echo "$RELEASE_TAG" | grep -oP 'rc\d+' | grep -oP '\d+')" -ge "12" ] && echo "💡 RC12+: Check if DeNet RPC is now available — run: denode --help")"
 
 log "========== DeNet Update Finished =========="
-=======
-
->>>>>>> ea719db645f5f3824483919fc75481022eac4da8

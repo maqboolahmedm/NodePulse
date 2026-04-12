@@ -853,103 +853,152 @@ should_send_heartbeat() {
 }
 
 # ============================================================
-# Blockchain Status — Query Subscan from VM (no CORS issues)
+# Blockchain Status — Parse from local node logs (no API needed!)
+# Reads stage transitions directly from denode log files
 # ============================================================
 
 CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
-CHAIN_STATUS_INTERVAL=300  # fetch every 5 min
 
-fetch_chain_status() {
-  local WALLET="$WALLET_ADDRESS"
-  if [ -z "$WALLET" ]; then
-    log "⚠️ No wallet address set — skipping chain status fetch"
-    return
-  fi
+check_chain_status_from_logs() {
+  log "⛓ Checking on-chain status from node logs..."
 
-  log "⛓ Fetching on-chain status from Blockscout..."
-
-  local RESULT
-  # Using Blockscout REST API — free, no API key required
-  # peaq mainnet Blockscout: https://scout.peaq.xyz
-  RESULT=$(curl -s --max-time 15 \
-    "https://scout.peaq.xyz/api/v2/addresses/${WALLET}/transactions?filter=from&limit=10" \
-    -H "Accept: application/json" \
-    2>/dev/null)
-
-  if [ -z "$RESULT" ]; then
-    log "⚠️ Subscan API returned empty response"
-    return
-  fi
-
-  # Parse with python3 — extract last tx time and determine status
   python3 - <<CHAINEOF
-import json, os, sys
-from datetime import datetime, timezone
+import os, re, json
+from datetime import datetime, timezone, timedelta
 
-try:
-    data = json.loads('''${RESULT}''')
+licenses = [$(printf '"%s",' "${LICENSES[@]}" | sed 's/,$//')]
+log_dir   = os.path.expanduser("$NODE_LOG_DIR")
+now_utc   = datetime.now(timezone.utc)
+results   = {}
 
-    # Blockscout REST API v2 returns: {"items":[...], "next_page_params":...}
-    tx_list = data.get('items') or []
-    now_sec = int(datetime.now(timezone.utc).timestamp())
+# Patterns to look for in logs
+PROOF_OK_PATTERN   = re.compile(r'Proof of Storage stage handling completed|Collect Proofs handling completed', re.IGNORECASE)
+PROOF_FAIL_PATTERN = re.compile(r'Failed to send proof|failed to submit', re.IGNORECASE)
+STAGE_PATTERN      = re.compile(r'Current Stage:\s*(\w[\w ]+\w)', re.IGNORECASE)
+POOL_PATTERN       = re.compile(r'License ID is in (\d+) pool', re.IGNORECASE)
+TIMESTAMP_PATTERN  = re.compile(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
 
-    if not tx_list:
-        result = {
-            "status": "offline",
-            "last_tx": "No transactions found",
-            "last_tx_age_hours": 999,
-            "tx_count": 0,
-            "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        }
-    else:
-        latest   = tx_list[0]
-        # Blockscout v2 uses ISO timestamp e.g. "2026-04-09T09:15:22.000000Z"
-        ts_str   = latest.get('timestamp','')
-        if ts_str:
-            ts_str_clean = ts_str.replace('Z','+00:00')
-            last_dt  = datetime.fromisoformat(ts_str_clean)
-            last_ts  = int(last_dt.timestamp())
+def parse_log_timestamp(line):
+    """Extract datetime from log line — handles both formats"""
+    m = TIMESTAMP_PATTERN.search(line)
+    if not m: return None
+    try:
+        # Log timestamps are in LOCAL time — convert to UTC
+        local_tz_name = "$LOCAL_TIMEZONE"
+        dt_naive = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        # Approximate offset from timezone name
+        import subprocess
+        offset_str = subprocess.run(
+            ['date', '-d', m.group(1), '+%s'],
+            capture_output=True, text=True
+        ).stdout.strip()
+        if offset_str:
+            return datetime.fromtimestamp(int(offset_str), tz=timezone.utc)
+    except: pass
+    return None
+
+for lic in licenses:
+    # Try both log file naming conventions
+    log_a = os.path.join(log_dir, f"node-{lic}.log")
+    log_b = os.path.join(log_dir, f"license-{lic}.log")
+    log_file = log_a if os.path.exists(log_a) else (log_b if os.path.exists(log_b) else None)
+
+    if not log_file:
+        results[str(lic)] = {"status": "unknown", "reason": "no log file", "last_proof": "", "pool": "", "last_error": ""}
+        continue
+
+    # Read last 500 lines — enough for 2 full cycles
+    try:
+        with open(log_file, 'rb') as f:
+            # Read last 100KB efficiently
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 102400))
+            lines = f.read().decode('utf-8', errors='ignore').splitlines()
+    except Exception as e:
+        results[str(lic)] = {"status": "unknown", "reason": str(e), "last_proof": "", "pool": "", "last_error": ""}
+        continue
+
+    last_proof_time  = None
+    last_error_time  = None
+    last_error_msg   = ""
+    current_stage    = ""
+    pool_number      = ""
+    last_ts          = None
+
+    for line in reversed(lines):
+        # Get timestamp of this line
+        ts = parse_log_timestamp(line)
+        if ts and last_ts is None:
+            last_ts = ts
+
+        # Pool number
+        if not pool_number:
+            m = POOL_PATTERN.search(line)
+            if m: pool_number = m.group(1)
+
+        # Current stage
+        if not current_stage:
+            m = STAGE_PATTERN.search(line)
+            if m: current_stage = m.group(1).strip()
+
+        # Last successful proof
+        if last_proof_time is None and PROOF_OK_PATTERN.search(line):
+            last_proof_time = ts or last_ts
+
+        # Last error
+        if last_error_time is None and PROOF_FAIL_PATTERN.search(line):
+            last_error_time = ts or last_ts
+            last_error_msg  = line.strip()[:120]
+
+        # Stop if we have everything
+        if last_proof_time and pool_number and current_stage:
+            break
+
+    # Determine status based on last proof time
+    if last_proof_time:
+        age_min = (now_utc - last_proof_time).total_seconds() / 60
+        if age_min < 95:
+            status = "online"
+        elif age_min < 190:
+            status = "pending"
         else:
-            last_ts  = 0
+            status = "offline"
+        last_proof_str = last_proof_time.strftime("%Y-%m-%d %H:%M UTC")
+        age_str = f"{int(age_min)}m ago" if age_min < 60 else f"{age_min/60:.1f}h ago"
+    else:
+        status = "unknown"
+        last_proof_str = "No proof found in recent logs"
+        age_str = "unknown"
 
-        age_sec   = now_sec - last_ts
-        age_hours = age_sec / 3600
+    results[str(lic)] = {
+        "status":      status,
+        "last_proof":  last_proof_str,
+        "age":         age_str,
+        "pool":        pool_number,
+        "stage":       current_stage,
+        "last_error":  last_error_msg,
+    }
+    print(f"[{lic}] {status.upper()} | Pool: {pool_number} | Stage: {current_stage} | Last proof: {age_str}")
 
-        if age_hours < 4:   status = "online"
-        elif age_hours < 8: status = "pending"
-        else:               status = "offline"
-
-        last_tx_dt  = datetime.fromtimestamp(last_ts, tz=timezone.utc)
-        last_tx_str = last_tx_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-        result = {
-            "status":            status,
-            "last_tx":           last_tx_str,
-            "last_tx_age_hours": round(age_hours, 1),
-            "tx_count":          len(tx_list),
-            "tx_hash":           latest.get('hash',''),
-            "fetched_at":        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        }
-
-    out = os.path.expanduser("$CHAIN_STATUS_FILE")
-    with open(out, 'w') as f:
-        json.dump(result, f, indent=2)
-    print(f"Chain status: {result['status']} | Last TX: {result['last_tx']}")
-
-except Exception as e:
-    print(f"Chain status parse error: {e}")
-    import traceback; traceback.print_exc()
+# Save to chain status file
+out = {
+    "fetched_at": now_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
+    "source":     "node_logs",
+    "nodes":      results
+}
+with open(os.path.expanduser("$CHAIN_STATUS_FILE"), 'w') as f:
+    json.dump(out, f, indent=2)
+print("Chain status saved ✅")
 CHAINEOF
 
-  if [ $? -eq 0 ]; then
-    log "⛓ Chain status saved to $CHAIN_STATUS_FILE"
-  fi
+  log "⛓ Chain status updated from node logs."
 }
 
-should_fetch_chain_status() {
+should_check_chain_status() {
   [ ! -f "$CHAIN_STATUS_FILE" ] && return 0
-  local LAST_FETCH NOW DIFF
-  LAST_FETCH=$(python3 -c "
+  local LAST NOW DIFF
+  LAST=$(python3 -c "
 import json
 try:
     d=json.load(open('$CHAIN_STATUS_FILE'))
@@ -962,8 +1011,8 @@ try:
 except: print(0)
 " 2>/dev/null || echo 0)
   NOW=$(date +%s)
-  DIFF=$(( NOW - LAST_FETCH ))
-  [ "$DIFF" -ge "$CHAIN_STATUS_INTERVAL" ] && return 0
+  DIFF=$(( NOW - LAST ))
+  [ "$DIFF" -ge 300 ] && return 0
   return 1
 }
 
@@ -1151,12 +1200,10 @@ for LICENSE in "${LICENSES[@]}"; do
   log "📊 Node $LICENSE — penalties: ${PENALTIES}/${PENALTY_MAX}"
 done
 
-# 6. Blockchain status fetch — temporarily disabled
-# Blockscout and Subscan APIs require keys or have connectivity issues
-# Will be re-enabled when a reliable free API is confirmed
-# if should_fetch_chain_status; then
-#   fetch_chain_status
-# fi
+# 6. Check blockchain status from node logs (no API needed!)
+if should_check_chain_status; then
+  check_chain_status_from_logs
+fi
 
 # 5. Hourly heartbeat
 if should_send_heartbeat; then
@@ -1172,3 +1219,4 @@ fi
 write_status_json
 
 log "========== DeNet Monitor Run Finished =========="
+# placeholder

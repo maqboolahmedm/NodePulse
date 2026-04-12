@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |---|---|
-| `denet-monitor.sh` | Main monitor — bash script |
+| `denet-monitor-macos.sh` | Main monitor — bash script |
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## Step 1 — Configure
 
-Open `denet-monitor.sh` and fill in:
+Open `denet-monitor-macos.sh` and fill in:
 
 ```bash
 TELEGRAM_BOT_TOKEN="your_bot_token"
@@ -51,7 +51,7 @@ LOCAL_TIMEZONE="UTC"                 # Universal
 ## Step 2 — Make Executable
 
 ```bash
-chmod +x denet-monitor.sh
+chmod +x denet-monitor-macos.sh
 ```
 
 ---
@@ -60,7 +60,7 @@ chmod +x denet-monitor.sh
 
 ```bash
 export DENODE_PASSWORD="your_password"
-bash denet-monitor.sh
+bash denet-monitor-macos.sh
 ```
 
 Check Telegram for heartbeat ✅
@@ -88,7 +88,7 @@ Paste this content:
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/YOUR_USERNAME/DeNet/denet-monitor.sh</string>
+    <string>/Users/YOUR_USERNAME/DeNet/denet-monitor-macos.sh</string>
   </array>
   <key>StartInterval</key>
   <integer>300</integer>
