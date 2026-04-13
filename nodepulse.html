@@ -469,45 +469,47 @@ function renderDashboard(data) {
   document.getElementById('version-text').textContent = data.version || '–';
   document.getElementById('host-text').textContent    = data.host || '–';
 
-  const nodes   = data.nodes || [];
-  const online  = nodes.filter(n => n.status === 'running').length;
-  const down    = nodes.filter(n => n.status !== 'running').length;
+  const nodes    = data.nodes || [];
+  const online   = nodes.filter(n => n.status === 'running').length;
+  const down     = nodes.filter(n => n.status !== 'running').length;
   const restarts = nodes.reduce((s,n) => s + (n.restarts||0), 0);
 
-  // Chain issues — running but chain says otherwise
-  const walletChain = chainData['_wallet'];
-  const chainIssues = walletChain && walletChain.status !== 'online' ? 1 : 0;
+  // Get per-node chain status from status.json (written by monitor from logs)
+  const chainNodes = data.chain_status ? (data.chain_status.nodes || {}) : {};
+  const chainIssues = Object.values(chainNodes).filter(c => c.status === 'offline' || c.status === 'pending').length;
 
-  document.getElementById('s-online').textContent  = online;
-  document.getElementById('s-down').textContent    = down;
+  document.getElementById('s-online').textContent       = online;
+  document.getElementById('s-down').textContent         = down;
   document.getElementById('s-chain-issues').textContent = chainIssues;
-  document.getElementById('s-restarts').textContent = restarts;
+  document.getElementById('s-restarts').textContent     = restarts;
 
   // Chain alert banner
   const cab = document.getElementById('chain-alert-banner');
-  if (walletChain && walletChain.status === 'offline') {
+  const offlineNodes = Object.entries(chainNodes).filter(([k,v]) => v.status === 'offline');
+  if (offlineNodes.length > 0) {
     cab.classList.add('show');
-    cab.innerHTML = `<strong>⛔ Blockchain: OFFLINE</strong>Nodes may be running locally but NOT submitting proofs on-chain. Last transaction: ${walletChain.lastTx}`;
-  } else if (walletChain && walletChain.status === 'pending') {
-    cab.classList.add('show');
-    cab.style.borderLeftColor = 'var(--amber)';
-    cab.innerHTML = `<strong style="color:var(--amber)">⚠️ Blockchain: PENDING</strong>Last transaction was ${Math.floor(walletChain.lastTxAge/3600)}h ago — nodes may need attention. Last tx: ${walletChain.lastTx}`;
+    cab.innerHTML = `<strong>⛔ ${offlineNodes.length} node(s) OFFLINE on-chain</strong>Not submitting proofs! Nodes: ${offlineNodes.map(([k])=>k).join(', ')}`;
   } else {
     cab.classList.remove('show');
   }
 
-  // Render nodes
+  // Render nodes — pass chain data per node
   document.getElementById('nodes-container').innerHTML =
-    nodes.map(n => renderNode(n, walletChain)).join('');
+    nodes.map(n => renderNode(n, chainNodes[String(n.license)])).join('');
 }
 
-function renderNode(n, walletChain) {
-  const running = n.status === 'running';
+function renderNode(n, nodeChain) {
+  const running   = n.status === 'running';
   const restarted = n.pid_changed;
+
+  // Chain status from log-based monitoring (per node!)
+  const chainStatus = nodeChain ? nodeChain.status : 'unknown';
+  const chainAge    = nodeChain ? nodeChain.age    : '–';
+  const chainPool   = nodeChain ? nodeChain.pool   : '–';
+  const chainStage  = nodeChain ? nodeChain.stage  : '–';
 
   // Determine dots
   let procStatus = running ? 'running' : 'down';
-  let chainStatus = walletChain ? walletChain.status : 'unknown';
 
   // Card class
   let cardClass = `nc proc-${running ? 'ok' : 'down'} chain-${chainStatus}`;
@@ -604,10 +606,18 @@ function renderNode(n, walletChain) {
           <div class="sk">RESTARTS</div>
           <div class="sv ${n.restarts > 0 ? 'pending' : 'normal'}">${n.restarts}</div>
         </div>
+        <div class="srow">
+          <div class="sk">POOL</div>
+          <div class="sv normal">${chainPool}</div>
+        </div>
+        <div class="srow">
+          <div class="sk">STAGE</div>
+          <div class="sv normal" style="font-size:10px;">${chainStage}</div>
+        </div>
       </div>
       <div class="srow" style="margin-bottom:10px;">
-        <div class="sk">LAST ON-CHAIN TX</div>
-        <div class="sv normal" style="font-size:11px;">${lastTxDisplay}</div>
+        <div class="sk">LAST PROOF</div>
+        <div class="sv normal" style="font-size:11px;">${chainAge}</div>
       </div>
       ${diskHtml}
       <div class="node-actions">

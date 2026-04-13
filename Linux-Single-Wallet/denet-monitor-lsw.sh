@@ -879,21 +879,24 @@ POOL_PATTERN       = re.compile(r'License ID is in (\d+) pool', re.IGNORECASE)
 TIMESTAMP_PATTERN  = re.compile(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
 
 def parse_log_timestamp(line):
-    """Extract datetime from log line — handles both formats"""
+    """Extract datetime from log line — logs are in LOCAL timezone (IST +5:30)"""
     m = TIMESTAMP_PATTERN.search(line)
     if not m: return None
     try:
-        # Log timestamps are in LOCAL time — convert to UTC
-        local_tz_name = "$LOCAL_TIMEZONE"
         dt_naive = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
-        # Approximate offset from timezone name
+        # Logs use LOCAL_TIMEZONE — convert to UTC
         import subprocess
-        offset_str = subprocess.run(
-            ['date', '-d', m.group(1), '+%s'],
-            capture_output=True, text=True
-        ).stdout.strip()
-        if offset_str:
-            return datetime.fromtimestamp(int(offset_str), tz=timezone.utc)
+        result = subprocess.run(
+            ['date', '-d', f'TZ="$LOCAL_TIMEZONE" {m.group(1)}', '+%s'],
+            capture_output=True, text=True, shell=False
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return datetime.fromtimestamp(int(result.stdout.strip()), tz=timezone.utc)
+        # Fallback: assume IST (+5:30) offset
+        from datetime import timedelta
+        ist_offset = timedelta(hours=5, minutes=30)
+        dt_ist = dt_naive.replace(tzinfo=timezone(ist_offset))
+        return dt_ist.astimezone(timezone.utc)
     except: pass
     return None
 
