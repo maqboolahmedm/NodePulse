@@ -465,12 +465,12 @@ cmd_disk() {
   local CHAT_ID="$1"
   local LINES=""
   local STORAGE_DRIVES=(
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
+    "/mnt/Denet-Storage/1072"
+    "/mnt/Denet-Storage/1864"
+    "/mnt/Denet-Storage/1865"
+    "/mnt/Denet-Storage/1866"
+    "/mnt/Denet-Storage/1867"
+    "/mnt/Denet-Storage/2157"
   )
 
   for DRIVE in "${STORAGE_DRIVES[@]}"; do
@@ -570,49 +570,48 @@ cmd_chain() {
   fi
 
   local LINES=""
-  local CHAIN_JSON
-  CHAIN_JSON=$(cat "$CHAIN_STATUS_FILE" 2>/dev/null)
-
-  LINES=$(python3 -c "
+  # Read file directly in Python — avoids shell escaping/control char issues
+  LINES=$(python3 - "$CHAIN_STATUS_FILE" <<'PYEOF'
 import json, sys
 
 try:
-    data = json.loads('''${CHAIN_JSON}''')
-    nodes = data.get('nodes', {})
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    nodes   = data.get('nodes', {})
     fetched = data.get('fetched_at','unknown')
-    lines = []
+    lines   = []
 
     for lic, info in nodes.items():
-        status = info.get('status','unknown').upper()
-        last_proof = info.get('last_proof','unknown')
-        age = info.get('age','unknown')
-        pool = info.get('pool','')
-        stage = info.get('stage','')
-        err = info.get('last_error','')
+        status     = info.get('status','unknown').upper()
+        age        = info.get('age','unknown')
+        pool       = info.get('pool','')
+        stage      = info.get('stage','')
+        err        = info.get('last_error','')
 
-        if status == 'ONLINE':   icon = '🟢'
+        if   status == 'ONLINE':  icon = '🟢'
         elif status == 'PENDING': icon = '🟡'
         elif status == 'OFFLINE': icon = '🔴'
         else:                     icon = '⚪'
 
-        pool_str = f' | Pool: {pool}' if pool else ''
-        stage_str = f' | {stage}' if stage else ''
-        err_str = f'\n   ⚠️ {err[:80]}' if err and status != 'ONLINE' else ''
+        pool_str  = f' | Pool: {pool}' if pool else ''
+        stage_str = f' | {stage}'      if stage else ''
+        err_str   = f'\n   ⚠️ {err[:80]}' if err and status != 'ONLINE' else ''
         lines.append(f'{icon} <code>{lic}</code> — <b>{status}</b>{pool_str}{stage_str}\n   📅 Last proof: {age}{err_str}')
 
     print('\n'.join(lines))
     print(f'FETCHED:{fetched}')
 except Exception as e:
-    print(f'Parse error: {e}')
-" 2>/dev/null)
+    print(f'ERROR:{e}')
+PYEOF
+)
 
   local FETCHED=$(echo "$LINES" | grep "^FETCHED:" | cut -d: -f2-)
-  LINES=$(echo "$LINES" | grep -v "^FETCHED:")
+  LINES=$(echo "$LINES" | grep -v "^FETCHED:\|^ERROR:")
 
   send_message "$CHAT_ID" "⛓ <b>On-Chain Status (from node logs)</b>
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)
-🔄 Data: ${FETCHED}
+🔄 Updated: ${FETCHED}
 
 ${LINES}
 
