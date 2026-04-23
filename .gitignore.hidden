@@ -1,3 +1,5 @@
-# .claude          # Keep this (Claude settings private)
-# claude.md        # COMMENTED - now tracked
-# CLAUDE.md        # Remove these duplicates
+.claude/     # Claude settings private
+node_modules/
+# ... other Node.js ignores
+
+
