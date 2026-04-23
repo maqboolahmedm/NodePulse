@@ -34,3 +34,15 @@ npm run lint    # Code quality
 ## Quick Commands
 - npm run dev
 - npm test
+
+## NPM Scripts
+```
+npm run dev    # Start dev server
+npm test       # Run tests
+npm run lint   # Fix code style
+```
+
+## Folder Structure
+- @src/          → Source code
+- @docs/         → API docs ✓
+- @claude.md/    → Claude instructions ✓
