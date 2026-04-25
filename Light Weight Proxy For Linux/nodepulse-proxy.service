@@ -1,0 +1,13 @@
+[Unit]
+Description=NodePulse Command Proxy
+After=network-online.target
+
+[Service]
+Type=simple
+User=maqbool
+ExecStart=/usr/bin/python3 /home/maqbool/DeNet/nodepulse-proxy.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
