@@ -660,12 +660,38 @@ send_message "$TELEGRAM_CHAT_ID" "🤖 <b>DeNet Node Monitor Bot Started</b>
 
 Ready to receive commands. Send /help for the list."
 
+BOT_TRIGGER_FILE="$HOME/.denode/.bot_trigger"
+
 OFFSET=0
 if [ -f "$OFFSET_FILE" ]; then
   OFFSET=$(cat "$OFFSET_FILE")
 fi
 
 while true; do
+
+  # Check for web app trigger file — commands from nodepulse-proxy
+  if [ -f "$BOT_TRIGGER_FILE" ]; then
+    TRIGGER_CMD=$(cat "$BOT_TRIGGER_FILE")
+    rm -f "$BOT_TRIGGER_FILE"
+    if [ -n "$TRIGGER_CMD" ]; then
+      log "Web app command: $TRIGGER_CMD"
+      TEXT_LOWER="${TRIGGER_CMD,,}"
+      case "$TEXT_LOWER" in
+        /status|/s)           cmd_status "$TELEGRAM_CHAT_ID" ;;
+        /chain|/txn)          cmd_chain "$TELEGRAM_CHAT_ID" ;;
+        /restarts|/rc)        cmd_restarts "$TELEGRAM_CHAT_ID" ;;
+        /penalties|/pen)      cmd_penalties "$TELEGRAM_CHAT_ID" ;;
+        /restartall)          cmd_restart_all "$TELEGRAM_CHAT_ID" ;;
+        /resetcounts)         cmd_reset_counts "$TELEGRAM_CHAT_ID" ;;
+        /disk)                cmd_disk "$TELEGRAM_CHAT_ID" ;;
+        /history|/h)          cmd_history "$TELEGRAM_CHAT_ID" ;;
+        /version)             cmd_version "$TELEGRAM_CHAT_ID" ;;
+        /help|/start)         cmd_help "$TELEGRAM_CHAT_ID" ;;
+        /restart\ *)          cmd_restart_node "$TELEGRAM_CHAT_ID" "$(echo "$TRIGGER_CMD" | awk '{print $2}')" ;;
+      esac
+    fi
+  fi
+
   UPDATES=$(get_updates "$OFFSET")
 
   # Check for valid response
