@@ -465,12 +465,12 @@ cmd_disk() {
   local CHAT_ID="$1"
   local LINES=""
   local STORAGE_DRIVES=(
-    "/mnt/Denet-Storage/1072"
-    "/mnt/Denet-Storage/1864"
-    "/mnt/Denet-Storage/1865"
-    "/mnt/Denet-Storage/1866"
-    "/mnt/Denet-Storage/1867"
-    "/mnt/Denet-Storage/2157"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
+    "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
   )
 
   for DRIVE in "${STORAGE_DRIVES[@]}"; do

@@ -3,10 +3,10 @@
 # ============================================================
 # DeNet Node Updater — NodePulse v2.0
 # Usage:
-#   denet-update rc13        → Install rc13
-#   denet-update rc14        → Install rc14
-#   denet-update latest      → Install latest release
-#   denet-update --check     → List available releases
+#   nodepulse-update rc13        → Install rc13
+#   nodepulse-update rc14        → Install rc14
+#   nodepulse-update latest      → Install latest release
+#   nodepulse-update --check     → List available releases
 # ============================================================
 
 # --- Telegram Config ---
@@ -336,8 +336,8 @@ for r in data[:10]:
     print(f'  • {tag}  [{date}]{pre}')
 " 2>/dev/null
   echo ""
-  echo "  Usage: denet-update rc14"
-  echo "         denet-update latest"
+  echo "  Usage: nodepulse-update rc14"
+  echo "         nodepulse-update latest"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   exit 0
@@ -351,9 +351,9 @@ INPUT="$1"
 if [ -z "$INPUT" ]; then
   echo ""
   echo "Usage:"
-  echo "  denet-update rc14      → Install rc14"
-  echo "  denet-update latest    → Install latest release"
-  echo "  denet-update --check   → List available releases"
+  echo "  nodepulse-update rc14      → Install rc14"
+  echo "  nodepulse-update latest    → Install latest release"
+  echo "  nodepulse-update --check   → List available releases"
   echo ""
   exit 0
 fi

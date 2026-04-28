@@ -1,20 +1,19 @@
 # ⬡ NodePulse — DeNet Node Monitor
 
-> **Community-built monitoring system for [DeNet Datakeeper Nodes](https://denet.pro)**
-> Built by a Datakeeper running 6 nodes on Ubuntu VM + QNAP NAS. Praised and shared with the community by the DeNet dev team.
+> **Community-built monitoring system for DeNet Datakeeper Nodes**
+> Built by a Datakeeper running 6 nodes on Ubuntu VM + QNAP NAS.
+> Shared with the DeNet community — free, open-source, MIT licensed.
 
 ---
 
 ## 🚀 Quick Start
 
-**Not sure which folder to use?**
-
-| Your Setup | Use |
+| Your Setup | Use This Folder |
 |---|---|
-| 1 wallet, any number of nodes | 📁 `Linux-Single-Wallet/` → `denet-monitor-lsw.sh` |
-| 2–4 wallets, different passwords | 📁 `Linux-Multi-Wallet/` → `denet-monitor-lmw.sh` |
-| Windows PC | 📁 `Windows/` |
-| macOS | 📁 `macOS/` |
+| 1 wallet, any number of nodes | 📁 `Linux-Single-Wallet/` |
+| 2–4 wallets, different passwords | 📁 `Linux-Multi-Wallet/` |
+| Windows PC | 📁 `Windows/` (template) |
+| macOS | 📁 `macOS/` (template) |
 
 ---
 
@@ -22,80 +21,98 @@
 
 ```
 NodePulse/
-│
-├── 📁 Linux-Single-Wallet/         ← 1 wallet, any number of nodes
-│   ├── denet-monitor-lsw.sh        Monitor + auto-restart (cron every 5 min)
-│   ├── denet-bot-listener-lsw.sh   Telegram bot (systemd service)
-│   ├── denet-update-lsw.sh         RC release updater
-│   └── setup-monitor-lsw.sh        One-click installer
-│
-├── 📁 Linux-Multi-Wallet/          ← 2–4 wallets, different passwords
-│   ├── denet-monitor-lmw.sh        Multi-wallet monitor
-│   ├── denet-bot-listener-lmw.sh   Bot — groups nodes by wallet
-│   ├── denet-update-lsw.sh         RC release updater
-│   └── setup-monitor-lsw.sh        One-click installer
-│
-├── 📁 Windows/                     ← 🔜 Coming Soon
-│   ├── denet-monitor-win.ps1       PowerShell monitor template
+├── Linux-Single-Wallet/
+│   ├── nodepulse-monitor.sh        Monitor + auto-restart (cron every 5 min)
+│   ├── nodepulse-bot-listener.sh   Telegram bot (systemd service)
+│   ├── nodepulse-guard.sh          Intelligence agent + health scoring (cron every 5 min)
+│   ├── nodepulse-ip-watch.sh       Public IP monitor + DuckDNS (cron every 15 min)
+│   ├── nodepulse-update.sh         RC version updater
+│   ├── nodepulse-setup.sh          One-click installer
+│   ├── nodepulse-proxy.py          Web app command bridge (systemd service)
+│   ├── nodepulse-proxy.service     Proxy systemd service file
 │   └── README.md
 │
-├── 📁 macOS/                       ← 🔜 Coming Soon
-│   ├── denet-monitor-macos.sh      macOS monitor template
+├── Linux-Multi-Wallet/
+│   ├── nodepulse-monitor.sh        Multi-wallet monitor (up to 4 wallets)
+│   ├── nodepulse-bot-listener.sh   Bot — nodes grouped by wallet
+│   ├── nodepulse-guard.sh          Intelligence agent
+│   ├── nodepulse-ip-watch.sh       IP monitor + DuckDNS
+│   ├── nodepulse-update.sh         RC version updater
+│   ├── nodepulse-setup.sh          One-click installer
+│   ├── nodepulse-proxy.py          Web app command bridge
+│   ├── nodepulse-proxy.service     Proxy systemd service file
 │   └── README.md
 │
-├── 📁 docs/
-│   └── NodePulse_Community_Guide_v2.docx
+├── Windows/
+│   ├── nodepulse-monitor.ps1       PowerShell template (pilot)
+│   └── README.md
+│
+├── macOS/
+│   ├── nodepulse-monitor.sh        macOS template (pilot)
+│   └── README.md
+│
+├── docs/
+│   └── NodePulse_Community_Guide_v3.docx
 │
 ├── nodepulse.html                  PWA Dashboard + Telegram Mini App
-├── nodepulse-wizard.html           Setup Wizard — generates configured scripts
-└── manifest.json                   PWA manifest
+├── nodepulse-manifest.json         PWA manifest
+└── README.md
 ```
 
 ---
 
 ## ✨ Features
 
-### 🔍 Auto-Monitor (cron every 5 min)
-- Auto-restarts crashed nodes
-- **PID tracking** — saves every 5 min, accurate history after reboots
-- **Downtime tracking** — when node went down, offline duration
-- **Penalty tracking** — alerts at 5, 8, 10 missed proof cycles
+### 🔍 NodePulse Monitor
+- Auto-restarts crashed nodes with full downtime tracking
+- PID tracking — accurate history after reboots
+- Penalty tracking — alerts at 5, 8, 10 penalties
+- Auto-restart at 10 penalties before pool removal
 - Disk usage monitoring — alerts at 85%
-- Node log error scanning
-- Hourly heartbeat with full status
-- Daily summary at your local time
+- Hourly heartbeat + daily summary
+- On-chain status from node logs — no external API needed
 
 ### 🤖 Telegram Bot Commands
 | Command | Description |
 |---|---|
 | `/status` | Live status — PID, uptime, restarts, penalties |
-| `/restart YOUR_LICENSE` | Restart a specific node |
-| `/restartall` | Restart all nodes |
-| `/chain` | On-chain TX links per wallet |
-| `/penalties` | Penalty count per node (0–10) |
-| `/restarts` | Restart count per node |
-| `/history` | Last downtime per node — UTC + local time |
-| `/disk` | Storage drive usage |
-| `/version` | Current denode binary version |
+| `/restart 1072` | Restart specific node |
+| `/restartall` | Restart all nodes (free while in pool) |
+| `/chain` | On-chain status per node from logs |
+| `/penalties` | Penalty count per node |
+| `/restarts` | Restart counts |
+| `/history` | Last downtime event |
+| `/disk` | Storage usage |
+| `/version` | denode binary version |
 | `/resetcounts` | Reset restart counters |
 | `/help` | All commands |
 
-### 📱 NodePulse Dashboard (PWA + Telegram Mini App)
-- Blockchain status — ONLINE / PENDING / OFFLINE
-- Last on-chain transaction timestamp
-- Local process status + uptime + penalties
-- Disk usage bars per node
-- Restart buttons per node
-- Auto-refreshes every 30 seconds
+### 🛡️ NodePulse Guard
+- Diagnoses node issues with confidence scoring
+- Per-node health scores (0–100)
+- Cooldown system — no repeat alerts within 30 min
+- Detects: PROOF_FAIL, RPC_ERROR, RPC_TIMEOUT, NO_FUNDS, LOW_GAS and more
+- Hourly health report via Telegram
+
+### 🌐 NodePulse IP Watch
+- Monitors public IP changes every 15 min
+- Auto-updates DuckDNS on IP change
+- Telegram alert on IP change
+
+### 📱 NodePulse Dashboard (PWA)
+- Live dashboard via nginx on your VM
+- Per-node: process status, chain status, uptime, penalties, pool, stage, last proof
+- All bot commands accessible via buttons
 - Install on phone home screen as PWA
 - Works as Telegram Mini App
 
 ### ⬆️ RC Updater
 ```bash
-denet-update --check     # See available releases
-denet-update rc13        # Install rc13
-denet-update latest      # Install latest
+nodepulse-update --check     # List available releases
+nodepulse-update rc14        # Install rc14
+nodepulse-update latest      # Install latest
 ```
+Automatically: stops nodes → deletes .denode → installs → restarts
 
 ---
 
@@ -103,102 +120,52 @@ denet-update latest      # Install latest
 
 | Penalties | Status | Action |
 |---|---|---|
-| 0 | 🟢 Clean | Node submitting proofs normally |
-| 1–4 | 🟡 Watch | Minor missed cycles |
-| 5–7 | 🟠 Warning | Alert sent to Telegram |
-| 8–9 | 🔴 Critical | Urgent alert — act now! |
-| 10 | 🚫 Removed | Auto-restart triggered |
+| 0 | 🟢 Clean | Normal |
+| 1–4 | 🟡 Watch | Monitor |
+| 5–7 | 🟠 Warning | Alert sent |
+| 8–9 | 🔴 Critical | Urgent alert |
+| 10 | 🚫 Removed | Auto-restart |
 
-A successful proof submission resets penalties to 0. One cycle ≈ 90 minutes.
-
----
-
-## 📱 NodePulse Dashboard Setup
-
-### Option A — Tailscale ⭐ Recommended
-No router config needed. Works behind any ISP.
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-# Install Tailscale on phone → open http://YOUR_TAILSCALE_IP/nodepulse/
-```
-
-### Option B — Port Forwarding + DuckDNS (Dynamic IP)
-Router port forwarding → port 80 → VM.
-Access via `http://yourname-denet.duckdns.org/nodepulse/`
-
-### Option C — Static Public IP
-Forward port 80 → VM. Access via `http://YOUR_IP/nodepulse/`
+One cycle ≈ 90 min · Restart is FREE while in pool · Successful proof resets penalties to 0
 
 ---
 
-## 🌍 Timezone Configuration
+## 📱 Dashboard Access
 
-One line change — works for everyone:
-```bash
-LOCAL_TIMEZONE="Europe/Berlin"       # Germany
-LOCAL_TIMEZONE="America/New_York"    # US East
-LOCAL_TIMEZONE="Asia/Manila"         # Philippines
-LOCAL_TIMEZONE="Asia/Kolkata"        # India
-LOCAL_TIMEZONE="Asia/Singapore"      # Singapore
-LOCAL_TIMEZONE="America/Los_Angeles" # US West
-LOCAL_TIMEZONE="UTC"                 # Universal
-```
+| Method | URL | Notes |
+|---|---|---|
+| Tailscale ⭐ | `http://YOUR_TAILSCALE_IP/nodepulse/` | Recommended — no router config |
+| DuckDNS | `http://yourname.duckdns.org/nodepulse/` | Dynamic IP support |
+| Static IP | `http://YOUR_IP/nodepulse/` | Fixed public IP |
 
 ---
 
 ## 🖥️ Platform Support
 
-| Platform | Status | Notes |
-|---|---|---|
-| 🐧 Linux (Ubuntu 20.04 / 22.04) | ✅ **Fully Supported** | Single + Multi-wallet |
-| 🪟 Windows 10/11 | 🔜 **Coming Soon** | Template available |
-| 🍎 macOS 12+ | 🔜 **Coming Soon** | Template available |
-
----
-
-## ⚠️ Known Limitations
-
-- **Process ≠ Online** — monitor checks if process is running, not if proofs are being submitted on-chain
-- **Blockchain status** — NodePulse v2 queries on-chain data — requires wallet address in dashboard config
-- Windows and macOS are templates — not fully tested yet
+| Platform | Status |
+|---|---|
+| 🐧 Linux (Ubuntu 20.04/22.04) | ✅ Fully Supported |
+| 🪟 Windows 10/11 | 🔜 Coming Soon (template available) |
+| 🍎 macOS 12+ | 🔜 Coming Soon (template available) |
 
 ---
 
 ## 🗺️ Roadmap
 
-### ✅ v1.0
-Auto-restart, PID tracking, downtime history, Telegram bot, NodePulse PWA, RC updater
-
 ### ✅ v2.0 (Current)
-- Penalty tracking and alerts
-- Multi-wallet support (up to 4 wallets)
-- Configurable timezone
-- Accurate PID history after reboots
-- /penalties, /chain Telegram commands
-- Blockchain status in dashboard
-- Setup Wizard
+Auto-restart · Penalty tracking · Multi-wallet · Timezone config · On-chain status from logs · NodePulse Guard · IP Watch · PWA Dashboard · Command Proxy · RC Updater
 
 ### 🔜 v3.0 (Planned)
-- Pool number monitoring
-- Smart restart — only if process AND blockchain confirm down
-- Full Windows & macOS tested support
-- Multi-VM support
-- Mobile app
+Full Windows & macOS support · Mobile app · Pool number monitoring · Smart restart logic
 
 ---
 
 ## 🤝 Contributing
-
-Built for the DeNet Datakeeper community.
-- Open an issue for bugs
-- Submit a PR for improvements
-- Share in the [DeNet Discord](https://discord.gg/denet)
+Open an issue for bugs · Submit a PR for improvements · Share in DeNet Discord
 
 ---
 
 ## 📄 License
-
 MIT — free to use, modify, and share.
 
 ---

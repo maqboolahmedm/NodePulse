@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #!/bin/bash
 
 # ============================================================
@@ -31,7 +30,7 @@ mkdir -p "$DENET_DIR" "$LOG_DIR"
 ok "Directories ready: $DENET_DIR | $LOG_DIR"
 
 # 2. Check scripts are present
-REQUIRED=("denet-monitor.sh" "denet-bot-listener.sh" "denet-update.sh")
+REQUIRED=("denet-monitor.sh" "nodepulse-bot-listener.sh" "denet-update.sh")
 for SCRIPT in "${REQUIRED[@]}"; do
   if [ ! -f "$DENET_DIR/$SCRIPT" ]; then
     warn "$SCRIPT not found in $DENET_DIR"
@@ -43,7 +42,7 @@ ok "All scripts found in $DENET_DIR"
 
 # 3. Set executable permissions
 chmod +x "$DENET_DIR/denet-monitor.sh"
-chmod +x "$DENET_DIR/denet-bot-listener.sh"
+chmod +x "$DENET_DIR/nodepulse-bot-listener.sh"
 chmod +x "$DENET_DIR/denet-update.sh"
 ok "Permissions set (chmod +x)"
 
@@ -57,7 +56,7 @@ else
 fi
 
 # 5. Install systemd service for bot listener
-SERVICE_FILE="/etc/systemd/system/denet-bot.service"
+SERVICE_FILE="/etc/systemd/system/nodepulse-bot.service"
 CURRENT_USER=$(whoami)
 
 info "Installing systemd service for bot listener..."
@@ -71,7 +70,7 @@ Wants=network-online.target
 Type=simple
 User=${CURRENT_USER}
 WorkingDirectory=${HOME}
-ExecStart=${DENET_DIR}/denet-bot-listener.sh
+ExecStart=${DENET_DIR}/nodepulse-bot-listener.sh
 Restart=always
 RestartSec=10
 StandardOutput=append:${DENODE_DIR}/bot-listener.log
@@ -83,8 +82,8 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable denet-bot
-sudo systemctl start denet-bot
+sudo systemctl enable nodepulse-bot
+sudo systemctl start nodepulse-bot
 ok "Bot listener service installed and started"
 
 # 6. Install denet-update as system command
@@ -107,19 +106,16 @@ echo -e "${CYAN}Cron jobs:${NC}"
 crontab -l | grep denet
 echo ""
 echo -e "${CYAN}Bot listener service:${NC}"
-sudo systemctl status denet-bot --no-pager | head -5
+sudo systemctl status nodepulse-bot --no-pager | head -5
 echo ""
 echo -e "${CYAN}denet-update command:${NC} $(which denet-update)"
 echo ""
 echo -e "${GREEN}${BOLD}All done! Check your Telegram — the bot should send a startup message.${NC}"
 echo ""
 echo -e "${YELLOW}Useful commands:${NC}"
-echo "  sudo systemctl status denet-bot       — Check bot status"
-echo "  sudo systemctl restart denet-bot      — Restart bot"
+echo "  sudo systemctl status nodepulse-bot       — Check bot status"
+echo "  sudo systemctl restart nodepulse-bot      — Restart bot"
 echo "  tail -f ~/.denode/bot-listener.log    — Watch bot logs"
 echo "  tail -f ~/.denode/monitor.log         — Watch monitor logs"
 echo "  denet-update --check                  — Check for new releases"
 echo ""
-=======
-
->>>>>>> ea719db645f5f3824483919fc75481022eac4da8

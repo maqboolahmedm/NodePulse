@@ -1,0 +1,16 @@
+{
+  "name": "NodePulse - Monitor",
+  "short_name": "NodePulse",
+  "description": "DeNet Node Monitor",
+  "start_url": "/nodepulse/",
+  "display": "standalone",
+  "background_color": "#0D1B2A",
+  "theme_color": "#00B894",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

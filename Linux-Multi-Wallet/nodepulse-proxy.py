@@ -30,9 +30,6 @@ ALLOWED_COMMANDS = [
     "/version",
     "/help", "/start",
     "/resetcounts",
-    "/nexus",
-    "/health",
-    "/incidents",
 ]
 
 class ProxyHandler(BaseHTTPRequestHandler):

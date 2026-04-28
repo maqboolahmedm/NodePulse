@@ -4,8 +4,8 @@ After=network-online.target
 
 [Service]
 Type=simple
-User=maqbool
-ExecStart=/usr/bin/python3 /home/maqbool/DeNet/nodepulse-proxy.py
+User=YOUR_USERNAME
+ExecStart=/usr/bin/python3 /home/YOUR_USERNAME/DeNet/nodepulse-proxy.py
 Restart=always
 RestartSec=10
 

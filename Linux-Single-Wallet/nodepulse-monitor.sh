@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# DeNet Node Monitor & Auto-Restart Script
+# NodePulse Monitor & Auto-Restart Script
 # User: maqbool | Ubuntu VM
 # v4.0 — Per-node uptime, configurable timezone, DuckDNS, port/RPC per node
 # ============================================================

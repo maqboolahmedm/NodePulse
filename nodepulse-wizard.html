@@ -4,610 +4,156 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NodePulse Setup Wizard</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#0a0e17; --surface:#111827; --surface2:#1a2234; --border:#1e2d45;
-  --accent:#00d4aa; --blue:#38bdf8; --purple:#a78bfa; --red:#f87171;
-  --amber:#fbbf24; --text:#e2e8f0; --muted:#64748b; --radius:14px;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;min-height:100vh;
-  background-image:radial-gradient(ellipse 100% 40% at 50% 0%,rgba(0,212,170,.07) 0%,transparent 60%);}
-
-/* HEADER */
-.header{padding:32px 40px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;max-width:900px;margin:0 auto;}
-.logo{width:44px;height:44px;background:linear-gradient(135deg,#00d4aa22,#00d4aa44);border:1px solid #00d4aa44;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
-.header h1{font-family:"Space Mono",monospace;font-size:20px;color:var(--accent);}
-.header p{font-size:12px;color:var(--muted);margin-top:2px;}
-.badge{margin-left:auto;padding:5px 12px;background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.3);border-radius:20px;font-family:"Space Mono",monospace;font-size:11px;color:var(--accent);}
-
-/* PROGRESS */
-.progress-wrap{max-width:900px;margin:32px auto 0;padding:0 40px;}
-.progress-steps{display:flex;gap:0;margin-bottom:32px;}
-.step{flex:1;display:flex;align-items:center;gap:0;}
-.step-circle{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:"Space Mono",monospace;color:var(--muted);background:var(--surface);flex-shrink:0;transition:all .3s;}
-.step-circle.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,170,.1);}
-.step-circle.done{border-color:var(--accent);background:var(--accent);color:var(--bg);}
-.step-label{font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap;}
-.step-label.active{color:var(--accent);}
-.step-line{flex:1;height:2px;background:var(--border);margin:0 8px;transition:background .3s;}
-.step-line.done{background:var(--accent);}
-
-/* MAIN */
-main{max-width:900px;margin:0 auto;padding:0 40px 80px;}
-
-/* PANELS */
-.panel{display:none;} .panel.active{display:block;}
-
-/* SECTION */
-.section-label{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:28px 0 12px 2px;}
-
-/* FORM */
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-.form-group{display:flex;flex-direction:column;gap:6px;}
-.form-group.full{grid-column:1/-1;}
-.form-label{font-size:12px;color:var(--muted);font-weight:500;}
-.form-label span{color:var(--red);margin-left:2px;}
-.form-input{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:"Space Mono",monospace;outline:none;transition:border-color .2s;width:100%;}
-.form-input:focus{border-color:var(--accent);}
-.form-input::placeholder{color:var(--muted);font-family:"DM Sans",sans-serif;}
-.form-hint{font-size:11px;color:var(--muted);line-height:1.5;}
-.form-hint a{color:var(--accent);}
-
-/* LICENSE ROW */
-.license-rows{display:flex;flex-direction:column;gap:8px;}
-.license-row{display:grid;grid-template-columns:120px 100px 1fr;gap:8px;align-items:center;}
-.license-row .form-input{font-size:12px;padding:9px 12px;}
-.add-btn{display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;margin-top:4px;width:fit-content;}
-.add-btn:hover{border-color:var(--accent);color:var(--accent);}
-.rm-btn{width:28px;height:28px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
-.rm-btn:hover{border-color:var(--red);color:var(--red);}
-
-/* PLATFORM CARDS */
-.platform-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-.platform-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .2s;text-align:center;}
-.platform-card:hover{border-color:var(--accent);}
-.platform-card.selected{border-color:var(--accent);background:rgba(0,212,170,.08);}
-.platform-icon{font-size:32px;margin-bottom:10px;}
-.platform-name{font-size:14px;font-weight:600;color:var(--text);}
-.platform-desc{font-size:11px;color:var(--muted);margin-top:4px;}
-
-/* ACCESS CARDS */
-.access-grid{display:flex;flex-direction:column;gap:10px;}
-.access-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:all .2s;display:flex;gap:14px;align-items:flex-start;}
-.access-card:hover{border-color:var(--accent);}
-.access-card.selected{border-color:var(--accent);background:rgba(0,212,170,.06);}
-.access-icon{font-size:22px;flex-shrink:0;margin-top:2px;}
-.access-info h3{font-size:14px;font-weight:600;color:var(--text);}
-.access-info p{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5;}
-.access-badge{font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(0,212,170,.12);color:var(--accent);border:1px solid rgba(0,212,170,.3);font-family:"Space Mono",monospace;margin-left:8px;}
-
-/* CONDITIONAL FIELDS */
-.conditional{display:none;} .conditional.show{display:grid;}
-
-/* DOWNLOAD SECTION */
-.download-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.download-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;}
-.download-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);}
-.download-card h3{font-family:"Space Mono",monospace;font-size:12px;color:var(--text);margin-bottom:6px;}
-.download-card p{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:14px;}
-.dl-btn{width:100%;padding:9px;background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.3);border-radius:8px;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;font-family:"DM Sans",sans-serif;}
-.dl-btn:hover{background:rgba(0,212,170,.2);}
-.dl-btn-all{width:100%;padding:13px;background:var(--accent);border:none;border-radius:10px;color:var(--bg);font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;font-family:"DM Sans",sans-serif;margin-bottom:16px;}
-.dl-btn-all:hover{filter:brightness(1.1);}
-
-/* NEXT/BACK BUTTONS */
-.nav-row{display:flex;gap:12px;margin-top:32px;}
-.btn-next{flex:1;padding:13px;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.35);border-radius:10px;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:"DM Sans",sans-serif;}
-.btn-next:hover{background:rgba(0,212,170,.25);}
-.btn-back{padding:13px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:14px;cursor:pointer;transition:all .2s;font-family:"DM Sans",sans-serif;}
-.btn-back:hover{border-color:var(--muted);color:var(--text);}
-
-/* INFO BOX */
-.info-box{background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-left:4px solid var(--accent);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px;}
-.warn-box{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-left:4px solid var(--amber);border-radius:10px;padding:12px 16px;font-size:12px;color:#fbbf24;line-height:1.6;margin-top:12px;}
-
-/* SUMMARY */
-.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
-.summary-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
-.summary-item .sk{font-size:10px;color:var(--muted);margin-bottom:4px;font-family:"Space Mono",monospace;}
-.summary-item .sv{font-size:12px;color:var(--text);word-break:break-all;}
-
-@media(max-width:600px){
-  .header,.progress-wrap,main{padding-left:16px;padding-right:16px;}
-  .form-grid{grid-template-columns:1fr;}
-  .platform-grid{grid-template-columns:1fr;}
-  .download-grid{grid-template-columns:1fr;}
-  .summary-grid{grid-template-columns:1fr;}
-  .license-row{grid-template-columns:1fr 1fr auto;}
-}
+  :root{--bg:#0D1B2A;--card:#0F2336;--accent:#00B894;--text:#E2E8F0;--muted:#64748B;--border:#1E3A4A;--red:#F87171;--amber:#F59E0B;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;min-height:100vh;padding:20px;}
+  .container{max-width:640px;margin:0 auto;}
+  h1{color:var(--accent);font-size:1.6rem;margin-bottom:4px;}
+  .sub{color:var(--muted);font-size:.85rem;margin-bottom:24px;}
+  .step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .step-title{color:var(--accent);font-size:.95rem;font-weight:bold;margin-bottom:14px;}
+  label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px;margin-top:12px;}
+  input,select{width:100%;background:#0D1B2A;border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:8px;font-size:.85rem;font-family:'Courier New',monospace;}
+  input:focus,select:focus{outline:none;border-color:var(--accent);}
+  .btn{background:var(--accent);color:#0D1B2A;border:none;padding:12px 24px;border-radius:8px;
+    font-weight:bold;cursor:pointer;font-size:.9rem;width:100%;margin-top:16px;}
+  .btn:hover{opacity:.9;}
+  .output{background:#050E1A;border:1px solid var(--border);border-radius:8px;
+    padding:16px;margin-top:16px;font-size:.78rem;white-space:pre-wrap;word-break:break-all;
+    max-height:300px;overflow-y:auto;display:none;}
+  .copy-btn{background:rgba(0,184,148,.15);color:var(--accent);border:1px solid var(--accent);
+    padding:8px 16px;border-radius:6px;cursor:pointer;font-size:.8rem;margin-top:8px;}
+  .info{background:rgba(0,184,148,.08);border-left:3px solid var(--accent);
+    padding:10px 14px;border-radius:0 8px 8px 0;font-size:.8rem;color:var(--muted);margin-top:12px;}
+  .logo{font-size:2.5rem;text-align:center;margin-bottom:8px;}
+  .warning{background:rgba(245,158,11,.08);border-left:3px solid var(--amber);
+    padding:10px 14px;font-size:.8rem;color:var(--amber);margin-top:12px;border-radius:0 8px 8px 0;}
 </style>
 </head>
 <body>
-
-<div class="header">
+<div class="container">
   <div class="logo">⬡</div>
-  <div>
-    <h1>NodePulse Setup Wizard</h1>
-    <p>Generate ready-to-use scripts for your DeNet nodes</p>
-  </div>
-  <div class="badge">v1.0</div>
-</div>
+  <h1>NodePulse Setup Wizard</h1>
+  <p class="sub">Generate your pre-configured scripts in seconds</p>
 
-<div class="progress-wrap">
-  <div class="progress-steps" id="progress-steps">
-    <div class="step">
-      <div class="step-circle active" id="sc1">1</div>
-      <span class="step-label active" id="sl1">Your Details</span>
-      <div class="step-line" id="line1"></div>
-    </div>
-    <div class="step">
-      <div class="step-circle" id="sc2">2</div>
-      <span class="step-label" id="sl2">Platform</span>
-      <div class="step-line" id="line2"></div>
-    </div>
-    <div class="step">
-      <div class="step-circle" id="sc3">3</div>
-      <span class="step-label" id="sl3">Access</span>
-      <div class="step-line" id="line3"></div>
-    </div>
-    <div class="step">
-      <div class="step-circle" id="sc4">4</div>
-      <span class="step-label" id="sl4">Download</span>
-    </div>
-  </div>
-</div>
-
-<main>
-
-<!-- ═══════════ STEP 1: DETAILS ═══════════ -->
-<div class="panel active" id="panel-1">
-  <div class="section-label">Telegram Configuration</div>
-  <div class="form-grid">
-    <div class="form-group full">
-      <div class="form-label">Bot Token <span>*</span></div>
-      <input class="form-input" id="bot-token" type="text" placeholder="1234567890:ABCDefGhIJKlmNoPQRsTUVwxyZ">
-      <div class="form-hint">Get from <a href="https://t.me/BotFather" target="_blank">@BotFather</a> → /newbot</div>
-    </div>
-    <div class="form-group full">
-      <div class="form-label">Chat ID <span>*</span></div>
-      <input class="form-input" id="chat-id" type="text" placeholder="1234567890">
-      <div class="form-hint">Send a message to your bot, then open: api.telegram.org/bot<b>TOKEN</b>/getUpdates → find "chat" → "id"</div>
-    </div>
+  <!-- Step 1: Bot -->
+  <div class="step">
+    <div class="step-title">Step 1 — Telegram Bot</div>
+    <div class="info">Create a bot via @BotFather → /newbot → copy token. Get Chat ID from api.telegram.org/botTOKEN/getUpdates</div>
+    <label>Bot Token</label>
+    <input id="bot_token" placeholder="1234567890:AABBCCDDEEFFaabbccddeeff" type="password">
+    <label>Chat ID</label>
+    <input id="chat_id" placeholder="123456789">
   </div>
 
-  <div class="section-label">DeNet Node Configuration</div>
-  <div class="form-grid">
-    <div class="form-group full">
-      <div class="form-label">Wallet Address <span>*</span></div>
-      <input class="form-input" id="wallet" type="text" placeholder="0x0000000000000000000000000000000000000000">
-    </div>
-    <div class="form-group full">
-      <div class="form-label">Node Password <span>*</span></div>
-      <input class="form-input" id="password" type="password" placeholder="Your denode unlock password">
-      <div class="form-hint">⚠️ This stays in your scripts only — never shared or stored online</div>
-    </div>
-    <div class="form-group full">
-      <div class="form-label">Binary Path</div>
-      <input class="form-input" id="binary" type="text" placeholder="/usr/bin/denode" value="/usr/bin/denode">
-    </div>
+  <!-- Step 2: Wallet -->
+  <div class="step">
+    <div class="step-title">Step 2 — Wallet & Nodes</div>
+    <div class="warning">⚠️ Your password is stored locally only — never sent anywhere</div>
+    <label>Wallet Address (0x...)</label>
+    <input id="wallet" placeholder="0x...">
+    <label>Node Password</label>
+    <input id="password" type="password" placeholder="Your unlock password">
+    <label>License Numbers (space separated)</label>
+    <input id="licenses" placeholder="1072 1864 1865">
+    <label>Storage Base Path</label>
+    <input id="storage" placeholder="/mnt/Denet-Storage">
   </div>
 
-  <div class="section-label">Your Licenses & Storage</div>
-  <div class="license-rows" id="license-rows">
-    <div class="license-row">
-      <input class="form-input" type="text" placeholder="License #" data-field="license">
-      <input class="form-input" type="text" placeholder="Port" data-field="port">
-      <input class="form-input" type="text" placeholder="Storage path e.g. /mnt/Denet-Storage/1072" data-field="storage">
-    </div>
-  </div>
-  <button class="add-btn" onclick="addLicenseRow()">＋ Add another license</button>
-  <div class="info-box">Add one row per license. Port and storage path come from your manager_config.yaml</div>
-
-  <div class="section-label">DuckDNS (Optional)</div>
-  <div class="form-grid">
-    <div class="form-group">
-      <div class="form-label">DuckDNS Token</div>
-      <input class="form-input" id="duckdns-token" type="text" placeholder="your-duckdns-token">
-    </div>
-    <div class="form-group">
-      <div class="form-label">DuckDNS Domain</div>
-      <input class="form-input" id="duckdns-domain" type="text" placeholder="yourname-denet (without .duckdns.org)">
-    </div>
+  <!-- Step 3: Network -->
+  <div class="step">
+    <div class="step-title">Step 3 — Network (Optional)</div>
+    <label>DuckDNS Token (for dynamic IP)</label>
+    <input id="duckdns_token" placeholder="your-duckdns-token">
+    <label>DuckDNS Domain (without .duckdns.org)</label>
+    <input id="duckdns_domain" placeholder="yourname-denet">
   </div>
 
-  <div class="nav-row">
-    <button class="btn-next" onclick="goStep(2)">Next — Choose Platform →</button>
+  <!-- Step 4: Timezone -->
+  <div class="step">
+    <div class="step-title">Step 4 — Timezone</div>
+    <label>Your Timezone</label>
+    <select id="timezone">
+      <option value="Asia/Kolkata">India (Asia/Kolkata)</option>
+      <option value="Europe/Berlin">Germany (Europe/Berlin)</option>
+      <option value="Europe/Amsterdam">Netherlands (Europe/Amsterdam)</option>
+      <option value="America/New_York">US East (America/New_York)</option>
+      <option value="America/Los_Angeles">US West (America/Los_Angeles)</option>
+      <option value="Asia/Manila">Philippines (Asia/Manila)</option>
+      <option value="Asia/Singapore">Singapore (Asia/Singapore)</option>
+      <option value="UTC">UTC</option>
+    </select>
+  </div>
+
+  <button class="btn" onclick="generate()">⚡ Generate Setup Command</button>
+
+  <div id="output" class="output"></div>
+  <button id="copy-btn" class="copy-btn" style="display:none" onclick="copyOutput()">📋 Copy Command</button>
+
+  <div class="info" style="margin-top:16px;">
+    After generating — paste command in your VM terminal. It replaces all YOUR_XXX placeholders automatically.
   </div>
 </div>
-
-<!-- ═══════════ STEP 2: PLATFORM ═══════════ -->
-<div class="panel" id="panel-2">
-  <div class="section-label">Select Your Operating System</div>
-  <div class="platform-grid">
-    <div class="platform-card" onclick="selectPlatform('linux')" id="plat-linux">
-      <div class="platform-icon">🐧</div>
-      <div class="platform-name">Linux</div>
-      <div class="platform-desc">Ubuntu 20.04 / 22.04<br>Full support — all features</div>
-    </div>
-    <div class="platform-card" onclick="selectPlatform('windows')" id="plat-windows">
-      <div class="platform-icon">🪟</div>
-      <div class="platform-name">Windows</div>
-      <div class="platform-desc">Windows 10 / 11<br>PowerShell scripts</div>
-    </div>
-    <div class="platform-card" onclick="selectPlatform('macos')" id="plat-macos">
-      <div class="platform-icon">🍎</div>
-      <div class="platform-name">macOS</div>
-      <div class="platform-desc">macOS 12+<br>launchd scheduling</div>
-    </div>
-  </div>
-  <div class="info-box" style="margin-top:20px;">Linux is the primary supported platform with all features. Windows and macOS support monitor and heartbeat. Telegram bot and NodePulse dashboard work on all platforms.</div>
-  <div class="nav-row">
-    <button class="btn-back" onclick="goStep(1)">← Back</button>
-    <button class="btn-next" onclick="goStep(3)">Next — Access Method →</button>
-  </div>
-</div>
-
-<!-- ═══════════ STEP 3: ACCESS ═══════════ -->
-<div class="panel" id="panel-3">
-  <div class="section-label">How will you access NodePulse dashboard?</div>
-  <div class="access-grid">
-
-    <div class="access-card" onclick="selectAccess('tailscale')" id="acc-tailscale">
-      <div class="access-icon">🔒</div>
-      <div class="access-info">
-        <h3>Tailscale <span class="access-badge">RECOMMENDED</span></h3>
-        <p>Private tunnel — no router config needed. Works behind any ISP. Install Tailscale on VM and phone. Access from anywhere your Tailscale devices are connected.</p>
-      </div>
-    </div>
-
-    <div class="access-card" onclick="selectAccess('duckdns')" id="acc-duckdns">
-      <div class="access-icon">🌐</div>
-      <div class="access-info">
-        <h3>Port Forwarding + DuckDNS <span class="access-badge">DYNAMIC IP</span></h3>
-        <p>Public access via free DuckDNS domain. Requires router port forwarding support. Your ISP gives you a dynamic IP — DuckDNS keeps URL stable.</p>
-      </div>
-    </div>
-
-    <div class="access-card" onclick="selectAccess('static')" id="acc-static">
-      <div class="access-icon">📡</div>
-      <div class="access-info">
-        <h3>Static Public IP <span class="access-badge">STATIC IP</span></h3>
-        <p>Direct public IP access. No DuckDNS needed. Requires router port forwarding. Your ISP gives you a fixed public IP address.</p>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Tailscale fields -->
-  <div class="form-grid conditional" id="fields-tailscale" style="margin-top:16px;">
-    <div class="form-group full">
-      <div class="form-label">Your Tailscale IP</div>
-      <input class="form-input" id="tailscale-ip" type="text" placeholder="100.x.x.x">
-      <div class="form-hint">Run: <code>tailscale ip</code> on your VM to get this</div>
-    </div>
-  </div>
-
-  <!-- DuckDNS fields -->
-  <div class="form-grid conditional" id="fields-duckdns" style="margin-top:16px;">
-    <div class="form-group full">
-      <div class="form-label">Your DuckDNS Domain</div>
-      <input class="form-input" id="duckdns-domain2" type="text" placeholder="yourname-denet.duckdns.org">
-    </div>
-  </div>
-
-  <!-- Static IP fields -->
-  <div class="form-grid conditional" id="fields-static" style="margin-top:16px;">
-    <div class="form-group full">
-      <div class="form-label">Your Static Public IP</div>
-      <input class="form-input" id="static-ip" type="text" placeholder="1.2.3.4">
-    </div>
-  </div>
-
-  <div class="nav-row">
-    <button class="btn-back" onclick="goStep(2)">← Back</button>
-    <button class="btn-next" onclick="goStep(4)">Generate My Scripts →</button>
-  </div>
-</div>
-
-<!-- ═══════════ STEP 4: DOWNLOAD ═══════════ -->
-<div class="panel" id="panel-4">
-
-  <div class="section-label">Your Configuration Summary</div>
-  <div class="summary-grid" id="summary-grid"></div>
-
-  <button class="dl-btn-all" onclick="downloadAll()">
-    ⬇️ Download All Scripts (ZIP-free — individual files)
-  </button>
-
-  <div class="section-label">Individual Downloads</div>
-  <div class="download-grid" id="download-grid"></div>
-
-  <div class="warn-box" style="margin-top:20px;">
-    ⚠️ <strong>Security reminder:</strong> These scripts contain your passwords and tokens. Store them safely. Never share the generated scripts publicly — only share the original template versions from GitHub.
-  </div>
-
-  <div class="info-box" style="margin-top:12px;">
-    <strong>After downloading:</strong><br>
-    1. Copy all scripts to ~/DeNet/ on your VM<br>
-    2. Run: <code>bash ~/DeNet/setup-monitor-linux.sh</code><br>
-    3. Check Telegram — bot sends startup message ✅
-  </div>
-
-  <div class="nav-row">
-    <button class="btn-back" onclick="goStep(3)">← Back</button>
-  </div>
-</div>
-
-</main>
 
 <script>
-// ═══════════════════════════════
-// STATE
-// ═══════════════════════════════
-let state = { step: 1, platform: null, access: null };
+function generate() {
+  const token   = document.getElementById('bot_token').value.trim();
+  const chatId  = document.getElementById('chat_id').value.trim();
+  const wallet  = document.getElementById('wallet').value.trim();
+  const pass    = document.getElementById('password').value.trim();
+  const lics    = document.getElementById('licenses').value.trim();
+  const storage = document.getElementById('storage').value.trim() || '/mnt/Denet-Storage';
+  const ddToken = document.getElementById('duckdns_token').value.trim();
+  const ddDomain= document.getElementById('duckdns_domain').value.trim();
+  const tz      = document.getElementById('timezone').value;
 
-// ═══════════════════════════════
-// SCRIPTS (templates)
-// ═══════════════════════════════
-const SCRIPTS = {
-  monitor:    "#!/bin/bash\n\n# ============================================================\n# DeNet Node Monitor & Auto-Restart Script\n# User: maqbool | Ubuntu VM\n# v4.0 \u2014 Per-node uptime, UTC+IST time, DuckDNS, port/RPC per node\n# ============================================================\n\n# --- Telegram Config ---\nTELEGRAM_BOT_TOKEN=\"YOUR_TELEGRAM_BOT_TOKEN\"\nTELEGRAM_CHAT_ID=\"YOUR_TELEGRAM_CHAT_ID\"\n\n# --- DuckDNS Config ---\nDUCKDNS_TOKEN=\"YOUR_DUCKDNS_TOKEN\"\nDUCKDNS_DOMAIN=\"YOUR_DUCKDNS_DOMAIN\"\n\n# --- Node Config ---\nDENODE_BIN=\"/usr/bin/denode\"\nWALLET_ADDRESS=\"YOUR_WALLET_ADDRESS\"\nLICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)  # Add all your license numbers\n\n# Per-node ports (from manager_config.yaml)\ndeclare -A NODE_PORT\nNODE_PORT[YOUR_LICENSE_1]=YOUR_PORT_1\nNODE_PORT[YOUR_LICENSE_2]=YOUR_PORT_2\nNODE_PORT[YOUR_LICENSE_3]=YOUR_PORT_3\nNODE_PORT[YOUR_LICENSE_4]=YOUR_PORT_4\nNODE_PORT[YOUR_LICENSE_5]=YOUR_PORT_5\nNODE_PORT[YOUR_LICENSE_6]=YOUR_PORT_6\n\n# Per-node private RPC endpoints (from manager_config.yaml)\ndeclare -A NODE_RPC\nNODE_RPC[YOUR_LICENSE_1]=\"https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_1\"\nNODE_RPC[YOUR_LICENSE_2]=\"https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_2\"\nNODE_RPC[YOUR_LICENSE_3]=\"https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_3\"\nNODE_RPC[YOUR_LICENSE_4]=\"https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_4\"\nNODE_RPC[YOUR_LICENSE_5]=\"https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_5\"\nNODE_RPC[YOUR_LICENSE_6]=\"https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_6\"\n\n# Per-node storage paths\ndeclare -A NODE_STORAGE\nNODE_STORAGE[YOUR_LICENSE_1]=\"YOUR_STORAGE_PATH/YOUR_LICENSE_1\"\nNODE_STORAGE[YOUR_LICENSE_2]=\"YOUR_STORAGE_PATH/YOUR_LICENSE_2\"\nNODE_STORAGE[YOUR_LICENSE_3]=\"YOUR_STORAGE_PATH/YOUR_LICENSE_3\"\nNODE_STORAGE[YOUR_LICENSE_4]=\"YOUR_STORAGE_PATH/YOUR_LICENSE_4\"\nNODE_STORAGE[YOUR_LICENSE_5]=\"YOUR_STORAGE_PATH/YOUR_LICENSE_5\"\nNODE_STORAGE[YOUR_LICENSE_6]=\"YOUR_STORAGE_PATH/YOUR_LICENSE_6\"\n\n# --- Log Config ---\nLOG_FILE=\"$HOME/.denode/monitor.log\"\nNODE_LOG_DIR=\"$HOME/.denode/logs\"\nHEARTBEAT_FILE=\"$HOME/.denode/.last_heartbeat\"\nDAILY_SUMMARY_FILE=\"$HOME/.denode/.last_daily_summary\"\nERROR_STATE_FILE=\"$HOME/.denode/.last_error_state\"\nRESTART_COUNT_FILE=\"$HOME/.denode/.restart_counts\"\nPID_STATE_FILE=\"$HOME/.denode/.node_pids\"\nLAST_SEEN_FILE=\"$HOME/.denode/.node_last_seen\"\nDOWNTIME_LOG=\"$HOME/.denode/.node_downtime_log\"\nSTATUS_JSON=\"/var/www/html/nodepulse/status.json\"\nmkdir -p \"$NODE_LOG_DIR\" \"$(dirname $STATUS_JSON)\" 2>/dev/null || true\ntouch \"$PID_STATE_FILE\" \"$LAST_SEEN_FILE\" \"$DOWNTIME_LOG\"\n\n# --- Disk Config ---\nDISK_ALERT_THRESHOLD=85\nSTORAGE_DRIVES=(\n  \"YOUR_STORAGE_PATH/YOUR_LICENSE_1\"\n  \"YOUR_STORAGE_PATH/YOUR_LICENSE_2\"\n  \"YOUR_STORAGE_PATH/YOUR_LICENSE_3\"\n  \"YOUR_STORAGE_PATH/YOUR_LICENSE_4\"\n  \"YOUR_STORAGE_PATH/YOUR_LICENSE_5\"\n  \"YOUR_STORAGE_PATH/YOUR_LICENSE_6\"\n)\n\n# --- Daily Summary Config ---\nDAILY_SUMMARY_HOUR=8\n\n# --- Display ---\nexport DISPLAY=:0\nexport XAUTHORITY=\"$HOME/.Xauthority\"\nexport DENODE_PASSWORD=\"YOUR_NODE_PASSWORD\"\n\n# ============================================================\n# Time Functions \u2014 UTC and IST displayed together\n# ============================================================\n\nnow_utc() {\n  date -u '+%Y-%m-%d %H:%M:%S UTC'\n}\n\nnow_ist() {\n  TZ='Asia/Kolkata' date '+%H:%M:%S IST'\n}\n\nnow_both() {\n  echo \"$(now_utc) | $(now_ist)\"\n}\n\n# ============================================================\n# Core Functions\n# ============================================================\n\nlog() {\n  echo \"[$(now_utc) | $(now_ist)] $1\" | tee -a \"$LOG_FILE\"\n}\n\nsend_telegram() {\n  local MESSAGE=\"$1\"\n  local RESPONSE\n  RESPONSE=$(curl -s --max-time 15 -X POST \\\n    \"https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage\" \\\n    -d chat_id=\"${TELEGRAM_CHAT_ID}\" \\\n    -d text=\"${MESSAGE}\" \\\n    -d parse_mode=\"HTML\" 2>&1)\n\n  if echo \"$RESPONSE\" | grep -q '\"ok\":false'; then\n    log \"\u26a0\ufe0f  Telegram API error: $RESPONSE\"\n  elif [ -z \"$RESPONSE\" ]; then\n    log \"\u26a0\ufe0f  Telegram: No response (network issue?)\"\n  fi\n}\n\nis_node_running() {\n  local LICENSE=\"$1\"\n  ps aux | grep -v grep | grep \"$DENODE_BIN\" | grep -- \"--license $LICENSE\" > /dev/null 2>&1\n  return $?\n}\n\nget_node_pid() {\n  local LICENSE=\"$1\"\n  ps aux | grep -v grep | grep \"$DENODE_BIN\" | grep -- \"--license $LICENSE\" | awk '{print $2}' | head -n 1\n}\n\n# Returns how long a node process has been running e.g. \"2d 5h 14m\" or \"45m\"\nget_node_uptime() {\n  local LICENSE=\"$1\"\n  local PID\n  PID=$(get_node_pid \"$LICENSE\")\n  if [ -z \"$PID\" ]; then\n    echo \"not running\"\n    return\n  fi\n\n  # ps etime format: [[DD-]HH:]MM:SS\n  local ETIME\n  ETIME=$(ps -o etime= -p \"$PID\" 2>/dev/null | tr -d ' ')\n\n  if [ -z \"$ETIME\" ]; then\n    echo \"unknown\"\n    return\n  fi\n\n  # Parse DD-HH:MM:SS or HH:MM:SS or MM:SS\n  local DAYS=0 HOURS=0 MINS=0 SECS=0\n\n  if echo \"$ETIME\" | grep -q '-'; then\n    DAYS=$(echo \"$ETIME\" | cut -d'-' -f1)\n    ETIME=$(echo \"$ETIME\" | cut -d'-' -f2)\n  fi\n\n  local PARTS\n  IFS=':' read -ra PARTS <<< \"$ETIME\"\n\n  case ${#PARTS[@]} in\n    3) HOURS=${PARTS[0]}; MINS=${PARTS[1]}; SECS=${PARTS[2]} ;;\n    2) MINS=${PARTS[0]}; SECS=${PARTS[1]} ;;\n    1) SECS=${PARTS[0]} ;;\n  esac\n\n  # Remove leading zeros\n  DAYS=$((10#$DAYS))\n  HOURS=$((10#$HOURS))\n  MINS=$((10#$MINS))\n\n  local RESULT=\"\"\n  [ \"$DAYS\"  -gt 0 ] && RESULT=\"${DAYS}d \"\n  [ \"$HOURS\" -gt 0 ] && RESULT=\"${RESULT}${HOURS}h \"\n  [ \"$MINS\"  -gt 0 ] && RESULT=\"${RESULT}${MINS}m\"\n  [ -z \"$RESULT\"   ] && RESULT=\"< 1m\"\n\n  echo \"$RESULT\"\n}\n\nrestart_node() {\n  local LICENSE=\"$1\"\n  local OLD_PID\n  OLD_PID=$(get_node_pid \"$LICENSE\")\n\n  # Calculate downtime before restart\n  local LAST_SEEN OFFLINE_DURATION WENT_DOWN_UTC\n  LAST_SEEN=$(get_last_seen \"$LICENSE\")\n  if [ -n \"$LAST_SEEN\" ]; then\n    local NOW\n    NOW=$(date +%s)\n    local OFFLINE_SECS=$(( NOW - LAST_SEEN ))\n    OFFLINE_DURATION=$(format_duration \"$OFFLINE_SECS\")\n    WENT_DOWN_UTC=$(date -u -d \"@${LAST_SEEN}\" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \\\n                    date -u -r \"$LAST_SEEN\" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)\n  else\n    OFFLINE_DURATION=\"unknown\"\n    WENT_DOWN_UTC=\"unknown\"\n  fi\n\n  log \"Restarting node $LICENSE (last seen alive: ${WENT_DOWN_UTC}, offline ~${OFFLINE_DURATION})...\"\n  nohup \"$DENODE_BIN\" \\\n    --address \"$WALLET_ADDRESS\" \\\n    --license \"$LICENSE\" \\\n    >> \"$NODE_LOG_DIR/node-${LICENSE}.log\" 2>&1 &\n  sleep 3\n  if is_node_running \"$LICENSE\"; then\n    local NEW_PID\n    NEW_PID=$(get_node_pid \"$LICENSE\")\n    increment_restart_count \"$LICENSE\"\n    local TOTAL_RESTARTS\n    TOTAL_RESTARTS=$(get_restart_count \"$LICENSE\")\n    # Update PID state and last seen\n    save_pid \"$LICENSE\" \"$NEW_PID\"\n    update_last_seen \"$LICENSE\"\n    # Log downtime event\n    echo \"${LICENSE}|$(date -u '+%Y-%m-%d %H:%M:%S UTC')|${WENT_DOWN_UTC}|${OFFLINE_DURATION}|${OLD_PID:-unknown}|${NEW_PID}\" >> \"$DOWNTIME_LOG\"\n    log \"\u2705 Node $LICENSE restarted (PID: $NEW_PID, offline ~${OFFLINE_DURATION}, Total restarts: $TOTAL_RESTARTS)\"\n    send_telegram \"\u2705 <b>DeNet Node Restarted</b>\n\ud83d\udd11 License: <code>${LICENSE}</code>\n\ud83c\udd94 Old PID: <code>${OLD_PID:-unknown}</code> \u2192 New PID: <code>${NEW_PID}</code>\n\ud83d\udd04 Total Restarts: <b>${TOTAL_RESTARTS}</b>\n\ud83d\udcc5 Last seen alive: <b>${WENT_DOWN_UTC}</b>\n\u23f1 Was offline for: <b>${OFFLINE_DURATION}</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\"\n  else\n    log \"\u274c Node $LICENSE FAILED to restart!\"\n    send_telegram \"\u274c <b>DeNet Node FAILED to Restart</b>\n\ud83d\udd11 License: <code>${LICENSE}</code>\n\u26a0\ufe0f Manual intervention required!\n\ud83d\udcc5 Last seen alive: <b>${WENT_DOWN_UTC}</b>\n\u23f1 Was offline for: <b>${OFFLINE_DURATION}</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\"\n  fi\n}\n\n# ============================================================\n# Restart Counter Functions\n# ============================================================\n\nincrement_restart_count() {\n  local LICENSE=\"$1\"\n  local CURRENT\n  CURRENT=$(get_restart_count \"$LICENSE\")\n  local NEW_COUNT=$(( CURRENT + 1 ))\n  if [ -f \"$RESTART_COUNT_FILE\" ]; then\n    sed -i \"/^${LICENSE}=/d\" \"$RESTART_COUNT_FILE\"\n  fi\n  echo \"${LICENSE}=${NEW_COUNT}\" >> \"$RESTART_COUNT_FILE\"\n}\n\nget_restart_count() {\n  local LICENSE=\"$1\"\n  if [ ! -f \"$RESTART_COUNT_FILE\" ]; then\n    echo \"0\"\n    return\n  fi\n  local COUNT\n  COUNT=$(grep \"^${LICENSE}=\" \"$RESTART_COUNT_FILE\" 2>/dev/null | cut -d= -f2)\n  echo \"${COUNT:-0}\"\n}\n\nget_all_restart_counts() {\n  local LINES=\"\"\n  for LIC in \"${LICENSES[@]}\"; do\n    local COUNT\n    COUNT=$(get_restart_count \"$LIC\")\n    local ICON=\"\ud83d\udfe2\"\n    [ \"$COUNT\" -gt 0 ] && ICON=\"\ud83d\udd04\"\n    [ \"$COUNT\" -ge 5 ] && ICON=\"\ud83d\udd34\"\n    LINES=\"${LINES}${ICON} Node <code>${LIC}</code> \u2014 restarted <b>${COUNT}</b> time(s)\\n\"\n  done\n  echo -e \"$LINES\"\n}\n\nreset_restart_counts() {\n  > \"$RESTART_COUNT_FILE\"\n  log \"\ud83d\udd04 Restart counts reset.\"\n}\n\n# ============================================================\n# PID Tracking & Downtime Functions\n# ============================================================\n\nget_saved_pid() {\n  local LICENSE=\"$1\"\n  local VAL\n  VAL=$(grep \"^${LICENSE}=\" \"$PID_STATE_FILE\" 2>/dev/null | cut -d= -f2)\n  echo \"${VAL:-}\"\n}\n\nsave_pid() {\n  local LICENSE=\"$1\"\n  local PID=\"$2\"\n  sed -i \"/^${LICENSE}=/d\" \"$PID_STATE_FILE\" 2>/dev/null\n  echo \"${LICENSE}=${PID}\" >> \"$PID_STATE_FILE\"\n}\n\nupdate_last_seen() {\n  local LICENSE=\"$1\"\n  local NOW\n  NOW=$(date +%s)\n  sed -i \"/^${LICENSE}=/d\" \"$LAST_SEEN_FILE\" 2>/dev/null\n  echo \"${LICENSE}=${NOW}\" >> \"$LAST_SEEN_FILE\"\n}\n\nget_last_seen() {\n  local LICENSE=\"$1\"\n  local VAL\n  VAL=$(grep \"^${LICENSE}=\" \"$LAST_SEEN_FILE\" 2>/dev/null | cut -d= -f2)\n  echo \"${VAL:-}\"\n}\n\n# Format seconds into \"Xh Ym\" or \"Xm\"\nformat_duration() {\n  local SECS=\"$1\"\n  local DAYS=$(( SECS / 86400 ))\n  local HOURS=$(( (SECS % 86400) / 3600 ))\n  local MINS=$(( (SECS % 3600) / 60 ))\n  local RESULT=\"\"\n  [ \"$DAYS\"  -gt 0 ] && RESULT=\"${DAYS}d \"\n  [ \"$HOURS\" -gt 0 ] && RESULT=\"${RESULT}${HOURS}h \"\n  RESULT=\"${RESULT}${MINS}m\"\n  echo \"$RESULT\"\n}\n\n# Called when a PID change is detected \u2014 records downtime event\nrecord_downtime_event() {\n  local LICENSE=\"$1\"\n  local OLD_PID=\"$2\"\n  local NEW_PID=\"$3\"\n  local LAST_SEEN\n  LAST_SEEN=$(get_last_seen \"$LICENSE\")\n  local NOW\n  NOW=$(date +%s)\n  local WENT_DOWN_AT=\"unknown\"\n  local DOWNTIME_DURATION=\"unknown\"\n  local WENT_DOWN_UTC=\"unknown\"\n\n  if [ -n \"$LAST_SEEN\" ]; then\n    # Node was last confirmed alive at LAST_SEEN\n    # It went down sometime between LAST_SEEN and NOW\n    # Best estimate: midpoint, but we report last-seen time\n    WENT_DOWN_AT=\"$LAST_SEEN\"\n    WENT_DOWN_UTC=$(date -u -d \"@${LAST_SEEN}\" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \\\n                    date -u -r \"$LAST_SEEN\" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)\n    local OFFLINE_SECS=$(( NOW - LAST_SEEN ))\n    DOWNTIME_DURATION=$(format_duration \"$OFFLINE_SECS\")\n  fi\n\n  # Save to downtime log\n  echo \"${LICENSE}|$(date -u '+%Y-%m-%d %H:%M:%S UTC')|${WENT_DOWN_UTC}|${DOWNTIME_DURATION}|${OLD_PID}|${NEW_PID}\" >> \"$DOWNTIME_LOG\"\n\n  echo \"$WENT_DOWN_UTC|$DOWNTIME_DURATION\"\n}\n\n# Check if PID changed since last heartbeat \u2014 returns info string if changed\ncheck_pid_change() {\n  local LICENSE=\"$1\"\n  local CURRENT_PID\n  CURRENT_PID=$(get_node_pid \"$LICENSE\")\n  local SAVED_PID\n  SAVED_PID=$(get_saved_pid \"$LICENSE\")\n\n  if [ -n \"$SAVED_PID\" ] && [ -n \"$CURRENT_PID\" ] && [ \"$SAVED_PID\" != \"$CURRENT_PID\" ]; then\n    # PID changed \u2014 node was restarted silently\n    local INFO\n    INFO=$(record_downtime_event \"$LICENSE\" \"$SAVED_PID\" \"$CURRENT_PID\")\n    local WENT_DOWN\n    WENT_DOWN=$(echo \"$INFO\" | cut -d'|' -f1)\n    local DURATION\n    DURATION=$(echo \"$INFO\" | cut -d'|' -f2)\n    echo \"RESTARTED|${SAVED_PID}|${CURRENT_PID}|${WENT_DOWN}|${DURATION}\"\n  else\n    echo \"OK\"\n  fi\n}\n\n# NOTE: Telegram command handling moved to denet-bot-listener.sh (systemd service)\n\n# ============================================================\n# DuckDNS Update\n# ============================================================\n\nupdate_duckdns() {\n  local RESULT\n  RESULT=$(curl -s --max-time 10 \\\n    \"https://www.duckdns.org/update?domains=${DUCKDNS_DOMAIN}&token=${DUCKDNS_TOKEN}&ip=\")\n  if [ \"$RESULT\" = \"OK\" ]; then\n    log \"\ud83c\udf10 DuckDNS updated successfully.\"\n  else\n    log \"\u26a0\ufe0f  DuckDNS update failed: $RESULT\"\n  fi\n}\n\n# ============================================================\n# Feature 1 \u2014 Disk Space Monitoring\n# ============================================================\n\ncheck_disk_space() {\n  for DRIVE in \"${STORAGE_DRIVES[@]}\"; do\n    if [ ! -d \"$DRIVE\" ]; then\n      log \"\u26a0\ufe0f  Drive $DRIVE not found or not mounted!\"\n      send_telegram \"\u26a0\ufe0f <b>DeNet Drive Not Mounted</b>\n\ud83d\udcbe Drive: <code>${DRIVE}</code>\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n<i>Check if the drive is connected and mounted correctly.</i>\"\n      continue\n    fi\n\n    local USAGE TOTAL USED FREE\n    USAGE=$(df \"$DRIVE\" | awk 'NR==2 {gsub(\"%\",\"\"); print $5}')\n    TOTAL=$(df -h \"$DRIVE\" | awk 'NR==2 {print $2}')\n    USED=$(df -h \"$DRIVE\"  | awk 'NR==2 {print $3}')\n    FREE=$(df -h \"$DRIVE\"  | awk 'NR==2 {print $4}')\n\n    log \"\ud83d\udcbe $DRIVE \u2014 ${USAGE}% used (${USED}/${TOTAL}, free: ${FREE})\"\n\n    if [ \"$USAGE\" -ge \"$DISK_ALERT_THRESHOLD\" ]; then\n      log \"\u26a0\ufe0f  Drive $DRIVE at ${USAGE}% \u2014 exceeds threshold!\"\n      send_telegram \"\u26a0\ufe0f <b>DeNet Drive Space Warning</b>\n\ud83d\udcbe Drive: <code>${DRIVE}</code>\n\ud83d\udcca Usage: <b>${USAGE}%</b> (threshold: ${DISK_ALERT_THRESHOLD}%)\n\ud83d\udce6 Used: ${USED} / ${TOTAL}\n\ud83c\udd93 Free: ${FREE}\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\"\n    fi\n  done\n}\n\nget_disk_summary() {\n  local SUMMARY=\"\"\n  for DRIVE in \"${STORAGE_DRIVES[@]}\"; do\n    if [ ! -d \"$DRIVE\" ]; then\n      SUMMARY=\"${SUMMARY}\u274c $(basename $DRIVE) \u2014 NOT MOUNTED\\n\"\n      continue\n    fi\n    local USAGE USED TOTAL FREE\n    USAGE=$(df \"$DRIVE\" | awk 'NR==2 {gsub(\"%\",\"\"); print $5}')\n    USED=$(df -h \"$DRIVE\"  | awk 'NR==2 {print $3}')\n    TOTAL=$(df -h \"$DRIVE\" | awk 'NR==2 {print $2}')\n    FREE=$(df -h \"$DRIVE\"  | awk 'NR==2 {print $4}')\n    local ICON=\"\ud83d\udfe2\"\n    [ \"$USAGE\" -ge \"$DISK_ALERT_THRESHOLD\" ] && ICON=\"\ud83d\udd34\"\n    SUMMARY=\"${SUMMARY}${ICON} $(basename $DRIVE): ${USAGE}% \u2014 ${USED}/${TOTAL} (free: ${FREE})\\n\"\n  done\n  echo -e \"$SUMMARY\"\n}\n\n# ============================================================\n# Feature 2 \u2014 Log Error Alerts\n# ============================================================\n\nERROR_PATTERNS=(\n  \"roothash mismatch|Roothash Mismatch\"\n  \"context deadline exceeded|Transaction Timeout\"\n  \"failed to unlock account|Password/Unlock Error\"\n  \"already known|Duplicate Transaction\"\n  \"connection refused|RPC Connection Refused\"\n  \"i/o timeout|Network I/O Timeout\"\n)\n\ncheck_node_errors() {\n  local LICENSE=\"$1\"\n  local LOG_A=\"$NODE_LOG_DIR/license-${LICENSE}.log\"\n  local LOG_B=\"$NODE_LOG_DIR/node-${LICENSE}.log\"\n  local NODE_LOG=\"\"\n\n  if [ -f \"$LOG_A\" ]; then\n    NODE_LOG=\"$LOG_A\"\n  elif [ -f \"$LOG_B\" ]; then\n    NODE_LOG=\"$LOG_B\"\n  else\n    return\n  fi\n\n  local RECENT_LINES\n  RECENT_LINES=$(tail -50 \"$NODE_LOG\" 2>/dev/null)\n\n  for PATTERN_ENTRY in \"${ERROR_PATTERNS[@]}\"; do\n    local PATTERN=\"${PATTERN_ENTRY%%|*}\"\n    local LABEL=\"${PATTERN_ENTRY##*|}\"\n\n    if echo \"$RECENT_LINES\" | grep -qi \"$PATTERN\"; then\n      local STATE_KEY=\"${LICENSE}_${PATTERN// /_}\"\n      local LAST_ALERTED=\"\"\n\n      if [ -f \"$ERROR_STATE_FILE\" ]; then\n        LAST_ALERTED=$(grep \"^${STATE_KEY}=\" \"$ERROR_STATE_FILE\" 2>/dev/null | cut -d= -f2)\n      fi\n\n      local NOW\n      NOW=$(date +%s)\n      local ALERT_INTERVAL=3600\n\n      if [ -z \"$LAST_ALERTED\" ] || [ $(( NOW - LAST_ALERTED )) -ge \"$ALERT_INTERVAL\" ]; then\n        local ERROR_LINE\n        ERROR_LINE=$(echo \"$RECENT_LINES\" | grep -i \"$PATTERN\" | tail -1)\n\n        log \"\u26a0\ufe0f  Node $LICENSE \u2014 $LABEL detected\"\n        send_telegram \"\u26a0\ufe0f <b>DeNet Node Error Detected</b>\n\ud83d\udd11 License: <code>${LICENSE}</code>\n\ud83d\udd34 Error: <b>${LABEL}</b>\n\ud83d\udccb Detail: <code>${ERROR_LINE}</code>\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n<i>Node process is still running. This may auto-resolve.</i>\"\n\n        if [ -f \"$ERROR_STATE_FILE\" ]; then\n          sed -i \"/^${STATE_KEY}=/d\" \"$ERROR_STATE_FILE\" 2>/dev/null\n        fi\n        echo \"${STATE_KEY}=${NOW}\" >> \"$ERROR_STATE_FILE\"\n      fi\n    fi\n  done\n}\n\n# ============================================================\n# Feature 3 \u2014 Daily Summary Report\n# ============================================================\n\nsend_daily_summary() {\n  local STATUS_LINES=\"\"\n  local UP_COUNT=0 DOWN_COUNT=0\n\n  for LICENSE in \"${LICENSES[@]}\"; do\n    if is_node_running \"$LICENSE\"; then\n      local PID UPTIME\n      PID=$(get_node_pid \"$LICENSE\")\n      UPTIME=$(get_node_uptime \"$LICENSE\")\n      STATUS_LINES=\"${STATUS_LINES}\ud83d\udfe2 <code>${LICENSE}</code> \u2014 PID <code>${PID}</code> \u2014 Up: <b>${UPTIME}</b>\\n\"\n      UP_COUNT=$(( UP_COUNT + 1 ))\n    else\n      STATUS_LINES=\"${STATUS_LINES}\ud83d\udd34 <code>${LICENSE}</code> \u2014 DOWN\\n\"\n      DOWN_COUNT=$(( DOWN_COUNT + 1 ))\n    fi\n  done\n\n  local DISK_INFO OVERALL\n  DISK_INFO=$(get_disk_summary)\n\n  if [ \"$DOWN_COUNT\" -eq 0 ]; then\n    OVERALL=\"\u2705 All 6 nodes healthy\"\n  else\n    OVERALL=\"\u26a0\ufe0f ${DOWN_COUNT} node(s) are DOWN\"\n  fi\n\n  send_telegram \"\ud83d\udcca <b>DeNet Daily Summary Report</b>\n\ud83d\udcc5 $(now_utc)\n\ud83d\udcc5 $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n<b>Node Status (${UP_COUNT}/6 online):</b>\n$(echo -e \"$STATUS_LINES\")\n<b>Overall:</b> ${OVERALL}\n\n\ud83d\udcbe <b>Disk Usage:</b>\n$(echo -e \"$DISK_INFO\")\n\ud83d\udd04 <b>Restart Counts (all-time):</b>\n$(get_all_restart_counts)\n<i>Next report tomorrow at ${DAILY_SUMMARY_HOUR}:00 AM IST</i>\"\n\n  log \"\ud83d\udcca Daily summary sent to Telegram.\"\n  date +%s > \"$DAILY_SUMMARY_FILE\"\n}\n\nshould_send_daily_summary() {\n  local CURRENT_HOUR\n  CURRENT_HOUR=$((10#$(TZ='Asia/Kolkata' date '+%H')))\n  [ \"$CURRENT_HOUR\" -ne \"$DAILY_SUMMARY_HOUR\" ] && return 1\n\n  if [ ! -f \"$DAILY_SUMMARY_FILE\" ]; then\n    return 0\n  fi\n  local LAST NOW DIFF\n  LAST=$(cat \"$DAILY_SUMMARY_FILE\")\n  NOW=$(date +%s)\n  DIFF=$(( NOW - LAST ))\n  [ \"$DIFF\" -lt 82800 ] && return 1\n  return 0\n}\n\n# ============================================================\n# Hourly Heartbeat\n# ============================================================\n\nsend_heartbeat() {\n  local STATUS_LINES=\"\"\n  local RESTART_ALERT_LINES=\"\"\n  local HAS_RESTART_ALERT=0\n\n  for LICENSE in \"${LICENSES[@]}\"; do\n    if is_node_running \"$LICENSE\"; then\n      local PID UPTIME RC\n      PID=$(get_node_pid \"$LICENSE\")\n      UPTIME=$(get_node_uptime \"$LICENSE\")\n      RC=$(get_restart_count \"$LICENSE\")\n\n      # Check if PID changed since last heartbeat\n      local PID_CHECK\n      PID_CHECK=$(check_pid_change \"$LICENSE\")\n\n      if [ \"$PID_CHECK\" != \"OK\" ]; then\n        # PID changed \u2014 silent restart detected\n        local OLD_PID WENT_DOWN OFFLINE_DURATION\n        OLD_PID=$(echo \"$PID_CHECK\" | cut -d'|' -f2)\n        WENT_DOWN=$(echo \"$PID_CHECK\" | cut -d'|' -f4)\n        OFFLINE_DURATION=$(echo \"$PID_CHECK\" | cut -d'|' -f5)\n\n        STATUS_LINES=\"${STATUS_LINES}\u26a0\ufe0f <code>${LICENSE}</code> \u2014 PID <code>${PID}</code> \u2014 Up: <b>${UPTIME}</b> \u2014 Restarts: <b>${RC}</b>\\n\"\n        RESTART_ALERT_LINES=\"${RESTART_ALERT_LINES}\u26a0\ufe0f Node <code>${LICENSE}</code> was restarted silently!\\n\"\n        RESTART_ALERT_LINES=\"${RESTART_ALERT_LINES}   \ud83d\udd34 Old PID: <code>${OLD_PID}</code> \u2192 \ud83d\udfe2 New PID: <code>${PID}</code>\\n\"\n        RESTART_ALERT_LINES=\"${RESTART_ALERT_LINES}   \ud83d\udcc5 Last seen alive: <b>${WENT_DOWN}</b>\\n\"\n        RESTART_ALERT_LINES=\"${RESTART_ALERT_LINES}   \u23f1 Was offline for: <b>${OFFLINE_DURATION}</b>\\n\"\n        HAS_RESTART_ALERT=1\n        log \"\u26a0\ufe0f PID change detected for node $LICENSE: $OLD_PID \u2192 $PID (offline ~${OFFLINE_DURATION})\"\n      else\n        STATUS_LINES=\"${STATUS_LINES}\ud83d\udfe2 <code>${LICENSE}</code> \u2014 PID <code>${PID}</code> \u2014 Up: <b>${UPTIME}</b> \u2014 Restarts: <b>${RC}</b>\\n\"\n      fi\n\n      # Update saved PID and last seen timestamp\n      save_pid \"$LICENSE\" \"$PID\"\n      update_last_seen \"$LICENSE\"\n\n    else\n      local RC\n      RC=$(get_restart_count \"$LICENSE\")\n      STATUS_LINES=\"${STATUS_LINES}\ud83d\udd34 <code>${LICENSE}</code> \u2014 <b>DOWN</b> \u2014 Restarts: <b>${RC}</b>\\n\"\n      # Don't update last_seen \u2014 it's down\n    fi\n  done\n\n  local DISK_INFO\n  DISK_INFO=$(get_disk_summary)\n\n  # Build restart section only if there were silent restarts\n  local RESTART_SECTION=\"\"\n  if [ \"$HAS_RESTART_ALERT\" -eq 1 ]; then\n    RESTART_SECTION=\"\n\u26a0\ufe0f <b>Silent Restart Detected:</b>\n$(echo -e \"$RESTART_ALERT_LINES\")\"\n  fi\n\n  send_telegram \"\ud83d\udc93 <b>DeNet Node Monitor HeartBeat</b>\n\ud83d\udccd Host: $(hostname)\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n${RESTART_SECTION}\n<b>Node Status:</b>\n$(echo -e \"$STATUS_LINES\")\n\ud83d\udcbe <b>Disk:</b>\n$(echo -e \"$DISK_INFO\")\"\n\n  log \"\ud83d\udc93 Heartbeat sent to Telegram.\"\n  date +%s > \"$HEARTBEAT_FILE\"\n}\n\nshould_send_heartbeat() {\n  local INTERVAL=3600\n  [ ! -f \"$HEARTBEAT_FILE\" ] && return 0\n  local LAST NOW DIFF\n  LAST=$(cat \"$HEARTBEAT_FILE\")\n  NOW=$(date +%s)\n  DIFF=$(( NOW - LAST ))\n  [ \"$DIFF\" -ge \"$INTERVAL\" ] && return 0\n  return 1\n}\n\n# ============================================================\n# NodePulse \u2014 Write status.json for PWA Dashboard\n# ============================================================\n\nwrite_status_json() {\n  local DENODE_VERSION\n  DENODE_VERSION=$(\"$DENODE_BIN\" --version 2>/dev/null | head -1 || echo \"unknown\")\n\n  python3 - <<PYEOF\nimport json, os, subprocess\nfrom datetime import datetime, timezone\n\nlicenses  = [1072, 1864, 1865, 1866, 1867, 2157]\npid_file  = os.path.expanduser(\"$PID_STATE_FILE\")\nseen_file = os.path.expanduser(\"$LAST_SEEN_FILE\")\nrc_file   = os.path.expanduser(\"$RESTART_COUNT_FILE\")\ndt_log    = os.path.expanduser(\"$DOWNTIME_LOG\")\ndrives    = [\"/mnt/Denet-Storage/\" + str(l) for l in licenses]\n\ndef read_kv(path):\n    out = {}\n    try:\n        for line in open(path):\n            if \"=\" in line:\n                k, v = line.strip().split(\"=\", 1)\n                out[k] = v\n    except: pass\n    return out\n\nsaved_pids  = read_kv(pid_file)\nlast_seen   = read_kv(seen_file)\nrestart_cnt = read_kv(rc_file)\n\ndef get_last_downtime(lic):\n    try:\n        lines = [l for l in open(dt_log) if l.startswith(str(lic)+\"|\")]\n        if not lines: return None\n        parts = lines[-1].strip().split(\"|\")\n        return {\"restarted_at\": parts[1], \"last_alive\": parts[2],\n                \"offline_duration\": parts[3], \"old_pid\": parts[4], \"new_pid\": parts[5]}\n    except: return None\n\ndef get_ps_info(lic):\n    try:\n        r = subprocess.run([\"ps\", \"aux\"], capture_output=True, text=True)\n        for line in r.stdout.splitlines():\n            if \"/usr/bin/denode\" in line and f\"--license {lic}\" in line and \"grep\" not in line:\n                parts = line.split()\n                pid = parts[1]\n                # get uptime\n                r2 = subprocess.run([\"ps\", \"-o\", \"etime=\", \"-p\", pid],\n                                     capture_output=True, text=True)\n                etime = r2.stdout.strip()\n                return pid, etime\n    except: pass\n    return None, None\n\ndef parse_etime(et):\n    if not et: return \"unknown\"\n    days, hours, mins = 0, 0, 0\n    if \"-\" in et:\n        days, et = et.split(\"-\", 1)\n        days = int(days)\n    parts = et.split(\":\")\n    if len(parts) == 3: hours, mins = int(parts[0]), int(parts[1])\n    elif len(parts) == 2: mins = int(parts[0])\n    r = \"\"\n    if days:  r += f\"{days}d \"\n    if hours: r += f\"{hours}h \"\n    r += f\"{mins}m\"\n    return r.strip() or \"< 1m\"\n\ndef get_disk(drive):\n    try:\n        r = subprocess.run([\"df\", \"-h\", drive], capture_output=True, text=True)\n        parts = r.stdout.splitlines()[1].split()\n        pct = int(parts[4].replace(\"%\",\"\"))\n        return {\"used\": parts[2], \"total\": parts[1], \"free\": parts[3], \"pct\": pct}\n    except: return None\n\nnow_ts = datetime.now(timezone.utc).strftime(\"%Y-%m-%d %H:%M:%S UTC\")\nnodes = []\nfor lic in licenses:\n    pid, etime = get_ps_info(lic)\n    running   = pid is not None\n    saved_pid = saved_pids.get(str(lic), \"\")\n    pid_changed = saved_pid and pid and saved_pid != pid\n    ls_ts = last_seen.get(str(lic), \"\")\n    last_seen_str = \"\"\n    if ls_ts:\n        try:\n            dt = datetime.fromtimestamp(int(ls_ts), tz=timezone.utc)\n            last_seen_str = dt.strftime(\"%Y-%m-%d %H:%M:%S UTC\")\n        except: pass\n    disk = get_disk(f\"/mnt/Denet-Storage/{lic}\")\n    nodes.append({\n        \"license\":        lic,\n        \"status\":         \"running\" if running else \"down\",\n        \"pid\":            pid or \"\",\n        \"uptime\":         parse_etime(etime) if running else \"\",\n        \"restarts\":       int(restart_cnt.get(str(lic), 0)),\n        \"pid_changed\":    bool(pid_changed),\n        \"old_pid\":        saved_pid if pid_changed else \"\",\n        \"last_seen\":      last_seen_str,\n        \"last_downtime\":  get_last_downtime(lic),\n        \"disk\":           disk\n    })\n\ndata = {\n    \"app\":     \"NodePulse\",\n    \"version\": \"${DENODE_VERSION}\",\n    \"host\":    \"$(hostname)\",\n    \"updated\": now_ts,\n    \"nodes\":   nodes\n}\n\nout = \"$STATUS_JSON\"\nos.makedirs(os.path.dirname(out), exist_ok=True)\nwith open(out, \"w\") as f:\n    json.dump(data, f, indent=2)\nprint(f\"status.json written \u2192 {out}\")\nPYEOF\n  log \"\ud83d\udce1 status.json updated for NodePulse.\"\n}\n\n# ============================================================\n# Main Monitor Loop\n# ============================================================\n\nlog \"========== DeNet Monitor Run Started ==========\"\n\nDOWN_COUNT=0\n\n# 1. Update DuckDNS\nupdate_duckdns\n\n# 2. Check node processes\nfor LICENSE in \"${LICENSES[@]}\"; do\n  if is_node_running \"$LICENSE\"; then\n    PID=$(get_node_pid \"$LICENSE\")\n    UPTIME=$(get_node_uptime \"$LICENSE\")\n    log \"\u2705 Node $LICENSE is running (PID: $PID, Uptime: $UPTIME)\"\n    # Always update last-seen so we know exactly when it was last alive\n    update_last_seen \"$LICENSE\"\n  else\n    log \"\u26a0\ufe0f  Node $LICENSE is DOWN \u2014 attempting restart...\"\n    DOWN_COUNT=$((DOWN_COUNT + 1))\n    send_telegram \"\u26a0\ufe0f <b>DeNet Node Down Detected</b>\n\ud83d\udd11 License: <code>${LICENSE}</code>\n\ud83d\udd04 Attempting restart...\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\"\n    restart_node \"$LICENSE\"\n  fi\ndone\n\n[ \"$DOWN_COUNT\" -eq 0 ] && log \"All 6 nodes running normally.\" || log \"$DOWN_COUNT node(s) were restarted.\"\n\n# 3. Check disk space\ncheck_disk_space\n\n# 4. Check node logs for errors\nlog \"--- Checking node logs for errors ---\"\nfor LICENSE in \"${LICENSES[@]}\"; do\n  check_node_errors \"$LICENSE\"\ndone\n\n# 5. Hourly heartbeat\nif should_send_heartbeat; then\n  send_heartbeat\nfi\n\n# 6. Daily summary\nif should_send_daily_summary; then\n  send_daily_summary\nfi\n\n# 7. Write status.json for NodePulse dashboard\nwrite_status_json\n\nlog \"========== DeNet Monitor Run Finished ==========\"\n",
-  bot:        "#!/bin/bash\n\n# ============================================================\n# DeNet Telegram Bot Listener\n# User: maqbool | Ubuntu VM\n# Runs as a systemd service \u2014 always alive, instant response\n# v1.0\n# ============================================================\n\n# --- Telegram Config ---\nTELEGRAM_BOT_TOKEN=\"YOUR_TELEGRAM_BOT_TOKEN\"\nTELEGRAM_CHAT_ID=\"YOUR_TELEGRAM_CHAT_ID\"\n\n# --- Node Config ---\nDENODE_BIN=\"/usr/bin/denode\"\nWALLET_ADDRESS=\"YOUR_WALLET_ADDRESS\"\nLICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)  # Add all your license numbers\n\n# --- Paths ---\nNODE_LOG_DIR=\"$HOME/.denode/logs\"\nRESTART_COUNT_FILE=\"$HOME/.denode/.restart_counts\"\nPID_STATE_FILE=\"$HOME/.denode/.node_pids\"\nLAST_SEEN_FILE=\"$HOME/.denode/.node_last_seen\"\nDOWNTIME_LOG=\"$HOME/.denode/.node_downtime_log\"\nOFFSET_FILE=\"$HOME/.denode/.bot_offset\"\nBOT_LOG=\"$HOME/.denode/bot-listener.log\"\n\nmkdir -p \"$NODE_LOG_DIR\"\ntouch \"$RESTART_COUNT_FILE\" \"$PID_STATE_FILE\" \"$LAST_SEEN_FILE\" \"$DOWNTIME_LOG\"\n\n# ============================================================\n# Time\n# ============================================================\n\nnow_utc() { date -u '+%Y-%m-%d %H:%M:%S UTC'; }\nnow_ist() { TZ='Asia/Kolkata' date '+%H:%M:%S IST'; }\n\n# ============================================================\n# Logging\n# ============================================================\n\nlog() {\n  echo \"[$(now_utc) | $(now_ist)] $1\" | tee -a \"$BOT_LOG\"\n}\n\n# ============================================================\n# Node Helpers\n# ============================================================\n\nis_node_running() {\n  local LICENSE=\"$1\"\n  ps aux | grep -v grep | grep \"$DENODE_BIN\" | grep -- \"--license $LICENSE\" > /dev/null 2>&1\n}\n\nget_node_pid() {\n  local LICENSE=\"$1\"\n  ps aux | grep -v grep | grep \"$DENODE_BIN\" | grep -- \"--license $LICENSE\" | awk '{print $2}' | head -n 1\n}\n\nget_node_uptime() {\n  local LICENSE=\"$1\"\n  local PID\n  PID=$(get_node_pid \"$LICENSE\")\n  [ -z \"$PID\" ] && echo \"not running\" && return\n\n  local ETIME\n  ETIME=$(ps -o etime= -p \"$PID\" 2>/dev/null | tr -d ' ')\n  [ -z \"$ETIME\" ] && echo \"unknown\" && return\n\n  local DAYS=0 HOURS=0 MINS=0\n  if echo \"$ETIME\" | grep -q '-'; then\n    DAYS=$(echo \"$ETIME\" | cut -d'-' -f1)\n    ETIME=$(echo \"$ETIME\" | cut -d'-' -f2)\n  fi\n\n  local PARTS\n  IFS=':' read -ra PARTS <<< \"$ETIME\"\n  case ${#PARTS[@]} in\n    3) HOURS=${PARTS[0]}; MINS=${PARTS[1]} ;;\n    2) MINS=${PARTS[0]} ;;\n  esac\n\n  DAYS=$((10#$DAYS)); HOURS=$((10#$HOURS)); MINS=$((10#$MINS))\n\n  local RESULT=\"\"\n  [ \"$DAYS\"  -gt 0 ] && RESULT=\"${DAYS}d \"\n  [ \"$HOURS\" -gt 0 ] && RESULT=\"${RESULT}${HOURS}h \"\n  [ \"$MINS\"  -gt 0 ] && RESULT=\"${RESULT}${MINS}m\"\n  [ -z \"$RESULT\"   ] && RESULT=\"&lt; 1m\"\n  echo \"$RESULT\"\n}\n\n# ============================================================\n# Restart Counter\n# ============================================================\n\nget_restart_count() {\n  local LICENSE=\"$1\"\n  local COUNT\n  COUNT=$(grep \"^${LICENSE}=\" \"$RESTART_COUNT_FILE\" 2>/dev/null | cut -d= -f2)\n  echo \"${COUNT:-0}\"\n}\n\nincrement_restart_count() {\n  local LICENSE=\"$1\"\n  local CURRENT NEW_COUNT\n  CURRENT=$(get_restart_count \"$LICENSE\")\n  NEW_COUNT=$(( CURRENT + 1 ))\n  sed -i \"/^${LICENSE}=/d\" \"$RESTART_COUNT_FILE\" 2>/dev/null\n  echo \"${LICENSE}=${NEW_COUNT}\" >> \"$RESTART_COUNT_FILE\"\n}\n\nreset_restart_counts() {\n  > \"$RESTART_COUNT_FILE\"\n  log \"Restart counts reset.\"\n}\n\n# ============================================================\n# PID Tracking & Downtime Functions\n# (shared state files with denet-monitor.sh)\n# ============================================================\n\nget_saved_pid() {\n  local LICENSE=\"$1\"\n  local VAL\n  VAL=$(grep \"^${LICENSE}=\" \"$PID_STATE_FILE\" 2>/dev/null | cut -d= -f2)\n  echo \"${VAL:-}\"\n}\n\nget_last_seen() {\n  local LICENSE=\"$1\"\n  local VAL\n  VAL=$(grep \"^${LICENSE}=\" \"$LAST_SEEN_FILE\" 2>/dev/null | cut -d= -f2)\n  echo \"${VAL:-}\"\n}\n\nformat_duration() {\n  local SECS=\"$1\"\n  local DAYS=$(( SECS / 86400 ))\n  local HOURS=$(( (SECS % 86400) / 3600 ))\n  local MINS=$(( (SECS % 3600) / 60 ))\n  local RESULT=\"\"\n  [ \"$DAYS\"  -gt 0 ] && RESULT=\"${DAYS}d \"\n  [ \"$HOURS\" -gt 0 ] && RESULT=\"${RESULT}${HOURS}h \"\n  RESULT=\"${RESULT}${MINS}m\"\n  echo \"$RESULT\"\n}\n\n# Returns downtime info for a node if its PID changed\nget_pid_change_info() {\n  local LICENSE=\"$1\"\n  local CURRENT_PID\n  CURRENT_PID=$(get_node_pid \"$LICENSE\")\n  local SAVED_PID\n  SAVED_PID=$(get_saved_pid \"$LICENSE\")\n\n  if [ -n \"$SAVED_PID\" ] && [ -n \"$CURRENT_PID\" ] && [ \"$SAVED_PID\" != \"$CURRENT_PID\" ]; then\n    local LAST_SEEN NOW OFFLINE_SECS OFFLINE_DURATION WENT_DOWN_UTC\n    LAST_SEEN=$(get_last_seen \"$LICENSE\")\n    NOW=$(date +%s)\n    if [ -n \"$LAST_SEEN\" ]; then\n      OFFLINE_SECS=$(( NOW - LAST_SEEN ))\n      OFFLINE_DURATION=$(format_duration \"$OFFLINE_SECS\")\n      WENT_DOWN_UTC=$(date -u -d \"@${LAST_SEEN}\" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \\\n                      date -u -r \"$LAST_SEEN\" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)\n    else\n      OFFLINE_DURATION=\"unknown\"\n      WENT_DOWN_UTC=\"unknown\"\n    fi\n    echo \"CHANGED|${SAVED_PID}|${CURRENT_PID}|${WENT_DOWN_UTC}|${OFFLINE_DURATION}\"\n  else\n    echo \"SAME\"\n  fi\n}\n\n# Get last downtime event for a node from the log\nget_last_downtime() {\n  local LICENSE=\"$1\"\n  if [ ! -f \"$DOWNTIME_LOG\" ]; then echo \"No history yet.\"; return; fi\n  local LAST\n  LAST=$(grep \"^${LICENSE}|\" \"$DOWNTIME_LOG\" 2>/dev/null | tail -1)\n  if [ -z \"$LAST\" ]; then echo \"No recorded downtime.\"; return; fi\n  local RESTART_AT WENT_DOWN DURATION OLD_PID NEW_PID\n  RESTART_AT=$(echo \"$LAST\" | cut -d'|' -f2)\n  WENT_DOWN=$(echo \"$LAST\" | cut -d'|' -f3)\n  DURATION=$(echo \"$LAST\" | cut -d'|' -f4)\n  OLD_PID=$(echo \"$LAST\" | cut -d'|' -f5)\n  NEW_PID=$(echo \"$LAST\" | cut -d'|' -f6)\n  echo \"Last down: ${WENT_DOWN} | Offline: ${DURATION} | Restarted: ${RESTART_AT} | PID: ${OLD_PID}\u2192${NEW_PID}\"\n}\n\n# ============================================================\n# Telegram\n# ============================================================\n\nsend_message() {\n  local CHAT_ID=\"$1\"\n  local TEXT=\"$2\"\n  curl -s --max-time 15 -X POST \\\n    \"https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage\" \\\n    -d chat_id=\"${CHAT_ID}\" \\\n    -d text=\"${TEXT}\" \\\n    -d parse_mode=\"HTML\" > /dev/null 2>&1\n}\n\nget_updates() {\n  local OFFSET=\"$1\"\n  curl -s --max-time 35 \\\n    \"https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${OFFSET}&limit=10&timeout=30\"\n}\n\n# ============================================================\n# Command Handlers\n# ============================================================\n\ncmd_status() {\n  local CHAT_ID=\"$1\"\n  local LINES=\"\"\n  local RESTART_SECTION=\"\"\n  local HAS_ALERT=0\n\n  for LICENSE in \"${LICENSES[@]}\"; do\n    if is_node_running \"$LICENSE\"; then\n      local PID UPTIME RC\n      PID=$(get_node_pid \"$LICENSE\")\n      UPTIME=$(get_node_uptime \"$LICENSE\")\n      RC=$(get_restart_count \"$LICENSE\")\n\n      # Check for silent PID change\n      local PID_INFO\n      PID_INFO=$(get_pid_change_info \"$LICENSE\")\n\n      if [ \"$PID_INFO\" != \"SAME\" ]; then\n        local OLD_PID WENT_DOWN OFFLINE_DUR\n        OLD_PID=$(echo \"$PID_INFO\" | cut -d'|' -f2)\n        WENT_DOWN=$(echo \"$PID_INFO\" | cut -d'|' -f4)\n        OFFLINE_DUR=$(echo \"$PID_INFO\" | cut -d'|' -f5)\n        LINES=\"${LINES}\u26a0\ufe0f <code>${LICENSE}</code> \u2014 PID <code>${PID}</code> \u2014 Up: <b>${UPTIME}</b> \u2014 Restarts: <b>${RC}</b>\\n\"\n        RESTART_SECTION=\"${RESTART_SECTION}\u26a0\ufe0f <code>${LICENSE}</code> restarted silently!\\n\"\n        RESTART_SECTION=\"${RESTART_SECTION}   \ud83d\udd34 Old PID: <code>${OLD_PID}</code> \u2192 \ud83d\udfe2 New: <code>${PID}</code>\\n\"\n        RESTART_SECTION=\"${RESTART_SECTION}   \ud83d\udcc5 Last alive: <b>${WENT_DOWN}</b>\\n\"\n        RESTART_SECTION=\"${RESTART_SECTION}   \u23f1 Offline for: <b>${OFFLINE_DUR}</b>\\n\"\n        HAS_ALERT=1\n      else\n        LINES=\"${LINES}\ud83d\udfe2 <code>${LICENSE}</code> \u2014 PID <code>${PID}</code> \u2014 Up: <b>${UPTIME}</b> \u2014 Restarts: <b>${RC}</b>\\n\"\n      fi\n    else\n      local RC LAST_SEEN_TS LAST_SEEN_STR\n      RC=$(get_restart_count \"$LICENSE\")\n      LAST_SEEN_TS=$(get_last_seen \"$LICENSE\")\n      if [ -n \"$LAST_SEEN_TS\" ]; then\n        LAST_SEEN_STR=$(date -u -d \"@${LAST_SEEN_TS}\" '+%H:%M UTC' 2>/dev/null || \\\n                        date -u -r \"$LAST_SEEN_TS\" '+%H:%M UTC' 2>/dev/null)\n        LINES=\"${LINES}\ud83d\udd34 <code>${LICENSE}</code> \u2014 <b>DOWN</b> \u2014 Last seen: ${LAST_SEEN_STR} \u2014 Restarts: <b>${RC}</b>\\n\"\n      else\n        LINES=\"${LINES}\ud83d\udd34 <code>${LICENSE}</code> \u2014 <b>DOWN</b> \u2014 Restarts: <b>${RC}</b>\\n\"\n      fi\n    fi\n  done\n\n  local ALERT_BLOCK=\"\"\n  [ \"$HAS_ALERT\" -eq 1 ] && ALERT_BLOCK=\"\n\u26a0\ufe0f <b>Silent Restarts Detected:</b>\n$(echo -e \"$RESTART_SECTION\")\"\n\n  send_message \"$CHAT_ID\" \"\ud83d\udcca <b>DeNet Node Monitor HeartBeat</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\n${ALERT_BLOCK}\n<b>Node Status:</b>\n$(echo -e \"$LINES\")\"\n}\n\ncmd_restarts() {\n  local CHAT_ID=\"$1\"\n  local LINES=\"\"\n  for LICENSE in \"${LICENSES[@]}\"; do\n    local COUNT ICON\n    COUNT=$(get_restart_count \"$LICENSE\")\n    ICON=\"\ud83d\udfe2\"\n    [ \"$COUNT\" -gt 0 ] && ICON=\"\ud83d\udd04\"\n    [ \"$COUNT\" -ge 5 ] && ICON=\"\ud83d\udd34\"\n    LINES=\"${LINES}${ICON} Node <code>${LICENSE}</code> \u2014 <b>${COUNT}</b> restart(s)\\n\"\n  done\n\n  send_message \"$CHAT_ID\" \"\ud83d\udd04 <b>DeNet Node Restart Counts</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\n\n$(echo -e \"$LINES\")\n<i>Use /resetcounts to reset all to zero</i>\"\n}\n\ncmd_restart_node() {\n  local CHAT_ID=\"$1\"\n  local LICENSE=\"$2\"\n\n  # Validate license\n  local VALID=0\n  for L in \"${LICENSES[@]}\"; do\n    [ \"$L\" = \"$LICENSE\" ] && VALID=1 && break\n  done\n\n  if [ \"$VALID\" -eq 0 ]; then\n    send_message \"$CHAT_ID\" \"\u274c <b>Unknown license:</b> <code>${LICENSE}</code>\n\nValid licenses: 1072, 1864, 1865, 1866, 1867, 2157\"\n    return\n  fi\n\n  send_message \"$CHAT_ID\" \"\ud83d\udd04 <b>Restarting Node ${LICENSE}...</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\n\n<i>Please wait...</i>\"\n\n  log \"Manual restart requested for node $LICENSE\"\n\n  # Kill existing process\n  local OLD_PID\n  OLD_PID=$(get_node_pid \"$LICENSE\")\n  if [ -n \"$OLD_PID\" ]; then\n    kill \"$OLD_PID\" 2>/dev/null\n    sleep 2\n  fi\n\n  # Start node\n  nohup \"$DENODE_BIN\" \\\n    --address \"$WALLET_ADDRESS\" \\\n    --license \"$LICENSE\" \\\n    >> \"$NODE_LOG_DIR/node-${LICENSE}.log\" 2>&1 &\n\n  sleep 4\n\n  if is_node_running \"$LICENSE\"; then\n    local NEW_PID\n    NEW_PID=$(get_node_pid \"$LICENSE\")\n    increment_restart_count \"$LICENSE\"\n    local TOTAL\n    TOTAL=$(get_restart_count \"$LICENSE\")\n    log \"Node $LICENSE restarted successfully (PID: $NEW_PID, Total restarts: $TOTAL)\"\n    send_message \"$CHAT_ID\" \"\u2705 <b>Node ${LICENSE} Restarted</b>\n\ud83c\udd94 New PID: <code>${NEW_PID}</code>\n\ud83d\udd04 Total Restarts: <b>${TOTAL}</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n\u26a0\ufe0f This used 1 PEAQ transaction\"\n  else\n    log \"Node $LICENSE FAILED to restart!\"\n    send_message \"$CHAT_ID\" \"\u274c <b>Node ${LICENSE} Failed to Restart!</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\n\n\u26a0\ufe0f Manual intervention required on the VM.\"\n  fi\n}\n\ncmd_restart_all() {\n  local CHAT_ID=\"$1\"\n\n  send_message \"$CHAT_ID\" \"\ud83d\udd04 <b>Restarting ALL 6 Nodes...</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\n\n\u26a0\ufe0f This will cost <b>6 PEAQ transactions</b>\n<i>Starting restart sequence...</i>\"\n\n  log \"Manual restart ALL requested\"\n\n  local SUCCESS=0 FAILED=0\n\n  for LICENSE in \"${LICENSES[@]}\"; do\n    local OLD_PID\n    OLD_PID=$(get_node_pid \"$LICENSE\")\n    [ -n \"$OLD_PID\" ] && kill \"$OLD_PID\" 2>/dev/null && sleep 1\n\n    nohup \"$DENODE_BIN\" \\\n      --address \"$WALLET_ADDRESS\" \\\n      --license \"$LICENSE\" \\\n      >> \"$NODE_LOG_DIR/node-${LICENSE}.log\" 2>&1 &\n\n    sleep 4\n\n    if is_node_running \"$LICENSE\"; then\n      increment_restart_count \"$LICENSE\"\n      SUCCESS=$((SUCCESS + 1))\n      log \"Node $LICENSE restarted OK\"\n    else\n      FAILED=$((FAILED + 1))\n      log \"Node $LICENSE FAILED to restart\"\n    fi\n  done\n\n  local RESULT_LINES=\"\"\n  for LICENSE in \"${LICENSES[@]}\"; do\n    if is_node_running \"$LICENSE\"; then\n      local PID RC\n      PID=$(get_node_pid \"$LICENSE\")\n      RC=$(get_restart_count \"$LICENSE\")\n      RESULT_LINES=\"${RESULT_LINES}\u2705 <code>${LICENSE}</code> \u2014 PID <code>${PID}</code> \u2014 Restarts: <b>${RC}</b>\\n\"\n    else\n      RESULT_LINES=\"${RESULT_LINES}\u274c <code>${LICENSE}</code> \u2014 FAILED\\n\"\n    fi\n  done\n\n  send_message \"$CHAT_ID\" \"$([ \"$FAILED\" -eq 0 ] && echo \"\u2705\" || echo \"\u26a0\ufe0f\") <b>Restart All Complete</b>\n\u2705 Success: <b>${SUCCESS}/6</b>\n$([ \"$FAILED\" -gt 0 ] && echo \"\u274c Failed: <b>${FAILED}/6</b>\")\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n$(echo -e \"$RESULT_LINES\")\"\n}\n\ncmd_reset_counts() {\n  local CHAT_ID=\"$1\"\n  reset_restart_counts\n  send_message \"$CHAT_ID\" \"\u2705 <b>All restart counts reset to 0</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\"\n}\n\ncmd_disk() {\n  local CHAT_ID=\"$1\"\n  local LINES=\"\"\n  local STORAGE_DRIVES=(\n    \"YOUR_STORAGE_PATH/YOUR_LICENSE_1\"\n    \"YOUR_STORAGE_PATH/YOUR_LICENSE_2\"\n    \"YOUR_STORAGE_PATH/YOUR_LICENSE_3\"\n    \"YOUR_STORAGE_PATH/YOUR_LICENSE_4\"\n    \"YOUR_STORAGE_PATH/YOUR_LICENSE_5\"\n    \"YOUR_STORAGE_PATH/YOUR_LICENSE_6\"\n  )\n\n  for DRIVE in \"${STORAGE_DRIVES[@]}\"; do\n    if [ ! -d \"$DRIVE\" ]; then\n      LINES=\"${LINES}\u274c $(basename $DRIVE) \u2014 NOT MOUNTED\\n\"\n      continue\n    fi\n    local USAGE USED TOTAL FREE ICON\n    USAGE=$(df \"$DRIVE\" | awk 'NR==2 {gsub(\"%\",\"\"); print $5}')\n    USED=$(df -h \"$DRIVE\" | awk 'NR==2 {print $3}')\n    TOTAL=$(df -h \"$DRIVE\" | awk 'NR==2 {print $2}')\n    FREE=$(df -h \"$DRIVE\" | awk 'NR==2 {print $4}')\n    ICON=\"\ud83d\udfe2\"\n    [ \"$USAGE\" -ge 85 ] && ICON=\"\ud83d\udd34\"\n    [ \"$USAGE\" -ge 70 ] && [ \"$USAGE\" -lt 85 ] && ICON=\"\ud83d\udfe1\"\n    LINES=\"${LINES}${ICON} <code>$(basename $DRIVE)</code>: ${USAGE}% \u2014 ${USED}/${TOTAL} (free: ${FREE})\\n\"\n  done\n\n  send_message \"$CHAT_ID\" \"\ud83d\udcbe <b>DeNet Disk Usage</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\n\n$(echo -e \"$LINES\")\"\n}\n\ncmd_version() {\n  local CHAT_ID=\"$1\"\n  local VER\n  VER=$(\"$DENODE_BIN\" --version 2>/dev/null | head -1 || echo \"unknown\")\n  send_message \"$CHAT_ID\" \"\ud83d\udce6 <b>DeNet Node Version</b>\n\ud83d\udd22 Version: <code>${VER}</code>\n\ud83d\udccd Host: $(hostname)\n\ud83d\udd50 $(now_utc)\"\n}\n\ncmd_history() {\n  local CHAT_ID=\"$1\"\n  local LINES=\"\"\n\n  for LICENSE in \"${LICENSES[@]}\"; do\n    local INFO RC\n    INFO=$(get_last_downtime \"$LICENSE\")\n    RC=$(get_restart_count \"$LICENSE\")\n    LINES=\"${LINES}\ud83d\udd11 <code>${LICENSE}</code> \u2014 Restarts: <b>${RC}</b>\\n   \u2514 ${INFO}\\n\"\n  done\n\n  send_message \"$CHAT_ID\" \"\ud83d\udccb <b>DeNet Node Downtime History</b>\n\ud83d\udd50 $(now_utc)\n\ud83d\udccd Host: $(hostname)\n\n$(echo -e \"$LINES\")\n<i>Use /history for last event per node</i>\"\n}\n\ncmd_help() {\n  local CHAT_ID=\"$1\"\n  send_message \"$CHAT_ID\" \"\ud83e\udd16 <b>DeNet Node Monitor Bot</b>\n\ud83d\udccd Host: $(hostname)\n\n\ud83d\udd04 <b>Restart Commands:</b>\n/restart 1072 \u2014 Restart a specific node\n/restartall \u2014 Restart all 6 nodes\n\u26a0\ufe0f Each restart = 1 PEAQ transaction!\n\n\ud83d\udcca <b>Status Commands:</b>\n/status \u2014 Live status + PID change detection\n/restarts \u2014 Restart count per node\n/history \u2014 Last downtime event per node\n/disk \u2014 Storage drive usage\n/version \u2014 Current denode binary version\n\n\ud83d\udd27 <b>Utility:</b>\n/resetcounts \u2014 Reset all restart counters to 0\n/help \u2014 Show this message\"\n}\n\n# ============================================================\n# Main Loop \u2014 Long Polling\n# ============================================================\n\nlog \"==========================================\"\nlog \"  DeNet Bot Listener Started\"\nlog \"  Host: $(hostname)\"\nlog \"==========================================\"\n\nsend_message \"$TELEGRAM_CHAT_ID\" \"\ud83e\udd16 <b>DeNet Node Monitor Bot Started</b>\n\ud83d\udccd Host: $(hostname)\n\ud83d\udd50 $(now_utc)\n\ud83d\udd50 $(now_ist)\n\nReady to receive commands. Send /help for the list.\"\n\nOFFSET=0\nif [ -f \"$OFFSET_FILE\" ]; then\n  OFFSET=$(cat \"$OFFSET_FILE\")\nfi\n\nwhile true; do\n  UPDATES=$(get_updates \"$OFFSET\")\n\n  # Check for valid response\n  if ! echo \"$UPDATES\" | python3 -c \"import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)\" 2>/dev/null; then\n    log \"\u26a0\ufe0f Telegram API error or timeout \u2014 retrying in 5s...\"\n    sleep 5\n    continue\n  fi\n\n  # Process updates\n  RESULT=$(echo \"$UPDATES\" | python3 -c \"\nimport json, sys\n\ndata = json.load(sys.stdin)\nresults = data.get('result', [])\n\nfor update in results:\n    uid = update.get('update_id', 0)\n    msg = update.get('message', {})\n    chat_id = str(msg.get('chat', {}).get('id', ''))\n    text = msg.get('text', '').strip()\n    print(f'{uid}|{chat_id}|{text}')\n\" 2>/dev/null)\n\n  while IFS='|' read -r UPDATE_ID CHAT_ID TEXT; do\n    [ -z \"$UPDATE_ID\" ] && continue\n\n    # Update offset\n    NEXT_OFFSET=$(( UPDATE_ID + 1 ))\n    [ \"$NEXT_OFFSET\" -gt \"$OFFSET\" ] && OFFSET=\"$NEXT_OFFSET\"\n\n    # Only handle messages from authorized chat\n    if [ \"$CHAT_ID\" != \"$TELEGRAM_CHAT_ID\" ]; then\n      log \"Ignored message from unauthorized chat: $CHAT_ID\"\n      continue\n    fi\n\n    TEXT_LOWER=\"${TEXT,,}\"\n    log \"Command received: $TEXT\"\n\n    case \"$TEXT_LOWER\" in\n      /status|/s)\n        cmd_status \"$CHAT_ID\"\n        ;;\n      /restarts|/restart_counts|/rc)\n        cmd_restarts \"$CHAT_ID\"\n        ;;\n      /restartall|/restart_all)\n        cmd_restart_all \"$CHAT_ID\"\n        ;;\n      /resetcounts|/reset_counts)\n        cmd_reset_counts \"$CHAT_ID\"\n        ;;\n      /disk|/storage)\n        cmd_disk \"$CHAT_ID\"\n        ;;\n      /history|/h)\n        cmd_history \"$CHAT_ID\"\n        ;;\n      /version|/ver)\n        cmd_version \"$CHAT_ID\"\n        ;;\n      /help|/start)\n        cmd_help \"$CHAT_ID\"\n        ;;\n      /restart\\ *)\n        LICENSE=$(echo \"$TEXT\" | awk '{print $2}')\n        cmd_restart_node \"$CHAT_ID\" \"$LICENSE\"\n        ;;\n      *)\n        # Unknown command\n        if echo \"$TEXT\" | grep -q '^/'; then\n          send_message \"$CHAT_ID\" \"\u2753 Unknown command: <code>${TEXT}</code>\nSend /help for the list of commands.\"\n        fi\n        ;;\n    esac\n\n  done <<< \"$RESULT\"\n\n  # Save offset\n  echo \"$OFFSET\" > \"$OFFSET_FILE\"\n\ndone\n",
-  updater:    "#!/bin/bash\n\n# ============================================================\n# DeNet Node Updater Script\n# User: maqbool | Ubuntu VM\n# Usage:\n#   denet-update rc12        \u2192 Download & install v4.x.x-rc12\n#   denet-update rc13        \u2192 Download & install v4.x.x-rc13\n#   denet-update latest      \u2192 Auto-detect and install latest release\n#   denet-update --check     \u2192 Just show what's available, don't install\n# ============================================================\n\n# --- Config ---\nTELEGRAM_BOT_TOKEN=\"YOUR_TELEGRAM_BOT_TOKEN\"\nTELEGRAM_CHAT_ID=\"YOUR_TELEGRAM_CHAT_ID\"\nDENODE_BIN=\"/usr/bin/denode\"\nWALLET_ADDRESS=\"YOUR_WALLET_ADDRESS\"\nLICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)  # Add all your license numbers\nNODE_LOG_DIR=\"$HOME/.denode/logs\"\nDOWNLOAD_DIR=\"$HOME/DeNet/updates\"\nGITHUB_API=\"https://api.github.com/repos/DeNetPRO/Node/releases\"\nGITHUB_RELEASES=\"https://github.com/DeNetPRO/Node/releases\"\n\nmkdir -p \"$DOWNLOAD_DIR\"\n\n# --- Colors ---\nRED='\\033[0;31m'\nGREEN='\\033[0;32m'\nYELLOW='\\033[1;33m'\nBLUE='\\033[0;34m'\nCYAN='\\033[0;36m'\nBOLD='\\033[1m'\nNC='\\033[0m'\n\n# ============================================================\n# Helper Functions\n# ============================================================\n\nnow_utc() { date -u '+%Y-%m-%d %H:%M:%S UTC'; }\nnow_ist() { TZ='Asia/Kolkata' date '+%H:%M:%S IST'; }\n\nlog()     { echo -e \"${CYAN}[$(now_utc)]${NC} $1\"; }\nsuccess() { echo -e \"${GREEN}\u2705 $1${NC}\"; }\nwarn()    { echo -e \"${YELLOW}\u26a0\ufe0f  $1${NC}\"; }\nerror()   { echo -e \"${RED}\u274c $1${NC}\"; }\ninfo()    { echo -e \"${BLUE}\u2139\ufe0f  $1${NC}\"; }\n\nsend_telegram() {\n  local MESSAGE=\"$1\"\n  curl -s --max-time 15 -X POST \\\n    \"https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage\" \\\n    -d chat_id=\"${TELEGRAM_CHAT_ID}\" \\\n    -d text=\"${MESSAGE}\" \\\n    -d parse_mode=\"HTML\" > /dev/null 2>&1\n}\n\n# ============================================================\n# Step 1 \u2014 Resolve the target release from GitHub API\n# ============================================================\n\nresolve_release() {\n  local INPUT=\"$1\"   # e.g. \"rc12\", \"rc13\", \"latest\"\n  local ALL_RELEASES\n\n  log \"Fetching release list from GitHub...\"\n  ALL_RELEASES=$(curl -s --max-time 20 \"$GITHUB_API\" 2>/dev/null)\n\n  if [ -z \"$ALL_RELEASES\" ] || echo \"$ALL_RELEASES\" | grep -q '\"message\"'; then\n    error \"Could not reach GitHub API. Check your internet connection.\"\n    exit 1\n  fi\n\n  if [ \"$INPUT\" = \"latest\" ]; then\n    # Pick the first (most recent) release\n    RELEASE_TAG=$(echo \"$ALL_RELEASES\" | python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\nif data:\n    print(data[0]['tag_name'])\n\" 2>/dev/null)\n  else\n    # Match the rc number \u2014 e.g. \"rc12\" matches \"v4.0.1-rc12\"\n    local RC_NUM=\"${INPUT,,}\"   # lowercase\n    RELEASE_TAG=$(echo \"$ALL_RELEASES\" | python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\ntarget = '${RC_NUM}'\nfor release in data:\n    tag = release['tag_name'].lower()\n    if target in tag:\n        print(release['tag_name'])\n        break\n\" 2>/dev/null)\n  fi\n\n  if [ -z \"$RELEASE_TAG\" ]; then\n    error \"No release found matching '${INPUT}'.\"\n    echo \"\"\n    info \"Available releases:\"\n    echo \"$ALL_RELEASES\" | python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\nfor r in data[:10]:\n    print('  \u2022', r['tag_name'])\n\" 2>/dev/null\n    echo \"\"\n    info \"Check manually: $GITHUB_RELEASES\"\n    exit 1\n  fi\n\n  echo \"$RELEASE_TAG\"\n}\n\n# ============================================================\n# Step 2 \u2014 Find the Ubuntu/Linux AMD64 download URL\n# ============================================================\n\nfind_download_url() {\n  local TAG=\"$1\"\n  local RELEASE_DATA\n\n  log \"Fetching release details for ${TAG}...\"\n  RELEASE_DATA=$(curl -s --max-time 20 \"${GITHUB_API}/tags/${TAG}\" 2>/dev/null)\n\n  # Try: denode-linux-amd64, denode_linux_amd64, denode-amd64-linux, etc.\n  DOWNLOAD_URL=$(echo \"$RELEASE_DATA\" | python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\nassets = data.get('assets', [])\npriority = [\n    'denode-linux-amd64',\n    'denode_linux_amd64',\n    'denode-amd64',\n    'denode-linux',\n]\n# First try exact priority matches\nfor p in priority:\n    for a in assets:\n        name = a['name'].lower()\n        if p in name and 'deb' not in name and 'rpm' not in name:\n            print(a['browser_download_url'])\n            sys.exit(0)\n# Fallback: any linux + amd64 asset\nfor a in assets:\n    name = a['name'].lower()\n    if 'linux' in name and ('amd64' in name or 'x86_64' in name):\n        print(a['browser_download_url'])\n        sys.exit(0)\n# Last resort: .deb for Ubuntu\nfor a in assets:\n    name = a['name'].lower()\n    if '.deb' in name and ('amd64' in name or 'x86_64' in name):\n        print(a['browser_download_url'])\n        sys.exit(0)\n\" 2>/dev/null)\n\n  if [ -z \"$DOWNLOAD_URL\" ]; then\n    # Show all available assets so user can choose\n    error \"Could not find a Linux AMD64 binary in release ${TAG}.\"\n    echo \"\"\n    info \"Available assets in this release:\"\n    echo \"$RELEASE_DATA\" | python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\nfor a in data.get('assets', []):\n    print('  \u2022', a['name'])\n    print('    URL:', a['browser_download_url'])\n\" 2>/dev/null\n    echo \"\"\n    info \"Please check: ${GITHUB_RELEASES}/tag/${TAG}\"\n    exit 1\n  fi\n\n  echo \"$DOWNLOAD_URL\"\n}\n\n# ============================================================\n# Step 3 \u2014 Show release info and confirm\n# ============================================================\n\nshow_release_info() {\n  local TAG=\"$1\"\n  local URL=\"$2\"\n  local CURRENT_VERSION\n\n  CURRENT_VERSION=$(\"$DENODE_BIN\" --version 2>/dev/null | head -1 || echo \"unknown\")\n\n  echo \"\"\n  echo -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n  echo -e \"${BOLD}  DeNet Node Updater${NC}\"\n  echo -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n  echo -e \"  ${CYAN}Current version:${NC}  ${CURRENT_VERSION}\"\n  echo -e \"  ${GREEN}Target release:${NC}   ${TAG}\"\n  echo -e \"  ${BLUE}Download URL:${NC}     ${URL}\"\n  echo -e \"  ${YELLOW}Binary path:${NC}      ${DENODE_BIN}\"\n  echo -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n  echo \"\"\n  warn \"This will STOP all 6 nodes and replace the binary.\"\n  warn \"Each node restart costs a PEAQ transaction fee.\"\n  echo \"\"\n}\n\n# ============================================================\n# Step 4 \u2014 Download the binary\n# ============================================================\n\ndownload_binary() {\n  local URL=\"$1\"\n  local TAG=\"$2\"\n  local FILENAME\n  FILENAME=$(basename \"$URL\")\n  local DEST=\"$DOWNLOAD_DIR/${FILENAME}\"\n\n  log \"Downloading ${FILENAME}...\"\n  if curl -L --max-time 120 --progress-bar -o \"$DEST\" \"$URL\"; then\n    success \"Downloaded to ${DEST}\"\n  else\n    error \"Download failed!\"\n    exit 1\n  fi\n\n  # If it's a .deb file, extract the binary\n  if echo \"$FILENAME\" | grep -q '\\.deb$'; then\n    log \"Detected .deb package \u2014 extracting binary...\"\n    local EXTRACT_DIR=\"$DOWNLOAD_DIR/extract_${TAG}\"\n    mkdir -p \"$EXTRACT_DIR\"\n    dpkg-deb -x \"$DEST\" \"$EXTRACT_DIR\" 2>/dev/null\n    local EXTRACTED_BIN\n    EXTRACTED_BIN=$(find \"$EXTRACT_DIR\" -name \"denode\" -type f 2>/dev/null | head -1)\n    if [ -n \"$EXTRACTED_BIN\" ]; then\n      DEST=\"$EXTRACTED_BIN\"\n      success \"Extracted binary: ${DEST}\"\n    else\n      error \"Could not find denode binary inside .deb package.\"\n      exit 1\n    fi\n  fi\n\n  echo \"$DEST\"\n}\n\n# ============================================================\n# Step 5 \u2014 Stop all nodes\n# ============================================================\n\nstop_all_nodes() {\n  log \"Stopping all DeNet nodes...\"\n  local STOPPED=0\n\n  for LICENSE in \"${LICENSES[@]}\"; do\n    local PID\n    PID=$(ps aux | grep -v grep | grep \"/usr/bin/denode\" | grep -- \"--license $LICENSE\" | awk '{print $2}' | head -n 1)\n    if [ -n \"$PID\" ]; then\n      kill \"$PID\" 2>/dev/null\n      STOPPED=$((STOPPED + 1))\n      log \"  Stopped node $LICENSE (PID: $PID)\"\n    else\n      warn \"  Node $LICENSE was not running.\"\n    fi\n  done\n\n  sleep 3\n\n  # Verify all stopped\n  local STILL_RUNNING\n  STILL_RUNNING=$(ps aux | grep -v grep | grep \"/usr/bin/denode\" | grep -v \"denode-manager\" | wc -l)\n  if [ \"$STILL_RUNNING\" -gt 0 ]; then\n    warn \"Some processes still running \u2014 force killing...\"\n    pkill -9 -f \"/usr/bin/denode --address\" 2>/dev/null\n    sleep 2\n  fi\n\n  success \"All nodes stopped (${STOPPED} were running).\"\n}\n\n# ============================================================\n# Step 6 \u2014 Backup old binary and install new one\n# ============================================================\n\ninstall_binary() {\n  local NEW_BIN=\"$1\"\n  local TAG=\"$2\"\n  local BACKUP_PATH=\"${DENODE_BIN}.backup-$(date +%Y%m%d-%H%M%S)\"\n\n  # Backup existing binary\n  if [ -f \"$DENODE_BIN\" ]; then\n    sudo cp \"$DENODE_BIN\" \"$BACKUP_PATH\"\n    success \"Old binary backed up to: ${BACKUP_PATH}\"\n  fi\n\n  # Install new binary\n  log \"Installing new binary to ${DENODE_BIN}...\"\n  sudo cp \"$NEW_BIN\" \"$DENODE_BIN\"\n  sudo chmod +x \"$DENODE_BIN\"\n\n  # Verify installation\n  local NEW_VERSION\n  NEW_VERSION=$(\"$DENODE_BIN\" --version 2>/dev/null | head -1 || echo \"could not determine\")\n  success \"New binary installed!\"\n  echo -e \"  ${GREEN}Version:${NC} ${NEW_VERSION}\"\n\n  echo \"$NEW_VERSION\"\n}\n\n# ============================================================\n# Step 7 \u2014 Check config for RC12 changes\n# ============================================================\n\ncheck_rc12_notes() {\n  local TAG=\"$1\"\n  local RC_NUM\n  RC_NUM=$(echo \"$TAG\" | grep -oP 'rc\\d+' | grep -oP '\\d+')\n\n  if [ -n \"$RC_NUM\" ] && [ \"$RC_NUM\" -ge 12 ]; then\n    echo \"\"\n    echo -e \"${BOLD}${YELLOW}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n    echo -e \"${BOLD}${YELLOW}  RC12+ Checklist (from your session notes)${NC}\"\n    echo -e \"${BOLD}${YELLOW}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n    echo -e \"  ${CYAN}1.${NC} Run: ${GREEN}denode --help${NC}\"\n    echo -e \"     \u2192 Check if ${YELLOW}--rpc${NC} flag is now available\"\n    echo -e \"     \u2192 If yes, DeNet's own RPC is live \u2014 Onfinality keys may no longer be needed\"\n    echo \"\"\n    echo -e \"  ${CYAN}2.${NC} Check ${GREEN}~/.denode/manager_config.yaml${NC}\"\n    echo -e \"     \u2192 See if RPC endpoints auto-updated to DeNet's own RPC\"\n    echo \"\"\n    echo -e \"  ${CYAN}3.${NC} Check monitor script: ${GREEN}~/DeNet/denet-monitor.sh${NC}\"\n    echo -e \"     \u2192 Verify DENODE_BIN still points to /usr/bin/denode\"\n    echo -e \"     \u2192 Check if log file naming changed (license-XXXX.log)\"\n    echo -e \"${BOLD}${YELLOW}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n    echo \"\"\n  fi\n}\n\n# ============================================================\n# --check mode: just list releases, don't install\n# ============================================================\n\ncheck_mode() {\n  log \"Fetching latest releases from GitHub...\"\n  local ALL_RELEASES\n  ALL_RELEASES=$(curl -s --max-time 20 \"$GITHUB_API\" 2>/dev/null)\n\n  if [ -z \"$ALL_RELEASES\" ]; then\n    error \"Could not reach GitHub. Check internet connection.\"\n    exit 1\n  fi\n\n  local CURRENT_VERSION\n  CURRENT_VERSION=$(\"$DENODE_BIN\" --version 2>/dev/null | head -1 || echo \"unknown\")\n\n  echo \"\"\n  echo -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n  echo -e \"${BOLD}  DeNet Available Releases${NC}\"\n  echo -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n  echo -e \"  ${CYAN}Currently installed:${NC} ${CURRENT_VERSION}\"\n  echo \"\"\n  echo -e \"  ${GREEN}Latest 10 releases:${NC}\"\n  echo \"$ALL_RELEASES\" | python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\nfor r in data[:10]:\n    tag = r['tag_name']\n    date = r['published_at'][:10]\n    pre = ' (pre-release)' if r.get('prerelease') else ''\n    print(f'  \u2022 {tag}  [{date}]{pre}')\n\" 2>/dev/null\n  echo \"\"\n  echo -e \"  ${BLUE}To install:${NC} denet-update rc12\"\n  echo -e \"  ${BLUE}Latest:${NC}    denet-update latest\"\n  echo -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\n  echo \"\"\n  exit 0\n}\n\n# ============================================================\n# Main\n# ============================================================\n\nINPUT=\"$1\"\n\nif [ -z \"$INPUT\" ]; then\n  echo -e \"${BOLD}Usage:${NC}\"\n  echo \"  denet-update rc12        \u2192 Install rc12\"\n  echo \"  denet-update rc13        \u2192 Install rc13\"\n  echo \"  denet-update latest      \u2192 Install latest release\"\n  echo \"  denet-update --check     \u2192 List available releases\"\n  exit 0\nfi\n\nif [ \"$INPUT\" = \"--check\" ] || [ \"$INPUT\" = \"-c\" ]; then\n  check_mode\nfi\n\necho \"\"\nlog \"========== DeNet Update Started ==========\"\n\n# Resolve release tag\nRELEASE_TAG=$(resolve_release \"$INPUT\")\nsuccess \"Found release: ${RELEASE_TAG}\"\n\n# Find download URL\nDOWNLOAD_URL=$(find_download_url \"$RELEASE_TAG\")\nsuccess \"Found download: $(basename $DOWNLOAD_URL)\"\n\n# Show info and confirm\nshow_release_info \"$RELEASE_TAG\" \"$DOWNLOAD_URL\"\n\n# Confirm prompt\nread -r -p \"$(echo -e ${BOLD})Proceed with update? [yes/no]: $(echo -e ${NC})\" CONFIRM\nif [ \"$CONFIRM\" != \"yes\" ] && [ \"$CONFIRM\" != \"y\" ]; then\n  warn \"Update cancelled.\"\n  exit 0\nfi\n\necho \"\"\nsend_telegram \"\ud83d\udd04 <b>DeNet Update Started</b>\n\ud83d\udce6 Target Release: <code>${RELEASE_TAG}</code>\n\ud83d\udd50 $(now_utc) | $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n<i>Stopping nodes and installing new binary...</i>\"\n\n# Download\nDOWNLOADED_BIN=$(download_binary \"$DOWNLOAD_URL\" \"$RELEASE_TAG\")\n\n# Stop nodes\nstop_all_nodes\n\n# Install\nNEW_VERSION=$(install_binary \"$DOWNLOADED_BIN\" \"$RELEASE_TAG\")\n\n# RC12+ checklist\ncheck_rc12_notes \"$RELEASE_TAG\"\n\n# Final summary\necho \"\"\necho -e \"${BOLD}${GREEN}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho -e \"${BOLD}${GREEN}  Update Complete!${NC}\"\necho -e \"${BOLD}${GREEN}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho -e \"  ${CYAN}Installed:${NC} ${NEW_VERSION}\"\necho -e \"  ${YELLOW}\u26a0\ufe0f  Nodes are STOPPED. Start them manually:${NC}\"\necho \"\"\necho -e \"  ${GREEN}export DENODE_PASSWORD=\\\"YOUR_NODE_PASSWORD\\\"${NC}\"\necho -e \"  ${GREEN}bash ~/DeNet/denet-monitor.sh${NC}\"\necho \"\"\necho -e \"  Or via Telegram bot: ${CYAN}/restartall${NC}\"\necho -e \"${BOLD}${GREEN}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho \"\"\n\nsend_telegram \"\u2705 <b>DeNet Update Complete!</b>\n\ud83d\udce6 Installed: <code>${RELEASE_TAG}</code>\n\ud83d\udd22 Version: <code>${NEW_VERSION}</code>\n\ud83d\udd50 $(now_utc) | $(now_ist)\n\ud83d\udccd Host: $(hostname)\n\n\u26a0\ufe0f <b>All 6 nodes are stopped.</b>\nUse /restartall in the bot to restart all nodes, or run the monitor script manually.\n\n$([ \"$(echo \"$RELEASE_TAG\" | grep -oP 'rc\\d+' | grep -oP '\\d+')\" -ge \"12\" ] && echo \"\ud83d\udca1 RC12+: Check if DeNet RPC is now available \u2014 run: denode --help\")\"\n\nlog \"========== DeNet Update Finished ==========\"\n",
-  setup:      "#!/bin/bash\n\n# ============================================================\n# DeNet Monitor Setup Script \u2014 Linux (Ubuntu)\n# User: maqbool | Ubuntu VM\n# Sets up: cron job, systemd bot service, directories, aliases\n# ============================================================\n\nGREEN='\\033[0;32m'; YELLOW='\\033[1;33m'; CYAN='\\033[0;36m'\nRED='\\033[0;31m'; BOLD='\\033[1m'; NC='\\033[0m'\n\nok()   { echo -e \"${GREEN}\u2705 $1${NC}\"; }\nwarn() { echo -e \"${YELLOW}\u26a0\ufe0f  $1${NC}\"; }\ninfo() { echo -e \"${CYAN}\u2139\ufe0f  $1${NC}\"; }\nerr()  { echo -e \"${RED}\u274c $1${NC}\"; exit 1; }\n\nDENET_DIR=\"$HOME/DeNet\"\nDENODE_DIR=\"$HOME/.denode\"\nLOG_DIR=\"$DENODE_DIR/logs\"\n\necho \"\"\necho -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho -e \"${BOLD}  DeNet Monitor Setup \u2014 Linux (Ubuntu)${NC}\"\necho -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho \"\"\n\n# 1. Create directories\ninfo \"Creating directories...\"\nmkdir -p \"$DENET_DIR\" \"$LOG_DIR\"\nok \"Directories ready: $DENET_DIR | $LOG_DIR\"\n\n# 2. Check scripts are present\nREQUIRED=(\"denet-monitor.sh\" \"denet-bot-listener.sh\" \"denet-update.sh\")\nfor SCRIPT in \"${REQUIRED[@]}\"; do\n  if [ ! -f \"$DENET_DIR/$SCRIPT\" ]; then\n    warn \"$SCRIPT not found in $DENET_DIR\"\n    info \"Copy all scripts to $DENET_DIR first, then re-run setup.\"\n    err \"Missing scripts. Aborting.\"\n  fi\ndone\nok \"All scripts found in $DENET_DIR\"\n\n# 3. Set executable permissions\nchmod +x \"$DENET_DIR/denet-monitor.sh\"\nchmod +x \"$DENET_DIR/denet-bot-listener.sh\"\nchmod +x \"$DENET_DIR/denet-update.sh\"\nok \"Permissions set (chmod +x)\"\n\n# 4. Install cron job for monitor\nCRON_JOB=\"*/5 * * * * $DENET_DIR/denet-monitor.sh\"\nif crontab -l 2>/dev/null | grep -q \"denet-monitor.sh\"; then\n  warn \"Cron job already exists \u2014 skipping.\"\nelse\n  (crontab -l 2>/dev/null; echo \"$CRON_JOB\") | crontab -\n  ok \"Cron job installed: every 5 minutes\"\nfi\n\n# 5. Install systemd service for bot listener\nSERVICE_FILE=\"/etc/systemd/system/denet-bot.service\"\nCURRENT_USER=$(whoami)\n\ninfo \"Installing systemd service for bot listener...\"\nsudo tee \"$SERVICE_FILE\" > /dev/null <<EOF\n[Unit]\nDescription=DeNet Telegram Bot Listener\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=${CURRENT_USER}\nWorkingDirectory=${HOME}\nExecStart=${DENET_DIR}/denet-bot-listener.sh\nRestart=always\nRestartSec=10\nStandardOutput=append:${DENODE_DIR}/bot-listener.log\nStandardError=append:${DENODE_DIR}/bot-listener.log\nEnvironment=\"DENODE_PASSWORD=YOUR_NODE_PASSWORD\"\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\nsudo systemctl daemon-reload\nsudo systemctl enable denet-bot\nsudo systemctl start denet-bot\nok \"Bot listener service installed and started\"\n\n# 6. Install denet-update as system command\ninfo \"Installing denet-update as system command...\"\nsudo cp \"$DENET_DIR/denet-update.sh\" /usr/local/bin/denet-update\nsudo chmod +x /usr/local/bin/denet-update\nok \"denet-update command available system-wide\"\n\n# 7. Fix log file ownership\nsudo chown -R \"$CURRENT_USER:$CURRENT_USER\" \"$DENODE_DIR\" 2>/dev/null\nok \"Log file ownership fixed\"\n\n# 8. Verify\necho \"\"\necho -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho -e \"${BOLD}  Setup Complete! Verification${NC}\"\necho -e \"${BOLD}\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501${NC}\"\necho \"\"\necho -e \"${CYAN}Cron jobs:${NC}\"\ncrontab -l | grep denet\necho \"\"\necho -e \"${CYAN}Bot listener service:${NC}\"\nsudo systemctl status denet-bot --no-pager | head -5\necho \"\"\necho -e \"${CYAN}denet-update command:${NC} $(which denet-update)\"\necho \"\"\necho -e \"${GREEN}${BOLD}All done! Check your Telegram \u2014 the bot should send a startup message.${NC}\"\necho \"\"\necho -e \"${YELLOW}Useful commands:${NC}\"\necho \"  sudo systemctl status denet-bot       \u2014 Check bot status\"\necho \"  sudo systemctl restart denet-bot      \u2014 Restart bot\"\necho \"  tail -f ~/.denode/bot-listener.log    \u2014 Watch bot logs\"\necho \"  tail -f ~/.denode/monitor.log         \u2014 Watch monitor logs\"\necho \"  denet-update --check                  \u2014 Check for new releases\"\necho \"\"\n",
-  nodepulse:  "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">\n<meta name=\"theme-color\" content=\"#0a0e17\">\n<title>NodePulse</title>\n<link rel=\"manifest\" href=\"manifest.json\">\n<script src=\"https://telegram.org/js/telegram-web-app.js\"></script>\n<link href=\"https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap\" rel=\"stylesheet\">\n<style>\n:root {\n  --bg:       #0a0e17;\n  --surface:  #111827;\n  --surface2: #1a2234;\n  --border:   #1e2d45;\n  --accent:   #00d4aa;\n  --blue:     #38bdf8;\n  --purple:   #a78bfa;\n  --red:      #f87171;\n  --amber:    #fbbf24;\n  --text:     #e2e8f0;\n  --muted:    #64748b;\n  --radius:   14px;\n}\n\n* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }\n\nbody {\n  background: var(--bg);\n  color: var(--text);\n  font-family: 'DM Sans', sans-serif;\n  min-height: 100vh;\n  overscroll-behavior: none;\n  background-image:\n    radial-gradient(ellipse 100% 40% at 50% 0%, rgba(0,212,170,0.07) 0%, transparent 60%),\n    radial-gradient(ellipse 60% 30% at 90% 100%, rgba(56,189,248,0.05) 0%, transparent 50%);\n}\n\n/* \u2500\u2500 HEADER \u2500\u2500 */\n.header {\n  position: sticky; top: 0; z-index: 100;\n  background: rgba(10,14,23,0.92);\n  backdrop-filter: blur(20px);\n  border-bottom: 1px solid var(--border);\n  padding: 14px 20px;\n  display: flex; align-items: center; gap: 12px;\n}\n\n.logo {\n  width: 36px; height: 36px;\n  background: linear-gradient(135deg, #00d4aa22, #00d4aa55);\n  border: 1px solid #00d4aa44;\n  border-radius: 10px;\n  display: flex; align-items: center; justify-content: center;\n  font-size: 18px; flex-shrink: 0;\n}\n\n.header-info { flex: 1; }\n.header-info h1 {\n  font-family: 'Space Mono', monospace;\n  font-size: 15px; font-weight: 700;\n  color: var(--accent); letter-spacing: -0.3px;\n}\n.header-info p { font-size: 11px; color: var(--muted); margin-top: 1px; }\n\n.refresh-btn {\n  width: 34px; height: 34px;\n  background: var(--surface);\n  border: 1px solid var(--border);\n  border-radius: 8px;\n  display: flex; align-items: center; justify-content: center;\n  cursor: pointer; color: var(--muted);\n  transition: all 0.2s; flex-shrink: 0;\n}\n.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }\n.refresh-btn.spinning svg { animation: spin 1s linear infinite; }\n@keyframes spin { to { transform: rotate(360deg); } }\n\n/* \u2500\u2500 MAIN \u2500\u2500 */\nmain { padding: 16px 16px 100px; max-width: 520px; margin: 0 auto; }\n\n/* \u2500\u2500 ALERT BANNER \u2500\u2500 */\n.alert-banner {\n  background: rgba(248,113,113,0.1);\n  border: 1px solid rgba(248,113,113,0.3);\n  border-left: 4px solid var(--red);\n  border-radius: var(--radius);\n  padding: 12px 16px;\n  margin-bottom: 16px;\n  font-size: 13px;\n  display: none;\n}\n.alert-banner.show { display: block; }\n.alert-banner strong { color: var(--red); display: block; margin-bottom: 4px; }\n\n/* \u2500\u2500 SUMMARY STRIP \u2500\u2500 */\n.summary {\n  display: grid; grid-template-columns: repeat(3, 1fr);\n  gap: 10px; margin-bottom: 16px;\n}\n.summary-card {\n  background: var(--surface);\n  border: 1px solid var(--border);\n  border-radius: var(--radius);\n  padding: 14px 12px;\n  text-align: center;\n}\n.summary-card .val {\n  font-family: 'Space Mono', monospace;\n  font-size: 22px; font-weight: 700;\n  line-height: 1;\n}\n.summary-card .lbl { font-size: 10px; color: var(--muted); margin-top: 4px; letter-spacing: 0.5px; }\n.val-green { color: var(--accent); }\n.val-red   { color: var(--red); }\n.val-amber { color: var(--amber); }\n\n/* \u2500\u2500 SECTION LABEL \u2500\u2500 */\n.section-label {\n  font-family: 'Space Mono', monospace;\n  font-size: 9px; letter-spacing: 2px;\n  text-transform: uppercase; color: var(--muted);\n  margin: 20px 0 10px 2px;\n}\n\n/* \u2500\u2500 NODE CARD \u2500\u2500 */\n.node-card {\n  background: var(--surface);\n  border: 1px solid var(--border);\n  border-radius: var(--radius);\n  padding: 16px;\n  margin-bottom: 10px;\n  transition: border-color 0.2s;\n  position: relative; overflow: hidden;\n}\n.node-card::before {\n  content: ''; position: absolute;\n  top: 0; left: 0; right: 0; height: 2px;\n  background: var(--accent); opacity: 0;\n  transition: opacity 0.2s;\n}\n.node-card.running::before { opacity: 1; }\n.node-card.down { border-color: rgba(248,113,113,0.3); }\n.node-card.down::before { background: var(--red); opacity: 1; }\n.node-card.restarted { border-color: rgba(251,191,36,0.3); }\n.node-card.restarted::before { background: var(--amber); opacity: 1; }\n\n.node-top {\n  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;\n}\n.node-dot {\n  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;\n}\n.dot-green  { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse-green 2s infinite; }\n.dot-red    { background: var(--red);    box-shadow: 0 0 8px var(--red); }\n.dot-amber  { background: var(--amber);  box-shadow: 0 0 8px var(--amber); animation: pulse-amber 2s infinite; }\n@keyframes pulse-green { 0%,100%{box-shadow:0 0 6px var(--accent)} 50%{box-shadow:0 0 12px var(--accent)} }\n@keyframes pulse-amber { 0%,100%{box-shadow:0 0 6px var(--amber)} 50%{box-shadow:0 0 12px var(--amber)} }\n\n.node-license {\n  font-family: 'Space Mono', monospace;\n  font-size: 15px; font-weight: 700; color: var(--text);\n  flex: 1;\n}\n.node-status-badge {\n  font-size: 10px; font-family: 'Space Mono', monospace;\n  padding: 2px 8px; border-radius: 20px;\n}\n.badge-running  { background: rgba(0,212,170,0.12); color: var(--accent); border: 1px solid rgba(0,212,170,0.3); }\n.badge-down     { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }\n.badge-restarted { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.3); }\n\n.node-grid {\n  display: grid; grid-template-columns: 1fr 1fr;\n  gap: 6px; margin-bottom: 10px;\n}\n.node-stat {\n  background: var(--surface2);\n  border-radius: 8px; padding: 8px 10px;\n}\n.node-stat .sk { font-size: 10px; color: var(--muted); margin-bottom: 2px; }\n.node-stat .sv {\n  font-family: 'Space Mono', monospace;\n  font-size: 12px; color: var(--text);\n  word-break: break-all;\n}\n\n.alert-row {\n  background: rgba(251,191,36,0.08);\n  border: 1px solid rgba(251,191,36,0.2);\n  border-radius: 8px; padding: 8px 10px;\n  margin-bottom: 10px; font-size: 12px;\n}\n.alert-row .ar-title { color: var(--amber); font-weight: 600; margin-bottom: 4px; }\n.alert-row .ar-line  { color: var(--muted); line-height: 1.5; }\n.alert-row code {\n  font-family: 'Space Mono', monospace;\n  font-size: 11px; color: var(--text);\n}\n\n.disk-bar-wrap { margin-top: 4px; }\n.disk-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }\n.disk-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }\n.disk-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }\n.fill-green { background: var(--accent); }\n.fill-amber { background: var(--amber); }\n.fill-red   { background: var(--red); }\n\n.restart-btn {\n  width: 100%; padding: 8px;\n  background: transparent;\n  border: 1px solid var(--border);\n  border-radius: 8px;\n  color: var(--muted); font-size: 12px;\n  font-family: 'DM Sans', sans-serif;\n  cursor: pointer; transition: all 0.2s;\n  display: flex; align-items: center; justify-content: center; gap: 6px;\n}\n.restart-btn:hover { border-color: var(--amber); color: var(--amber); }\n.restart-btn:active { transform: scale(0.98); }\n\n/* \u2500\u2500 BOTTOM ACTION BAR \u2500\u2500 */\n.action-bar {\n  position: fixed; bottom: 0; left: 0; right: 0;\n  background: rgba(10,14,23,0.95);\n  backdrop-filter: blur(20px);\n  border-top: 1px solid var(--border);\n  padding: 12px 16px;\n  display: flex; gap: 10px;\n  max-width: 520px; margin: 0 auto;\n}\n.action-bar-inner {\n  position: fixed; bottom: 0; left: 50%;\n  transform: translateX(-50%);\n  width: 100%; max-width: 520px;\n  background: rgba(10,14,23,0.95);\n  backdrop-filter: blur(20px);\n  border-top: 1px solid var(--border);\n  padding: 12px 16px;\n  display: flex; gap: 10px;\n}\n\n.btn {\n  flex: 1; padding: 11px 8px;\n  border-radius: 10px; border: none;\n  font-family: 'DM Sans', sans-serif;\n  font-size: 13px; font-weight: 600;\n  cursor: pointer; transition: all 0.2s;\n  display: flex; align-items: center; justify-content: center; gap: 6px;\n}\n.btn-primary {\n  background: rgba(0,212,170,0.15);\n  border: 1px solid rgba(0,212,170,0.35);\n  color: var(--accent);\n}\n.btn-danger {\n  background: rgba(248,113,113,0.12);\n  border: 1px solid rgba(248,113,113,0.3);\n  color: var(--red);\n}\n.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }\n.btn:active { transform: scale(0.97); }\n.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }\n\n/* \u2500\u2500 UPDATE INDICATOR \u2500\u2500 */\n.updated-row {\n  text-align: center; font-size: 11px;\n  color: var(--muted); margin-bottom: 16px;\n  font-family: 'Space Mono', monospace;\n}\n.dot-live {\n  display: inline-block; width: 6px; height: 6px;\n  background: var(--accent); border-radius: 50%;\n  margin-right: 5px; animation: pulse-green 2s infinite;\n}\n\n/* \u2500\u2500 TOAST \u2500\u2500 */\n.toast {\n  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);\n  background: var(--surface2); border: 1px solid var(--border);\n  border-radius: 10px; padding: 10px 20px;\n  font-size: 13px; color: var(--text);\n  opacity: 0; transition: all 0.3s; z-index: 999;\n  white-space: nowrap;\n}\n.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }\n\n/* \u2500\u2500 LOADING \u2500\u2500 */\n.loading {\n  display: flex; flex-direction: column;\n  align-items: center; justify-content: center;\n  padding: 80px 20px; gap: 16px;\n}\n.spinner {\n  width: 40px; height: 40px;\n  border: 2px solid var(--border);\n  border-top-color: var(--accent);\n  border-radius: 50%;\n  animation: spin 0.8s linear infinite;\n}\n.loading p { color: var(--muted); font-size: 13px; }\n\n/* \u2500\u2500 CONFIG SCREEN \u2500\u2500 */\n.config-screen {\n  padding: 40px 20px;\n  display: none; flex-direction: column; gap: 16px;\n}\n.config-screen.show { display: flex; }\n.config-title {\n  font-family: 'Space Mono', monospace;\n  font-size: 18px; color: var(--accent);\n  text-align: center; margin-bottom: 8px;\n}\n.config-desc { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.6; }\n.config-input {\n  background: var(--surface);\n  border: 1px solid var(--border);\n  border-radius: 10px; padding: 12px 16px;\n  color: var(--text); font-size: 13px;\n  font-family: 'Space Mono', monospace;\n  width: 100%; outline: none;\n  transition: border-color 0.2s;\n}\n.config-input:focus { border-color: var(--accent); }\n.config-input::placeholder { color: var(--muted); }\n.config-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }\n.config-save {\n  width: 100%; padding: 14px;\n  background: rgba(0,212,170,0.15);\n  border: 1px solid rgba(0,212,170,0.35);\n  border-radius: 10px; color: var(--accent);\n  font-size: 14px; font-weight: 600;\n  font-family: 'DM Sans', sans-serif;\n  cursor: pointer; transition: all 0.2s;\n}\n.config-save:hover { background: rgba(0,212,170,0.25); }\n\n.error-box {\n  background: rgba(248,113,113,0.08);\n  border: 1px solid rgba(248,113,113,0.25);\n  border-radius: 10px; padding: 16px;\n  text-align: center;\n}\n.error-box p { font-size: 13px; color: var(--red); }\n.error-box small { font-size: 11px; color: var(--muted); display: block; margin-top: 6px; }\n</style>\n</head>\n<body>\n\n<div class=\"header\">\n  <div class=\"logo\">\u2b21</div>\n  <div class=\"header-info\">\n    <h1>NodePulse</h1>\n    <p id=\"header-host\">DeNet Node Monitor</p>\n  </div>\n  <button class=\"refresh-btn\" id=\"refresh-btn\" onclick=\"loadData(true)\" title=\"Refresh\">\n    <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">\n      <polyline points=\"23 4 23 10 17 10\"/><polyline points=\"1 20 1 14 7 14\"/>\n      <path d=\"M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15\"/>\n    </svg>\n  </button>\n</div>\n\n<!-- CONFIG SCREEN -->\n<div class=\"config-screen\" id=\"config-screen\">\n  <div style=\"text-align:center;font-size:40px;margin-bottom:8px;\">\u2b21</div>\n  <div class=\"config-title\">NodePulse Setup</div>\n  <div class=\"config-desc\">Enter your VM's status URL and Telegram bot token to connect your nodes.</div>\n\n  <div>\n    <div class=\"config-label\">Status URL (from your VM)</div>\n    <input class=\"config-input\" id=\"cfg-url\" type=\"url\"\n      placeholder=\"http://100.x.x.x/nodepulse/status.json\"\n      value=\"\">\n    <div style=\"font-size:11px;color:var(--muted);margin-top:6px;\">\n      Use your Tailscale IP or DuckDNS domain\n    </div>\n  </div>\n\n  <div>\n    <div class=\"config-label\">Telegram Bot Token</div>\n    <input class=\"config-input\" id=\"cfg-token\" type=\"text\"\n      placeholder=\"YOUR_TELEGRAM_BOT_TOKEN\"\n      value=\"\">\n  </div>\n\n  <div>\n    <div class=\"config-label\">Telegram Chat ID</div>\n    <input class=\"config-input\" id=\"cfg-chatid\" type=\"text\"\n      placeholder=\"YOUR_TELEGRAM_CHAT_ID\"\n      value=\"\">\n  </div>\n\n  <button class=\"config-save\" onclick=\"saveConfig()\">Connect to VM \u2192</button>\n</div>\n\n<!-- MAIN DASHBOARD -->\n<main id=\"dashboard\" style=\"display:none;\">\n\n  <div class=\"updated-row\">\n    <span class=\"dot-live\"></span>\n    <span id=\"updated-text\">Loading...</span>\n  </div>\n\n  <div id=\"alert-banner\" class=\"alert-banner\"></div>\n\n  <div class=\"summary\">\n    <div class=\"summary-card\">\n      <div class=\"val val-green\" id=\"sum-online\">\u2013</div>\n      <div class=\"lbl\">ONLINE</div>\n    </div>\n    <div class=\"summary-card\">\n      <div class=\"val val-red\" id=\"sum-down\">\u2013</div>\n      <div class=\"lbl\">DOWN</div>\n    </div>\n    <div class=\"summary-card\">\n      <div class=\"val val-amber\" id=\"sum-restarts\">\u2013</div>\n      <div class=\"lbl\">RESTARTS</div>\n    </div>\n  </div>\n\n  <div class=\"section-label\">Node Status</div>\n  <div id=\"nodes-container\"></div>\n\n  <div class=\"section-label\">Version</div>\n  <div style=\"background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;\">\n    <div style=\"font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);\">\n      Binary: <span id=\"version-text\" style=\"color:var(--text);\">\u2013</span>\n    </div>\n    <div style=\"font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px;\">\n      Host: <span id=\"host-text\" style=\"color:var(--text);\">\u2013</span>\n    </div>\n  </div>\n\n  <div style=\"text-align:center;margin-top:20px;\">\n    <button onclick=\"showConfig()\" style=\"background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;\">\n      \u2699\ufe0f Change connection settings\n    </button>\n  </div>\n\n</main>\n\n<!-- LOADING -->\n<div class=\"loading\" id=\"loading\">\n  <div class=\"spinner\"></div>\n  <p>Connecting to VM...</p>\n</div>\n\n<!-- BOTTOM ACTIONS -->\n<div class=\"action-bar-inner\" id=\"action-bar\" style=\"display:none;\">\n  <button class=\"btn btn-primary\" id=\"btn-status\" onclick=\"sendCommand('/status')\">\n    <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">\n      <circle cx=\"12\" cy=\"12\" r=\"10\"/><polyline points=\"12 6 12 12 16 14\"/>\n    </svg>\n    Status\n  </button>\n  <button class=\"btn btn-danger\" id=\"btn-restartall\" onclick=\"confirmRestartAll()\">\n    <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\">\n      <polyline points=\"23 4 23 10 17 10\"/><path d=\"M20.49 15a9 9 0 11-2.12-9.36L23 10\"/>\n    </svg>\n    Restart All\n  </button>\n</div>\n\n<div class=\"toast\" id=\"toast\"></div>\n\n<script>\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// CONFIG\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nconst DEFAULT_URL      = 'http://100.x.x.x/nodepulse/status.json';\nconst DEFAULT_TOKEN    = 'YOUR_TELEGRAM_BOT_TOKEN';\nconst DEFAULT_CHAT_ID  = 'YOUR_TELEGRAM_CHAT_ID';\n\nfunction getCfg() {\n  return {\n    url:    localStorage.getItem('np_url')    || '',\n    token:  localStorage.getItem('np_token')  || DEFAULT_TOKEN,\n    chatId: localStorage.getItem('np_chatid') || DEFAULT_CHAT_ID,\n  };\n}\n\nfunction saveConfig() {\n  const url    = document.getElementById('cfg-url').value.trim();\n  const token  = document.getElementById('cfg-token').value.trim();\n  const chatId = document.getElementById('cfg-chatid').value.trim();\n  if (!url) { showToast('\u26a0\ufe0f Please enter the status URL'); return; }\n  localStorage.setItem('np_url',    url);\n  localStorage.setItem('np_token',  token);\n  localStorage.setItem('np_chatid', chatId);\n  showConfig(false);\n  loadData(true);\n}\n\nfunction showConfig(show = true) {\n  document.getElementById('config-screen').style.display = show ? 'flex' : 'none';\n  document.getElementById('dashboard').style.display     = show ? 'none' : 'block';\n  document.getElementById('loading').style.display       = show ? 'none' : 'none';\n  document.getElementById('action-bar').style.display    = show ? 'none' : 'flex';\n  if (show) {\n    const cfg = getCfg();\n    document.getElementById('cfg-url').value    = cfg.url;\n    document.getElementById('cfg-token').value  = cfg.token;\n    document.getElementById('cfg-chatid').value = cfg.chatId;\n  }\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// TELEGRAM\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nasync function sendTelegram(text) {\n  const cfg = getCfg();\n  if (!cfg.token || !cfg.chatId) { showToast('\u26a0\ufe0f No bot token configured'); return false; }\n  try {\n    const r = await fetch(`https://api.telegram.org/bot${cfg.token}/sendMessage`, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ chat_id: cfg.chatId, text, parse_mode: 'HTML' })\n    });\n    const d = await r.json();\n    return d.ok;\n  } catch(e) {\n    showToast('\u274c Telegram send failed');\n    return false;\n  }\n}\n\nasync function sendCommand(cmd) {\n  showToast(`Sending ${cmd}...`);\n  const ok = await sendTelegram(cmd);\n  if (ok) showToast(`\u2705 ${cmd} sent to bot`);\n}\n\nasync function sendRestartNode(license) {\n  const ok = await sendTelegram(`/restart ${license}`);\n  if (ok) showToast(`\u2705 /restart ${license} sent`);\n  else     showToast('\u274c Failed to send command');\n}\n\nasync function confirmRestartAll() {\n  if (!confirm('\u26a0\ufe0f Restart ALL 6 nodes?\\n\\nThis costs 6 PEAQ transactions!')) return;\n  showToast('Sending /restartall...');\n  const ok = await sendTelegram('/restartall');\n  if (ok) showToast('\u2705 /restartall sent to bot');\n  else     showToast('\u274c Failed to send command');\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// DATA LOADING\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nlet autoRefreshTimer = null;\n\nasync function loadData(showSpinner = false) {\n  const cfg = getCfg();\n  if (!cfg.url) { showConfigScreen(); return; }\n\n  if (showSpinner) {\n    const btn = document.getElementById('refresh-btn');\n    btn.classList.add('spinning');\n  }\n\n  try {\n    const r = await fetch(cfg.url + '?t=' + Date.now(), {\n      cache: 'no-store',\n      signal: AbortSignal.timeout(8000)\n    });\n    if (!r.ok) throw new Error('HTTP ' + r.status);\n    const data = await r.json();\n    renderDashboard(data);\n  } catch(e) {\n    showError(e.message);\n  } finally {\n    document.getElementById('refresh-btn').classList.remove('spinning');\n  }\n}\n\nfunction showConfigScreen() {\n  document.getElementById('loading').style.display    = 'none';\n  document.getElementById('dashboard').style.display  = 'none';\n  document.getElementById('action-bar').style.display = 'none';\n  document.getElementById('config-screen').style.display = 'flex';\n  const cfg = getCfg();\n  document.getElementById('cfg-url').value    = cfg.url;\n  document.getElementById('cfg-token').value  = cfg.token;\n  document.getElementById('cfg-chatid').value = cfg.chatId;\n}\n\nfunction showError(msg) {\n  document.getElementById('loading').style.display    = 'none';\n  document.getElementById('config-screen').style.display = 'none';\n  document.getElementById('action-bar').style.display = 'flex';\n  document.getElementById('dashboard').style.display  = 'block';\n  document.getElementById('nodes-container').innerHTML = `\n    <div class=\"error-box\">\n      <p>\u274c Could not reach VM</p>\n      <small>${msg}</small>\n      <small style=\"margin-top:8px;color:var(--muted);\">Check your Tailscale connection and VM status</small>\n    </div>`;\n  document.getElementById('updated-text').textContent = 'Connection failed';\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// RENDER\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nfunction renderDashboard(data) {\n  document.getElementById('loading').style.display    = 'none';\n  document.getElementById('config-screen').style.display = 'none';\n  document.getElementById('dashboard').style.display  = 'block';\n  document.getElementById('action-bar').style.display = 'flex';\n\n  document.getElementById('header-host').textContent = data.host || 'Unknown';\n  document.getElementById('updated-text').textContent = 'Updated: ' + (data.updated || '\u2013');\n  document.getElementById('version-text').textContent = data.version || '\u2013';\n  document.getElementById('host-text').textContent    = data.host || '\u2013';\n\n  const nodes    = data.nodes || [];\n  const online   = nodes.filter(n => n.status === 'running').length;\n  const down     = nodes.filter(n => n.status !== 'running').length;\n  const restarts = nodes.reduce((s, n) => s + (n.restarts || 0), 0);\n\n  document.getElementById('sum-online').textContent   = online;\n  document.getElementById('sum-down').textContent     = down;\n  document.getElementById('sum-restarts').textContent = restarts;\n\n  // Alert banner\n  const silentRestarts = nodes.filter(n => n.pid_changed);\n  const alertBanner = document.getElementById('alert-banner');\n  if (silentRestarts.length > 0) {\n    alertBanner.classList.add('show');\n    alertBanner.innerHTML = `<strong>\u26a0\ufe0f Silent Restart Detected</strong>` +\n      silentRestarts.map(n =>\n        `Node ${n.license}: PID ${n.old_pid} \u2192 ${n.pid} | Last alive: ${n.last_seen}`\n      ).join('<br>');\n  } else {\n    alertBanner.classList.remove('show');\n  }\n\n  // Render nodes\n  const container = document.getElementById('nodes-container');\n  container.innerHTML = nodes.map(n => renderNode(n)).join('');\n}\n\nfunction renderNode(n) {\n  const running    = n.status === 'running';\n  const restarted  = n.pid_changed;\n  const cardClass  = restarted ? 'restarted' : (running ? 'running' : 'down');\n  const dotClass   = restarted ? 'dot-amber' : (running ? 'dot-green' : 'dot-red');\n  const badgeClass = restarted ? 'badge-restarted' : (running ? 'badge-running' : 'badge-down');\n  const badgeText  = restarted ? '\u26a0 RESTARTED' : (running ? 'RUNNING' : 'DOWN');\n\n  const disk = n.disk;\n  let diskHtml = '';\n  if (disk) {\n    const fillClass = disk.pct >= 85 ? 'fill-red' : disk.pct >= 70 ? 'fill-amber' : 'fill-green';\n    diskHtml = `\n      <div class=\"disk-bar-wrap\">\n        <div class=\"disk-info\">\n          <span>\ud83d\udcbe ${disk.used} / ${disk.total}</span>\n          <span>Free: ${disk.free}</span>\n        </div>\n        <div class=\"disk-bar\">\n          <div class=\"disk-fill ${fillClass}\" style=\"width:${disk.pct}%\"></div>\n        </div>\n      </div>`;\n  }\n\n  let alertHtml = '';\n  if (restarted) {\n    const dt = n.last_downtime;\n    alertHtml = `\n      <div class=\"alert-row\">\n        <div class=\"ar-title\">\u26a0\ufe0f Silent Restart Detected</div>\n        <div class=\"ar-line\">\n          Old PID: <code>${n.old_pid}</code> \u2192 New: <code>${n.pid}</code><br>\n          Last seen alive: <b>${n.last_seen || 'unknown'}</b><br>\n          ${dt ? `Offline for: <b>${dt.offline_duration}</b>` : ''}\n        </div>\n      </div>`;\n  }\n\n  if (!running && n.last_seen) {\n    alertHtml = `\n      <div class=\"alert-row\">\n        <div class=\"ar-title\">\ud83d\udd34 Node is DOWN</div>\n        <div class=\"ar-line\">Last seen alive: <b>${n.last_seen}</b></div>\n      </div>`;\n  }\n\n  return `\n    <div class=\"node-card ${cardClass}\">\n      <div class=\"node-top\">\n        <div class=\"node-dot ${dotClass}\"></div>\n        <div class=\"node-license\">${n.license}</div>\n        <div class=\"node-status-badge ${badgeClass}\">${badgeText}</div>\n      </div>\n      ${alertHtml}\n      <div class=\"node-grid\">\n        <div class=\"node-stat\">\n          <div class=\"sk\">PID</div>\n          <div class=\"sv\">${n.pid || '\u2013'}</div>\n        </div>\n        <div class=\"node-stat\">\n          <div class=\"sk\">UPTIME</div>\n          <div class=\"sv\">${n.uptime || '\u2013'}</div>\n        </div>\n        <div class=\"node-stat\">\n          <div class=\"sk\">RESTARTS</div>\n          <div class=\"sv\">${n.restarts}</div>\n        </div>\n        <div class=\"node-stat\">\n          <div class=\"sk\">DISK</div>\n          <div class=\"sv\">${n.disk ? n.disk.pct + '%' : '\u2013'}</div>\n        </div>\n      </div>\n      ${diskHtml}\n      <button class=\"restart-btn\" onclick=\"sendRestartNode(${n.license})\" style=\"margin-top:10px;\">\n        \ud83d\udd04 Restart node ${n.license}\n      </button>\n    </div>`;\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// TOAST\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nlet toastTimer = null;\nfunction showToast(msg) {\n  const t = document.getElementById('toast');\n  t.textContent = msg;\n  t.classList.add('show');\n  clearTimeout(toastTimer);\n  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// TELEGRAM MINI APP INIT\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nfunction initTelegramApp() {\n  if (window.Telegram && window.Telegram.WebApp) {\n    const tg = window.Telegram.WebApp;\n    tg.ready();\n    tg.expand();\n    // Apply Telegram theme colours if available\n    if (tg.colorScheme === 'dark' || true) {\n      document.documentElement.style.setProperty('--bg', '#0a0e17');\n    }\n    // Main button for restart all\n    tg.MainButton.setText('\ud83d\udd04 Restart All Nodes');\n    tg.MainButton.color = '#ef4444';\n    tg.MainButton.textColor = '#ffffff';\n    tg.MainButton.onClick(() => confirmRestartAll());\n  }\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// AUTO REFRESH\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nfunction startAutoRefresh() {\n  clearInterval(autoRefreshTimer);\n  autoRefreshTimer = setInterval(() => loadData(false), 30000);\n}\n\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n// INIT\n// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nwindow.addEventListener('DOMContentLoaded', () => {\n  initTelegramApp();\n  const cfg = getCfg();\n  if (!cfg.url) {\n    document.getElementById('loading').style.display = 'none';\n    showConfigScreen();\n  } else {\n    loadData(true);\n    startAutoRefresh();\n  }\n});\n\n// Refresh when tab becomes visible again\ndocument.addEventListener('visibilitychange', () => {\n  if (!document.hidden) loadData(false);\n});\n</script>\n</body>\n</html>\n",
-};
-
-// ═══════════════════════════════
-// LICENSE ROWS
-// ═══════════════════════════════
-function addLicenseRow() {
-  const container = document.getElementById("license-rows");
-  const row = document.createElement("div");
-  row.className = "license-row";
-  row.innerHTML = `
-    <input class="form-input" type="text" placeholder="License #" data-field="license">
-    <input class="form-input" type="text" placeholder="Port" data-field="port">
-    <input class="form-input" type="text" placeholder="Storage path" data-field="storage">
-    <button class="rm-btn" onclick="this.parentElement.remove()">✕</button>
-  `;
-  container.appendChild(row);
-}
-
-function getLicenses() {
-  const rows = document.querySelectorAll(".license-row");
-  const licenses = [];
-  rows.forEach(row => {
-    const lic = row.querySelector("[data-field=license]").value.trim();
-    const port = row.querySelector("[data-field=port]").value.trim();
-    const storage = row.querySelector("[data-field=storage]").value.trim();
-    if (lic) licenses.push({ license: lic, port, storage });
-  });
-  return licenses;
-}
-
-// ═══════════════════════════════
-// PLATFORM & ACCESS
-// ═══════════════════════════════
-function selectPlatform(p) {
-  state.platform = p;
-  document.querySelectorAll(".platform-card").forEach(c => c.classList.remove("selected"));
-  document.getElementById("plat-" + p).classList.add("selected");
-}
-
-function selectAccess(a) {
-  state.access = a;
-  document.querySelectorAll(".access-card").forEach(c => c.classList.remove("selected"));
-  document.getElementById("acc-" + a).classList.add("selected");
-  document.querySelectorAll(".conditional").forEach(c => c.classList.remove("show"));
-  document.getElementById("fields-" + a).classList.add("show");
-}
-
-// ═══════════════════════════════
-// NAVIGATION
-// ═══════════════════════════════
-function goStep(n) {
-  if (n === 2 && !validateStep1()) return;
-  if (n === 3 && !state.platform) { alert("Please select your operating system!"); return; }
-  if (n === 4) {
-    if (!state.access) { alert("Please select an access method!"); return; }
-    buildDownloadPage();
+  if (!token || !chatId || !wallet || !pass || !lics) {
+    alert('Please fill in all required fields (Steps 1–2)');
+    return;
   }
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.getElementById("panel-" + n).classList.add("active");
-  updateProgress(n);
-  state.step = n;
-  window.scrollTo(0, 0);
-}
 
-function updateProgress(n) {
-  for (let i = 1; i <= 4; i++) {
-    const circle = document.getElementById("sc" + i);
-    const label  = document.getElementById("sl" + i);
-    if (i < n)  { circle.className = "step-circle done"; circle.textContent = "✓"; label.className = "step-label"; }
-    else if (i === n) { circle.className = "step-circle active"; label.className = "step-label active"; }
-    else { circle.className = "step-circle"; label.className = "step-label"; }
-    if (i < 4) {
-      const line = document.getElementById("line" + i);
-      line.className = i < n ? "step-line done" : "step-line";
-    }
-  }
-}
+  const licArr = lics.split(/\s+/);
+  let licLine  = licArr.join(' ');
 
-// ═══════════════════════════════
-// VALIDATION
-// ═══════════════════════════════
-function validateStep1() {
-  const required = [
-    ["bot-token", "Bot Token"],
-    ["chat-id",   "Chat ID"],
-    ["wallet",    "Wallet Address"],
-    ["password",  "Node Password"],
-  ];
-  for (const [id, label] of required) {
-    if (!document.getElementById(id).value.trim()) {
-      alert("Please fill in: " + label);
-      document.getElementById(id).focus();
-      return false;
-    }
-  }
-  const licenses = getLicenses();
-  if (licenses.length === 0 || !licenses[0].license) {
-    alert("Please add at least one license number!");
-    return false;
-  }
-  return true;
-}
+  let cmd = `# NodePulse Setup — Generated by Wizard\n`;
+  cmd += `# Run this in your Linux-Single-Wallet folder\n\n`;
 
-// ═══════════════════════════════
-// GET CONFIG
-// ═══════════════════════════════
-function getConfig() {
-  const licenses = getLicenses();
-  const dashboardUrl = state.access === "tailscale"
-    ? "http://" + (document.getElementById("tailscale-ip").value.trim() || "YOUR_TAILSCALE_IP") + "/nodepulse/"
-    : state.access === "duckdns"
-    ? "http://" + (document.getElementById("duckdns-domain2").value.trim() || "YOUR_DOMAIN")
-    : "http://" + (document.getElementById("static-ip").value.trim() || "YOUR_IP") + "/nodepulse/";
+  cmd += `# Set credentials in all scripts at once\n`;
+  cmd += `find . -name 'nodepulse-*' -exec sed -i \\\n`;
+  cmd += `  's|YOUR_TELEGRAM_BOT_TOKEN|${token}|g;\n`;
+  cmd += `   s|YOUR_TELEGRAM_CHAT_ID|${chatId}|g;\n`;
+  cmd += `   s|YOUR_WALLET_ADDRESS|${wallet}|g;\n`;
+  cmd += `   s|YOUR_NODE_PASSWORD|${pass}|g;\n`;
+  cmd += `   s|YOUR_TIMEZONE|${tz}|g;\n`;
+  cmd += `   s|YOUR_STORAGE_PATH|${storage}|g;\n`;
+  if (ddToken)  cmd += `   s|YOUR_DUCKDNS_TOKEN|${ddToken}|g;\n`;
+  if (ddDomain) cmd += `   s|YOUR_DUCKDNS_DOMAIN|${ddDomain}|g;\n`;
+  cmd += `  ' {} +\n\n`;
 
-  return {
-    botToken:       document.getElementById("bot-token").value.trim(),
-    chatId:         document.getElementById("chat-id").value.trim(),
-    wallet:         document.getElementById("wallet").value.trim(),
-    password:       document.getElementById("password").value.trim(),
-    binary:         document.getElementById("binary").value.trim() || "/usr/bin/denode",
-    duckdnsToken:   document.getElementById("duckdns-token").value.trim(),
-    duckdnsDomain:  document.getElementById("duckdns-domain").value.trim(),
-    licenses,
-    platform:       state.platform,
-    access:         state.access,
-    dashboardUrl,
-  };
-}
+  cmd += `# Set license numbers\n`;
+  cmd += `sed -i 's|YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3|${licLine}|g' nodepulse-monitor.sh\n\n`;
 
-// ═══════════════════════════════
-// INJECT CONFIG INTO SCRIPTS
-// ═══════════════════════════════
-function injectConfig(template, cfg) {
-  let s = template;
-
-  // Telegram
-  s = s.replace(/YOUR_TELEGRAM_BOT_TOKEN/g, cfg.botToken);
-  s = s.replace(/YOUR_TELEGRAM_CHAT_ID/g, cfg.chatId);
-
-  // Node
-  s = s.replace(/YOUR_WALLET_ADDRESS/g, cfg.wallet);
-  s = s.replace(/YOUR_NODE_PASSWORD/g, cfg.password);
-  s = s.replace(/\/usr\/bin\/denode/g, cfg.binary);
-
-  // DuckDNS
-  if (cfg.duckdnsToken) s = s.replace(/YOUR_DUCKDNS_TOKEN/g, cfg.duckdnsToken);
-  if (cfg.duckdnsDomain) s = s.replace(/YOUR_DUCKDNS_DOMAIN/g, cfg.duckdnsDomain);
-
-  // Licenses array
-  const licArr = cfg.licenses.map(l => l.license).join(" ");
-  s = s.replace(/YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3.*?\)/g, licArr + ")");
-
-  // Storage drives array - replace YOUR_STORAGE_PATH references
-  cfg.licenses.forEach((l, i) => {
-    s = s.replace(`YOUR_STORAGE_PATH/YOUR_LICENSE_${i+1}`, l.storage || `/mnt/Denet-Storage/${l.license}`);
+  // Per-license storage paths
+  licArr.forEach((lic, i) => {
+    cmd += `sed -i 's|YOUR_STORAGE_PATH/YOUR_LICENSE_${i+1}|${storage}/${lic}|g' nodepulse-monitor.sh\n`;
   });
 
-  // Node ports
-  cfg.licenses.forEach((l, i) => {
-    s = s.replace(`YOUR_LICENSE_${i+1}]=${`YOUR_PORT_${i+1}`}`, `${l.license}]=${l.port || "55050"}`);
-    s = s.replace(`YOUR_LICENSE_${i+1}]`, `${l.license}]`);
-    s = s.replace(`YOUR_PORT_${i+1}`, l.port || "55050");
+  cmd += `\n# Run setup\nbash nodepulse-setup.sh`;
+
+  const out = document.getElementById('output');
+  out.textContent = cmd;
+  out.style.display = 'block';
+  document.getElementById('copy-btn').style.display = 'inline-block';
+}
+
+function copyOutput() {
+  const text = document.getElementById('output').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('copy-btn').textContent = '✅ Copied!';
+    setTimeout(() => document.getElementById('copy-btn').textContent = '📋 Copy Command', 2000);
   });
-
-  return s;
-}
-
-function injectNodepulse(template, cfg) {
-  let s = template;
-  s = s.replace(/YOUR_TELEGRAM_BOT_TOKEN/g, cfg.botToken);
-  s = s.replace(/YOUR_TELEGRAM_CHAT_ID/g, cfg.chatId);
-  // Set default status URL
-  const statusUrl = cfg.dashboardUrl.replace(/\/$/, "") + (cfg.dashboardUrl.includes("status.json") ? "" : "/status.json");
-  s = s.replace("http://100.x.x.x/nodepulse/status.json", statusUrl.replace("/nodepulse/", "/nodepulse/status.json"));
-  return s;
-}
-
-// ═══════════════════════════════
-// DOWNLOAD
-// ═══════════════════════════════
-function downloadFile(content, filename) {
-  const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function downloadScript(key) {
-  const cfg = getConfig();
-  let content, filename;
-  if (key === "monitor")   { content = injectConfig(SCRIPTS.monitor, cfg);   filename = "denet-monitor.sh"; }
-  if (key === "bot")       { content = injectConfig(SCRIPTS.bot, cfg);       filename = "denet-bot-listener.sh"; }
-  if (key === "updater")   { content = injectConfig(SCRIPTS.updater, cfg);   filename = "denet-update.sh"; }
-  if (key === "setup")     { content = injectConfig(SCRIPTS.setup, cfg);     filename = "setup-monitor-linux.sh"; }
-  if (key === "nodepulse") { content = injectNodepulse(SCRIPTS.nodepulse, cfg); filename = "nodepulse.html"; }
-  if (content) downloadFile(content, filename);
-}
-
-function downloadAll() {
-  const cfg = getConfig();
-  const files = [
-    [injectConfig(SCRIPTS.monitor, cfg),   "denet-monitor.sh"],
-    [injectConfig(SCRIPTS.bot, cfg),       "denet-bot-listener.sh"],
-    [injectConfig(SCRIPTS.updater, cfg),   "denet-update.sh"],
-    [injectConfig(SCRIPTS.setup, cfg),     "setup-monitor-linux.sh"],
-    [injectNodepulse(SCRIPTS.nodepulse, cfg), "nodepulse.html"],
-  ];
-  files.forEach(([content, name], i) => {
-    setTimeout(() => downloadFile(content, name), i * 400);
-  });
-}
-
-// ═══════════════════════════════
-// BUILD DOWNLOAD PAGE
-// ═══════════════════════════════
-function buildDownloadPage() {
-  const cfg = getConfig();
-
-  // Summary
-  const sg = document.getElementById("summary-grid");
-  const licenses = cfg.licenses.map(l => l.license).join(", ");
-  sg.innerHTML = [
-    ["Platform", cfg.platform === "linux" ? "🐧 Linux" : cfg.platform === "windows" ? "🪟 Windows" : "🍎 macOS"],
-    ["Access Method", cfg.access === "tailscale" ? "🔒 Tailscale" : cfg.access === "duckdns" ? "🌐 DuckDNS" : "📡 Static IP"],
-    ["Licenses", licenses],
-    ["Dashboard URL", cfg.dashboardUrl],
-  ].map(([k,v]) => `<div class="summary-item"><div class="sk">${k}</div><div class="sv">${v}</div></div>`).join("");
-
-  // Download cards
-  const dg = document.getElementById("download-grid");
-  const cards = [
-    ["monitor",   "denet-monitor.sh",        "cron every 5 min", "Main monitor — auto-restart, PID tracking, heartbeat, disk alerts"],
-    ["bot",       "denet-bot-listener.sh",   "systemd service",  "Telegram bot — /restart, /status, /history and more"],
-    ["updater",   "denet-update.sh",         "run manually",     "RC release updater — one command to upgrade"],
-    ["setup",     "setup-monitor-linux.sh",  "run once",         "One-click installer — sets up cron, systemd service, permissions"],
-    ["nodepulse", "nodepulse.html",          "browser / telegram","Live dashboard PWA + Telegram Mini App"],
-  ];
-  dg.innerHTML = cards.map(([key, name, type, desc]) => `
-    <div class="download-card">
-      <h3>${name}</h3>
-      <p style="font-size:10px;color:var(--accent);margin-bottom:4px;">${type}</p>
-      <p>${desc}</p>
-      <button class="dl-btn" onclick="downloadScript('${key}')">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-        Download ${name}
-      </button>
-    </div>
-  `).join("");
 }
 </script>
 </body>

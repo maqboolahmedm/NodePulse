@@ -3,10 +3,10 @@
 # ============================================================
 # DeNet Node Updater — NodePulse v2.0
 # Usage:
-#   denet-update rc13        → Install rc13
-#   denet-update rc14        → Install rc14
-#   denet-update latest      → Install latest release
-#   denet-update --check     → List available releases
+#   nodepulse-update rc13        → Install rc13
+#   nodepulse-update rc14        → Install rc14
+#   nodepulse-update latest      → Install latest release
+#   nodepulse-update --check     → List available releases
 # ============================================================
 
 # --- Telegram Config ---
@@ -17,7 +17,7 @@ TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
 DENODE_BIN="/usr/bin/denode"
 WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
 DENODE_PASSWORD="YOUR_NODE_PASSWORD"
-LICENSES=(YOUR_W1_LICENSE_1 YOUR_W1_LICENSE_2 YOUR_W2_LICENSE_1 YOUR_W2_LICENSE_2)
+LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)
 
 # --- Paths ---
 DENODE_DIR="$HOME/.denode"
@@ -336,8 +336,8 @@ for r in data[:10]:
     print(f'  • {tag}  [{date}]{pre}')
 " 2>/dev/null
   echo ""
-  echo "  Usage: denet-update rc14"
-  echo "         denet-update latest"
+  echo "  Usage: nodepulse-update rc14"
+  echo "         nodepulse-update latest"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   exit 0
@@ -351,9 +351,9 @@ INPUT="$1"
 if [ -z "$INPUT" ]; then
   echo ""
   echo "Usage:"
-  echo "  denet-update rc14      → Install rc14"
-  echo "  denet-update latest    → Install latest release"
-  echo "  denet-update --check   → List available releases"
+  echo "  nodepulse-update rc14      → Install rc14"
+  echo "  nodepulse-update latest    → Install latest release"
+  echo "  nodepulse-update --check   → List available releases"
   echo ""
   exit 0
 fi

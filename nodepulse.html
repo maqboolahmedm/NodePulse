@@ -129,6 +129,7 @@ main{padding:12px 14px 100px;max-width:520px;margin:0 auto;}
   display:flex;align-items:center;justify-content:center;gap:6px;}
 .btn-primary{background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.35);color:var(--accent);}
 .btn-danger{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--red);}
+.btn-secondary{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);}
 .btn:hover{filter:brightness(1.2);transform:translateY(-1px);}
 .btn:active{transform:scale(.97);}
 
@@ -288,6 +289,49 @@ main{padding:12px 14px 100px;max-width:520px;margin:0 auto;}
     </svg>
     Restart All
   </button>
+  <button class="btn btn-secondary" onclick="toggleMenu()">
+    ⋯ More
+  </button>
+</div>
+
+<!-- EXPANDED MENU -->
+<div id="more-menu" style="display:none;position:fixed;bottom:70px;left:0;right:0;
+  background:var(--card);border-top:1px solid var(--border);
+  padding:12px 16px;z-index:999;display:none;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <button class="btn btn-secondary" onclick="sendCommand('/penalties');toggleMenu()">
+      🟡 Penalties
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/chain');toggleMenu()">
+      ⛓ Chain
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/disk');toggleMenu()">
+      💾 Disk
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/restarts');toggleMenu()">
+      🔄 Restarts
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/version');toggleMenu()">
+      📋 Version
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/resetcounts');toggleMenu()">
+      🔃 Reset Counts
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/nexus');toggleMenu()">
+      🤖 Guard Status
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/health');toggleMenu()">
+      💊 Guard Health
+    </button>
+    <button class="btn btn-secondary" onclick="sendCommand('/history');toggleMenu()" style="grid-column:span 2;">
+      📋 History
+    </button>
+  </div>
+  <button onclick="toggleMenu()" style="width:100%;margin-top:10px;background:none;
+    border:1px solid var(--border);color:var(--muted);padding:8px;border-radius:8px;
+    cursor:pointer;font-size:12px;">
+    ✕ Close
+  </button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -296,6 +340,20 @@ main{padding:12px 14px 100px;max-width:520px;margin:0 auto;}
 // ═══════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════
+function toggleMenu() {
+  const m = document.getElementById('more-menu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close menu when tapping outside
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('more-menu');
+  const btn   = e.target.closest('[onclick="toggleMenu()"]');
+  if (!btn && menu && menu.style.display === 'block') {
+    if (!menu.contains(e.target)) toggleMenu();
+  }
+});
+
 function getCfg() {
   return {
     url:    localStorage.getItem('np_url')    || '',
@@ -345,15 +403,13 @@ function showCfg(show=true) {
 // TELEGRAM
 // ═══════════════════════════════════════
 async function sendTelegram(text) {
-  const c = getCfg();
-  if (!c.token || !c.chatId) { showToast('⚠️ No bot token configured'); return false; }
   try {
-    const r = await fetch(`https://api.telegram.org/bot${c.token}/sendMessage`, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({chat_id: c.chatId, text, parse_mode:'HTML'})
-    });
-    return (await r.json()).ok;
-  } catch(e) { showToast('❌ Telegram failed'); return false; }
+    // Use local NodePulse proxy — no CORS issues
+    const PROXY = 'http://100.114.147.85:8765/cmd';
+    const r = await fetch(`${PROXY}?text=${encodeURIComponent(text)}`);
+    const data = await r.json();
+    return data.status === 'ok';
+  } catch(e) { showToast('❌ Proxy failed — is nodepulse-proxy running?'); return false; }
 }
 async function sendCommand(cmd) {
   showToast(`Sending ${cmd}...`);
@@ -556,13 +612,13 @@ function renderNode(n, nodeChain) {
   // Chain status display
   let chainDisplay = '–';
   let chainClass = 'muted';
-  if (walletChain) {
-    chainDisplay = walletChain.status.toUpperCase();
-    chainClass = walletChain.status === 'online' ? 'online' : walletChain.status === 'pending' ? 'pending' : 'offline';
+  if (nodeChain) {
+    chainDisplay = nodeChain.status.toUpperCase();
+    chainClass = nodeChain.status === 'online' ? 'online' : nodeChain.status === 'pending' ? 'pending' : 'offline';
   }
 
   // Last tx
-  let lastTxDisplay = walletChain ? walletChain.lastTx : '–';
+  let lastTxDisplay = nodeChain ? nodeChain.age : '–';
 
   // Disk
   const disk = n.disk;
