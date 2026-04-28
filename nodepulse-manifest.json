@@ -1,7 +1,7 @@
 {
   "name": "NodePulse - Monitor",
   "short_name": "NodePulse",
-  "description": "DeNet Node Monitor",
+  "description": "NodePulse Monitor",
   "start_url": "/nodepulse/",
   "display": "standalone",
   "background_color": "#0D1B2A",
