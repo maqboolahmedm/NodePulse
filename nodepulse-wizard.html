@@ -5,156 +5,659 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NodePulse Setup Wizard</title>
 <style>
-  :root{--bg:#0D1B2A;--card:#0F2336;--accent:#00B894;--text:#E2E8F0;--muted:#64748B;--border:#1E3A4A;--red:#F87171;--amber:#F59E0B;}
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;min-height:100vh;padding:20px;}
-  .container{max-width:640px;margin:0 auto;}
-  h1{color:var(--accent);font-size:1.6rem;margin-bottom:4px;}
-  .sub{color:var(--muted);font-size:.85rem;margin-bottom:24px;}
-  .step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
-  .step-title{color:var(--accent);font-size:.95rem;font-weight:bold;margin-bottom:14px;}
-  label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px;margin-top:12px;}
-  input,select{width:100%;background:#0D1B2A;border:1px solid var(--border);color:var(--text);
-    padding:10px 12px;border-radius:8px;font-size:.85rem;font-family:'Courier New',monospace;}
-  input:focus,select:focus{outline:none;border-color:var(--accent);}
-  .btn{background:var(--accent);color:#0D1B2A;border:none;padding:12px 24px;border-radius:8px;
-    font-weight:bold;cursor:pointer;font-size:.9rem;width:100%;margin-top:16px;}
-  .btn:hover{opacity:.9;}
-  .output{background:#050E1A;border:1px solid var(--border);border-radius:8px;
-    padding:16px;margin-top:16px;font-size:.78rem;white-space:pre-wrap;word-break:break-all;
-    max-height:300px;overflow-y:auto;display:none;}
-  .copy-btn{background:rgba(0,184,148,.15);color:var(--accent);border:1px solid var(--accent);
-    padding:8px 16px;border-radius:6px;cursor:pointer;font-size:.8rem;margin-top:8px;}
-  .info{background:rgba(0,184,148,.08);border-left:3px solid var(--accent);
-    padding:10px 14px;border-radius:0 8px 8px 0;font-size:.8rem;color:var(--muted);margin-top:12px;}
-  .logo{font-size:2.5rem;text-align:center;margin-bottom:8px;}
-  .warning{background:rgba(245,158,11,.08);border-left:3px solid var(--amber);
-    padding:10px 14px;font-size:.8rem;color:var(--amber);margin-top:12px;border-radius:0 8px 8px 0;}
+:root{--bg:#0D1B2A;--card:#0F2336;--accent:#00B894;--text:#E2E8F0;--muted:#64748B;--border:#1E3A4A;--red:#F87171;--amber:#F59E0B;--yellow:#FFD700;--peacock:#005F73;}
+*{box-sizing:border-box;margin:0;padding:0;}
+
+/* ── Animated spiral background ── */
+body{
+  color:var(--text);
+  font-family:'Courier New',monospace;
+  min-height:100vh;
+  padding:20px 16px;
+  position:relative;
+  overflow-x:hidden;
+  background: #0D1B2A;
+}
+
+/* Spiral canvas sits behind everything */
+#spiral-bg{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  z-index:0;
+  pointer-events:none;
+}
+
+/* Content sits above canvas */
+.container{
+  max-width:660px;
+  margin:0 auto;
+  position:relative;
+  z-index:1;
+}
+
+/* Header badge */
+.header-wrap{
+  text-align:center;
+  padding:24px 16px 16px;
+  background:rgba(13,27,42,.85);
+  border-radius:16px;
+  border:1px solid rgba(255,215,0,.25);
+  margin-bottom:20px;
+  backdrop-filter:blur(8px);
+}
+.logo{font-size:2.8rem;margin-bottom:6px;}
+h1{
+  background:linear-gradient(135deg,var(--yellow) 0%,#FFB300 50%,var(--peacock) 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  font-size:1.6rem;
+  margin-bottom:4px;
+}
+.sub{color:var(--muted);font-size:.82rem;margin-bottom:0;}
+.tabs{display:flex;gap:8px;margin-bottom:20px;}
+.tab{flex:1;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem;text-align:center;color:var(--muted);transition:.2s;}
+.tab.active{border-color:var(--accent);color:var(--accent);background:rgba(0,184,148,.08);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+.step-title{color:var(--accent);font-size:.9rem;font-weight:bold;margin-bottom:12px;}
+label{display:block;font-size:.76rem;color:var(--muted);margin-bottom:4px;margin-top:10px;}
+label:first-of-type{margin-top:0;}
+input,select{width:100%;background:#050E1A;border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:.82rem;font-family:'Courier New',monospace;}
+input:focus,select:focus{outline:none;border-color:var(--accent);}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn{background:var(--accent);color:#0D1B2A;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.88rem;width:100%;margin-top:14px;}
+.btn-ghost{background:rgba(0,184,148,.1);color:var(--accent);border:1px solid var(--accent);padding:10px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.82rem;width:100%;margin-top:8px;}
+.output{background:#050E1A;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;font-size:.76rem;white-space:pre-wrap;word-break:break-all;max-height:340px;overflow-y:auto;line-height:1.7;display:none;}
+.info{background:rgba(0,184,148,.07);border-left:3px solid var(--accent);padding:9px 13px;font-size:.78rem;color:#94A3B8;margin-top:10px;border-radius:0 8px 8px 0;}
+.warn{background:rgba(245,158,11,.07);border-left:3px solid var(--amber);padding:9px 13px;font-size:.78rem;color:var(--amber);margin-top:10px;border-radius:0 8px 8px 0;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
+.svc-btn{padding:10px 6px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:8px;cursor:pointer;font-size:.76rem;text-align:center;width:100%;}
+.svc-btn.green{border-color:rgba(0,184,148,.5);color:var(--accent);}
+.svc-btn.green:hover{background:rgba(0,184,148,.08);}
+.svc-btn.red{border-color:rgba(248,113,113,.5);color:var(--red);}
+.svc-btn.red:hover{background:rgba(248,113,113,.08);}
+.svc-btn.blue{border-color:rgba(96,165,250,.5);color:#60A5FA;}
+.svc-btn.blue:hover{background:rgba(96,165,250,.08);}
+.cron-box{background:#050E1A;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.75rem;line-height:1.8;margin-top:8px;}
 </style>
 </head>
 <body>
+<canvas id="spiral-bg"></canvas>
 <div class="container">
-  <div class="logo">⬡</div>
-  <h1>NodePulse Setup Wizard</h1>
-  <p class="sub">Generate your pre-configured scripts in seconds</p>
-
-  <!-- Step 1: Bot -->
-  <div class="step">
-    <div class="step-title">Step 1 — Telegram Bot</div>
-    <div class="info">Create a bot via @BotFather → /newbot → copy token. Get Chat ID from api.telegram.org/botTOKEN/getUpdates</div>
-    <label>Bot Token</label>
-    <input id="bot_token" placeholder="1234567890:AABBCCDDEEFFaabbccddeeff" type="password">
-    <label>Chat ID</label>
-    <input id="chat_id" placeholder="123456789">
+  <div class="header-wrap">
+    <div class="logo">⬡</div>
+    <h1>NodePulse Setup Wizard</h1>
+    <p class="sub">Configure · Generate · Manage</p>
   </div>
 
-  <!-- Step 2: Wallet -->
-  <div class="step">
-    <div class="step-title">Step 2 — Wallet & Nodes</div>
-    <div class="warning">⚠️ Your password is stored locally only — never sent anywhere</div>
-    <label>Wallet Address (0x...)</label>
-    <input id="wallet" placeholder="0x...">
-    <label>Node Password</label>
-    <input id="password" type="password" placeholder="Your unlock password">
-    <label>License Numbers (space separated)</label>
-    <input id="licenses" placeholder="1072 1864 1865">
-    <label>Storage Base Path</label>
-    <input id="storage" placeholder="/mnt/Denet-Storage">
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('setup')">⚙️ Setup</div>
+    <div class="tab" onclick="showTab('manage')">🔧 Services</div>
+    <div class="tab" onclick="showTab('cron')">⏱ Cron</div>
   </div>
 
-  <!-- Step 3: Network -->
-  <div class="step">
-    <div class="step-title">Step 3 — Network (Optional)</div>
-    <label>DuckDNS Token (for dynamic IP)</label>
-    <input id="duckdns_token" placeholder="your-duckdns-token">
-    <label>DuckDNS Domain (without .duckdns.org)</label>
-    <input id="duckdns_domain" placeholder="yourname-denet">
+  <!-- SETUP TAB -->
+  <div class="tab-content active" id="tab-setup">
+
+    <!-- Wallet Type Toggle -->
+    <div class="step">
+      <div class="step-title">Wallet Type</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+        <button id="btn-sw" onclick="setWalletType('single')"
+          style="padding:12px;border-radius:8px;border:2px solid var(--accent);
+          background:rgba(0,184,148,.12);color:var(--accent);font-weight:bold;cursor:pointer;font-size:.85rem;">
+          🔑 Single Wallet
+        </button>
+        <button id="btn-mw" onclick="setWalletType('multi')"
+          style="padding:12px;border-radius:8px;border:1px solid var(--border);
+          background:var(--card);color:var(--muted);cursor:pointer;font-size:.85rem;">
+          🔑🔑 Multi Wallet
+        </button>
+      </div>
+      <div id="wallet-type-info" class="info" style="margin-top:10px;">
+        Single Wallet — 1 wallet address, any number of nodes. Use Linux-Single-Wallet/ folder.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Step 1 — Telegram Bot</div>
+      <div class="info">Create bot: @BotFather → /newbot → copy token
+Get Chat ID: api.telegram.org/botTOKEN/getUpdates → send any message → find "id"</div>
+      <label>Bot Token</label>
+      <input id="bot_token" type="password" placeholder="1234567890:AABBCCDDEEFFaabbccddeeff">
+      <label>Chat ID</label>
+      <input id="chat_id" placeholder="123456789">
+    </div>
+
+    <!-- SINGLE WALLET SECTION -->
+    <div id="section-single">
+    <div class="step">
+      <div class="step-title">Step 2 — Wallet & Nodes</div>
+      <div class="warn">⚠️ Password stays in your browser only — never sent anywhere</div>
+      <label>Wallet Address (0x...)</label>
+      <input id="wallet" placeholder="0x...">
+      <label>Node Password</label>
+      <input id="password" type="password" placeholder="Your unlock password">
+      <label>License Numbers (space separated)</label>
+      <input id="licenses" placeholder="1072 1864 1865 1866" oninput="buildRpcFields()">
+      <label>Storage Base Path (subfolders per license assigned automatically)</label>
+      <input id="storage" placeholder="/mnt/Denet-Storage">
+      <div class="info">e.g. /mnt/Denet-Storage → license 1072 → /mnt/Denet-Storage/1072</div>
+    </div>
+    <div class="step">
+      <div class="step-title">Step 3 — RPC Keys & Ports</div>
+      <div class="info">Get free keys at app.onfinality.io — one per license recommended for stability</div>
+      <div id="rpc-fields"><p style="color:var(--muted);font-size:.78rem;">Enter license numbers in Step 2 first</p></div>
+    </div>
+    </div>
+
+    <!-- MULTI WALLET SECTION -->
+    <div id="section-multi" style="display:none;">
+    <div class="step">
+      <div class="step-title">Step 2 — Wallet 1</div>
+      <div class="warn">⚠️ Passwords stay in your browser only — never sent anywhere</div>
+      <label>Wallet 1 Address (0x...)</label>
+      <input id="w1_addr" placeholder="0x...">
+      <label>Wallet 1 Password</label>
+      <input id="w1_pass" type="password" placeholder="Wallet 1 unlock password">
+      <label>Wallet 1 Licenses (space separated)</label>
+      <input id="w1_lics" placeholder="1072 1864 1865" oninput="buildMwRpcFields()">
+      <label>Storage Base Path</label>
+      <input id="w1_storage" placeholder="/mnt/Denet-Storage">
+    </div>
+    <div class="step">
+      <div class="step-title">Step 3 — Wallet 2</div>
+      <label>Wallet 2 Address (0x...)</label>
+      <input id="w2_addr" placeholder="0x...">
+      <label>Wallet 2 Password</label>
+      <input id="w2_pass" type="password" placeholder="Wallet 2 unlock password">
+      <label>Wallet 2 Licenses (space separated)</label>
+      <input id="w2_lics" placeholder="2001 2002 2003" oninput="buildMwRpcFields()">
+      <label>Storage Base Path</label>
+      <input id="w2_storage" placeholder="/mnt/Denet-Storage">
+    </div>
+    <div class="step">
+      <div class="step-title">Step 4 — Wallet 3 & 4 (Optional)</div>
+      <div class="row">
+        <div>
+          <label>Wallet 3 Address</label>
+          <input id="w3_addr" placeholder="0x... or leave empty">
+          <label>Wallet 3 Password</label>
+          <input id="w3_pass" type="password" placeholder="or leave empty">
+          <label>Wallet 3 Licenses</label>
+          <input id="w3_lics" placeholder="or leave empty" oninput="buildMwRpcFields()">
+        </div>
+        <div>
+          <label>Wallet 4 Address</label>
+          <input id="w4_addr" placeholder="0x... or leave empty">
+          <label>Wallet 4 Password</label>
+          <input id="w4_pass" type="password" placeholder="or leave empty">
+          <label>Wallet 4 Licenses</label>
+          <input id="w4_lics" placeholder="or leave empty" oninput="buildMwRpcFields()">
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-title">Step 5 — RPC Keys & Ports (All Wallets)</div>
+      <div class="info">Enter RPC key and port for each license across all wallets</div>
+      <div id="mw-rpc-fields"><p style="color:var(--muted);font-size:.78rem;">Enter license numbers above first</p></div>
+    </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Step 4 — Network (Optional)</div>
+      <div class="row">
+        <div>
+          <label>DuckDNS Token</label>
+          <input id="duckdns_token" placeholder="your-token">
+        </div>
+        <div>
+          <label>DuckDNS Domain</label>
+          <input id="duckdns_domain" placeholder="yourname-denet">
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Step 5 — Username & Timezone</div>
+      <div class="row">
+        <div>
+          <label>Linux Username</label>
+          <input id="username" placeholder="your_username">
+        </div>
+        <div>
+          <label>Timezone</label>
+          <select id="timezone">
+            <option value="Asia/Kolkata">India</option>
+            <option value="Europe/Berlin">Germany</option>
+            <option value="Europe/Amsterdam">Netherlands</option>
+            <option value="America/New_York">US East</option>
+            <option value="America/Los_Angeles">US West</option>
+            <option value="Asia/Manila">Philippines</option>
+            <option value="Asia/Singapore">Singapore</option>
+            <option value="UTC">UTC</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" onclick="generate()">⚡ Generate Full Setup Command</button>
+    <div id="setup-output" class="output"></div>
+    <button id="copy-setup" class="btn-ghost" style="display:none" onclick="copyOut('setup-output','copy-setup')">📋 Copy Command</button>
   </div>
 
-  <!-- Step 4: Timezone -->
-  <div class="step">
-    <div class="step-title">Step 4 — Timezone</div>
-    <label>Your Timezone</label>
-    <select id="timezone">
-      <option value="Asia/Kolkata">India (Asia/Kolkata)</option>
-      <option value="Europe/Berlin">Germany (Europe/Berlin)</option>
-      <option value="Europe/Amsterdam">Netherlands (Europe/Amsterdam)</option>
-      <option value="America/New_York">US East (America/New_York)</option>
-      <option value="America/Los_Angeles">US West (America/Los_Angeles)</option>
-      <option value="Asia/Manila">Philippines (Asia/Manila)</option>
-      <option value="Asia/Singapore">Singapore (Asia/Singapore)</option>
-      <option value="UTC">UTC</option>
-    </select>
+  <!-- SERVICES TAB -->
+  <div class="tab-content" id="tab-manage">
+    <div class="step">
+      <div class="step-title">ℹ️ How to Use</div>
+      <div class="info">Click any button below to generate the command → copy it → paste and run on your VM terminal.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🤖 nodepulse-bot (Telegram Bot)</div>
+      <div class="grid3">
+        <button class="svc-btn green" onclick="svcCmd('bot-out','start','nodepulse-bot','copy-bot')">▶ Start</button>
+        <button class="svc-btn red"   onclick="svcCmd('bot-out','stop','nodepulse-bot','copy-bot')">■ Stop</button>
+        <button class="svc-btn blue"  onclick="svcCmd('bot-out','restart','nodepulse-bot','copy-bot')">↺ Restart</button>
+      </div>
+      <button class="svc-btn" style="margin-top:6px;width:100%;" onclick="svcCmd('bot-out','status','nodepulse-bot','copy-bot')">📊 Status</button>
+      <div id="bot-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-bot" onclick="copyOut('bot-out','copy-bot')">📋 Copy</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🔌 nodepulse-proxy (Web App Bridge)</div>
+      <div class="grid3">
+        <button class="svc-btn green" onclick="svcCmd('proxy-out','start','nodepulse-proxy','copy-proxy')">▶ Start</button>
+        <button class="svc-btn red"   onclick="svcCmd('proxy-out','stop','nodepulse-proxy','copy-proxy')">■ Stop</button>
+        <button class="svc-btn blue"  onclick="svcCmd('proxy-out','restart','nodepulse-proxy','copy-proxy')">↺ Restart</button>
+      </div>
+      <button class="svc-btn" style="margin-top:6px;width:100%;" onclick="svcCmd('proxy-out','status','nodepulse-proxy','copy-proxy')">📊 Status</button>
+      <div id="proxy-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-proxy" onclick="copyOut('proxy-out','copy-proxy')">📋 Copy</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🌐 nginx (Dashboard)</div>
+      <div class="grid3">
+        <button class="svc-btn green" onclick="svcCmd('nginx-out','start','nginx','copy-nginx')">▶ Start</button>
+        <button class="svc-btn red"   onclick="svcCmd('nginx-out','stop','nginx','copy-nginx')">■ Stop</button>
+        <button class="svc-btn blue"  onclick="svcCmd('nginx-out','restart','nginx','copy-nginx')">↺ Restart</button>
+      </div>
+      <button class="svc-btn" style="margin-top:6px;width:100%;" onclick="svcCmd('nginx-out','status','nginx','copy-nginx')">📊 Status</button>
+      <div id="nginx-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-nginx" onclick="copyOut('nginx-out','copy-nginx')">📋 Copy</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">⚡ All Services</div>
+      <div class="grid3">
+        <button class="svc-btn green" onclick="multiCmd('all-out','sudo systemctl start nodepulse-bot nodepulse-proxy nginx','copy-all')">▶ Start All</button>
+        <button class="svc-btn red"   onclick="multiCmd('all-out','sudo systemctl stop nodepulse-bot nodepulse-proxy','copy-all')">■ Stop All</button>
+        <button class="svc-btn blue"  onclick="multiCmd('all-out','sudo systemctl restart nodepulse-bot nodepulse-proxy nginx','copy-all')">↺ Restart All</button>
+      </div>
+      <div id="all-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-all" onclick="copyOut('all-out','copy-all')">📋 Copy</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🖥 Run Scripts Manually</div>
+      <label>Your Linux Username (for path)</label>
+      <input id="run_user" placeholder="your_username">
+      <div class="grid3" style="margin-top:10px;">
+        <button class="svc-btn green" onclick="scriptCmd('script-out','nodepulse-monitor.sh','copy-script')">▶ Monitor</button>
+        <button class="svc-btn green" onclick="scriptCmd('script-out','nodepulse-guard.sh','copy-script')">🛡 Guard</button>
+        <button class="svc-btn green" onclick="scriptCmd('script-out','nodepulse-ip-watch.sh','copy-script')">🌐 IP Watch</button>
+      </div>
+      <div id="script-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-script" onclick="copyOut('script-out','copy-script')">📋 Copy</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">🔐 chmod +x — Make Scripts Executable</div>
+      <div class="info">Run once after copying scripts to your VM</div>
+      <div class="grid3">
+        <button class="svc-btn blue" onclick="showOut('chmod-out','chmod +x ~/NodePulse/*.sh ~/NodePulse/*.py','copy-chmod')">chmod +x All</button>
+      </div>
+      <div id="chmod-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-chmod" onclick="copyOut('chmod-out','copy-chmod')">📋 Copy</button>
+    </div>
   </div>
 
-  <button class="btn" onclick="generate()">⚡ Generate Setup Command</button>
+  <!-- CRON TAB -->
+  <div class="tab-content" id="tab-cron">
+    <div class="step">
+      <div class="step-title">Generate Cron Jobs</div>
+      <label>Linux Username</label>
+      <input id="cron_user" placeholder="your_username">
+      <button class="btn" onclick="genCron()">⚡ Generate Cron Command</button>
+      <div id="cron-out" class="output"></div>
+      <button class="btn-ghost" style="display:none" id="copy-cron" onclick="copyOut('cron-out','copy-cron')">📋 Copy</button>
+    </div>
 
-  <div id="output" class="output"></div>
-  <button id="copy-btn" class="copy-btn" style="display:none" onclick="copyOutput()">📋 Copy Command</button>
+    <div class="step">
+      <div class="step-title">Check Active Cron Jobs</div>
+      <div class="cron-box">crontab -l | grep nodepulse</div>
+      <button class="btn-ghost" style="margin-top:8px;" onclick="copyText('crontab -l | grep nodepulse')">📋 Copy</button>
+    </div>
 
-  <div class="info" style="margin-top:16px;">
-    After generating — paste command in your VM terminal. It replaces all YOUR_XXX placeholders automatically.
+    <div class="step">
+      <div class="step-title">Remove All NodePulse Cron Jobs</div>
+      <div class="warn">⚠️ This removes all NodePulse cron entries</div>
+      <div class="cron-box">crontab -l | grep -v nodepulse | crontab -</div>
+      <button class="btn-ghost" style="margin-top:8px;" onclick="copyText('crontab -l | grep -v nodepulse | crontab -')">📋 Copy</button>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Schedule Reference</div>
+      <div class="cron-box">*/5  * * * *   nodepulse-monitor.sh   ← every 5 min
+*/5  * * * *   nodepulse-guard.sh     ← every 5 min
+*/15 * * * *   nodepulse-ip-watch.sh  ← every 15 min</div>
+    </div>
   </div>
 </div>
 
 <script>
-function generate() {
-  const token   = document.getElementById('bot_token').value.trim();
-  const chatId  = document.getElementById('chat_id').value.trim();
-  const wallet  = document.getElementById('wallet').value.trim();
-  const pass    = document.getElementById('password').value.trim();
-  const lics    = document.getElementById('licenses').value.trim();
-  const storage = document.getElementById('storage').value.trim() || '/mnt/Denet-Storage';
-  const ddToken = document.getElementById('duckdns_token').value.trim();
-  const ddDomain= document.getElementById('duckdns_domain').value.trim();
-  const tz      = document.getElementById('timezone').value;
+function showTab(n){['setup','manage','cron'].forEach((t,i)=>{document.querySelectorAll('.tab')[i].classList.toggle('active',t===n);document.getElementById('tab-'+t).classList.toggle('active',t===n);});}
+function buildRpcFields(){
+  const l=document.getElementById('licenses').value.trim().split(/\s+/).filter(Boolean);
+  const dp=[55050,55051,55052,55053,55054,55055];
+  document.getElementById('rpc-fields').innerHTML=l.length
+    ?l.map((v,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:10px;"><div style="color:var(--accent);font-size:.78rem;margin-bottom:8px;">License ${v}</div><div class="row"><div><label>RPC API Key</label><input id="rpc_${i}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div><div><label>Port</label><input id="port_${i}" placeholder="${dp[i]||55050+i}" value="${dp[i]||55050+i}"></div></div></div>`).join('')
+    :'<p style="color:var(--muted);font-size:.78rem;">Enter license numbers in Step 2 first</p>';
+}
+let walletType = 'single';
+function setWalletType(type) {
+  walletType = type;
+  const isSingle = type === 'single';
+  document.getElementById('section-single').style.display = isSingle ? 'block' : 'none';
+  document.getElementById('section-multi').style.display  = isSingle ? 'none'  : 'block';
+  document.getElementById('btn-sw').style.cssText = isSingle
+    ? 'padding:12px;border-radius:8px;border:2px solid var(--accent);background:rgba(0,184,148,.12);color:var(--accent);font-weight:bold;cursor:pointer;font-size:.85rem;'
+    : 'padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:.85rem;';
+  document.getElementById('btn-mw').style.cssText = isSingle
+    ? 'padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:.85rem;'
+    : 'padding:12px;border-radius:8px;border:2px solid var(--accent);background:rgba(0,184,148,.12);color:var(--accent);font-weight:bold;cursor:pointer;font-size:.85rem;';
+  document.getElementById('wallet-type-info').textContent = isSingle
+    ? 'Single Wallet — 1 wallet address, any number of nodes. Use Linux-Single-Wallet/ folder.'
+    : 'Multi Wallet — up to 4 wallets with different passwords. Use Linux-Multi-Wallet/ folder.';
+}
 
-  if (!token || !chatId || !wallet || !pass || !lics) {
-    alert('Please fill in all required fields (Steps 1–2)');
-    return;
+function buildMwRpcFields() {
+  const dp=[55050,55051,55052,55053,55054,55055,55056,55057,55058,55059,55060,55061];
+  const wallets = [
+    {id:'w1', lics: document.getElementById('w1_lics')?.value.trim().split(/\s+/).filter(Boolean)||[], label:'W1'},
+    {id:'w2', lics: document.getElementById('w2_lics')?.value.trim().split(/\s+/).filter(Boolean)||[], label:'W2'},
+    {id:'w3', lics: document.getElementById('w3_lics')?.value.trim().split(/\s+/).filter(Boolean)||[], label:'W3'},
+    {id:'w4', lics: document.getElementById('w4_lics')?.value.trim().split(/\s+/).filter(Boolean)||[], label:'W4'},
+  ];
+  let html = '', idx = 0;
+  wallets.forEach(w => {
+    w.lics.forEach(lic => {
+      html += `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:10px;">
+        <div style="color:var(--accent);font-size:.78rem;margin-bottom:8px;">${w.label} — License ${lic}</div>
+        <div class="row">
+          <div><label>RPC API Key</label><input id="mw_rpc_${lic}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+          <div><label>Port</label><input id="mw_port_${lic}" value="${dp[idx]||55050+idx}"></div>
+        </div></div>`;
+      idx++;
+    });
+  });
+  document.getElementById('mw-rpc-fields').innerHTML = html || '<p style="color:var(--muted);font-size:.78rem;">Enter license numbers above first</p>';
+}
+
+function generateMulti(token, chatId, tz, user, ddTok, ddDom) {
+  const path = '/home/'+user+'/NodePulse';
+  const wallets = [
+    {n:1, addr: document.getElementById('w1_addr').value.trim(), pass: document.getElementById('w1_pass').value.trim(),
+     lics: document.getElementById('w1_lics').value.trim().split(/\s+/).filter(Boolean),
+     storage: document.getElementById('w1_storage').value.trim().replace(/\/$/,'')||'/mnt/Denet-Storage'},
+    {n:2, addr: document.getElementById('w2_addr').value.trim(), pass: document.getElementById('w2_pass').value.trim(),
+     lics: document.getElementById('w2_lics').value.trim().split(/\s+/).filter(Boolean),
+     storage: document.getElementById('w2_storage').value.trim().replace(/\/$/,'')||'/mnt/Denet-Storage'},
+    {n:3, addr: document.getElementById('w3_addr').value.trim(), pass: document.getElementById('w3_pass').value.trim(),
+     lics: document.getElementById('w3_lics').value.trim().split(/\s+/).filter(Boolean),
+     storage: '/mnt/Denet-Storage'},
+    {n:4, addr: document.getElementById('w4_addr').value.trim(), pass: document.getElementById('w4_pass').value.trim(),
+     lics: document.getElementById('w4_lics').value.trim().split(/\s+/).filter(Boolean),
+     storage: '/mnt/Denet-Storage'},
+  ].filter(w => w.addr && w.lics.length);
+
+  if (!wallets.length) { alert('Please fill Wallet 1 and Wallet 2 details'); return; }
+
+  let c = '#!/bin/bash\n# NodePulse Multi-Wallet Setup — Generated by Wizard\n\n';
+  c += '# 1. Make scripts executable\nchmod +x ~/NodePulse/*.sh ~/NodePulse/*.py\n\n';
+
+  // Credentials
+  c += "# 2. Set credentials\nfind ~/NodePulse -maxdepth 1 -name 'nodepulse-*' -exec sed -i '\n";
+  c += '  s|YOUR_TELEGRAM_BOT_TOKEN|'+token+'|g;\n  s|YOUR_TELEGRAM_CHAT_ID|'+chatId+'|g;\n';
+  c += '  s|YOUR_TIMEZONE|'+tz+'|g;\n  s|YOUR_USERNAME|'+user+'|g;\n';
+  if(ddTok) c += '  s|YOUR_DUCKDNS_TOKEN|'+ddTok+'|g;\n';
+  if(ddDom) c += '  s|YOUR_DUCKDNS_DOMAIN|'+ddDom+'|g;\n';
+  c += "' {} +\n\n";
+
+  // Per wallet
+  c += '# 3. Set wallet addresses and passwords\n';
+  wallets.forEach(w => {
+    c += 'sed -i \'s|YOUR_WALLET_'+w.n+'_ADDRESS|'+w.addr+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    c += 'sed -i \'s|YOUR_WALLET_'+w.n+'_PASSWORD|'+w.pass+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    const licLine = w.lics.join(' ');
+    const ph = w.lics.map((_,i) => 'YOUR_W'+w.n+'_LICENSE_'+(i+1)).join(' ');
+    c += 'sed -i \'s|'+ph+'|'+licLine+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+  });
+
+  // Per license
+  c += '\n# 4. Per-license storage, RPC, ports\n';
+  wallets.forEach(w => {
+    w.lics.forEach((lic, i) => {
+      c += 'sed -i \'s|YOUR_STORAGE_PATH/YOUR_W'+w.n+'_LICENSE_'+(i+1)+'|'+w.storage+'/'+lic+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+      const rpc = document.getElementById('mw_rpc_'+lic)?.value.trim();
+      if (rpc) c += 'sed -i \'s|YOUR_W'+w.n+'_RPC_APIKEY_'+(i+1)+'|'+rpc+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+      const port = document.getElementById('mw_port_'+lic)?.value.trim();
+      if (port) c += 'sed -i \'s|YOUR_W'+w.n+'_PORT_'+(i+1)+'|'+port+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    });
+  });
+
+  // Cron + services
+  c += '\n# 5. Add cron jobs\n';
+  c += '(crontab -l 2>/dev/null; echo "*/5 * * * * '+path+'/nodepulse-monitor.sh") | crontab -\n';
+  c += '(crontab -l 2>/dev/null; echo "*/5 * * * * '+path+'/nodepulse-guard.sh") | crontab -\n';
+  c += '(crontab -l 2>/dev/null; echo "*/15 * * * * '+path+'/nodepulse-ip-watch.sh") | crontab -\n';
+  c += '\n# 6. Install services\nsudo cp ~/NodePulse/nodepulse-proxy.service /etc/systemd/system/\n';
+  c += 'sudo systemctl daemon-reload\nsudo systemctl enable nodepulse-proxy nodepulse-bot\n';
+  c += 'sudo systemctl start nodepulse-proxy nodepulse-bot\n';
+  c += '\necho "✅ NodePulse Multi-Wallet setup complete!"';
+
+  const o = document.getElementById('setup-output');
+  o.textContent = c; o.style.display = 'block';
+  document.getElementById('copy-setup').style.display = 'block';
+}
+
+function generate(){
+  const token=document.getElementById('bot_token').value.trim(),
+    chatId=document.getElementById('chat_id').value.trim(),
+    tz=document.getElementById('timezone').value,
+    user=document.getElementById('username').value.trim()||'YOUR_USERNAME',
+    ddTok=document.getElementById('duckdns_token').value.trim(),
+    ddDom=document.getElementById('duckdns_domain').value.trim();
+  if(!token||!chatId){alert('Please fill Step 1 — Telegram credentials');return;}
+  if(walletType==='multi'){generateMulti(token,chatId,tz,user,ddTok,ddDom);return;}
+
+  const path='/home/'+user+'/NodePulse';
+  const wallet=document.getElementById('wallet').value.trim();
+  const pass=document.getElementById('password').value.trim();
+  const lics=document.getElementById('licenses').value.trim().split(/\s+/).filter(Boolean);
+  const storage=document.getElementById('storage').value.trim().replace(/\/$/,'')||'/mnt/Denet-Storage';
+  if(!wallet||!pass||!lics.length){alert('Please fill Step 2 — Wallet & Nodes');return;}
+  let c='#!/bin/bash\n# NodePulse Setup — Generated by Wizard\n# Run this command on your VM\n\n';
+
+  // Step 1 — chmod
+  c+='# 1. Make scripts executable\nchmod +x ~/NodePulse/*.sh ~/NodePulse/*.py\n\n';
+
+  // Step 2 — bulk credential replacement
+  c+="# 2. Set credentials in all scripts\nfind ~/NodePulse -maxdepth 1 -name 'nodepulse-*' -exec sed -i '\n";
+  c+='  s|YOUR_TELEGRAM_BOT_TOKEN|'+token+'|g;\n';
+  c+='  s|YOUR_TELEGRAM_CHAT_ID|'+chatId+'|g;\n';
+  c+='  s|YOUR_WALLET_ADDRESS|'+wallet+'|g;\n';
+  c+='  s|YOUR_NODE_PASSWORD|'+pass+'|g;\n';
+  c+='  s|YOUR_TIMEZONE|'+tz+'|g;\n';
+  c+='  s|YOUR_USERNAME|'+user+'|g;\n';
+  if(ddTok) c+='  s|YOUR_DUCKDNS_TOKEN|'+ddTok+'|g;\n';
+  if(ddDom) c+='  s|YOUR_DUCKDNS_DOMAIN|'+ddDom+'|g;\n';
+  c+="' {} +\n\n";
+
+  // Step 3 — license array
+  const licLine=lics.join(' ');
+  const ph=lics.map((_,i)=>'YOUR_LICENSE_'+(i+1)).join(' ');
+  c+='# 3. Set license numbers\n';
+  c+='sed -i \'s|'+ph+'|'+licLine+'|g\' ~/NodePulse/nodepulse-monitor.sh\n\n';
+
+  // Step 4 — per-license: storage, RPC, ports
+  c+='# 4. Per-license storage paths, RPC keys and ports\n';
+  const defaultPorts=[55050,55051,55052,55053,55054,55055];
+  lics.forEach((l,i)=>{
+    // Storage path
+    c+='sed -i \'s|YOUR_STORAGE_PATH/YOUR_LICENSE_'+(i+1)+'|'+storage+'/'+l+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    // RPC key
+    const rpc=document.getElementById('rpc_'+i)?.value.trim();
+    if(rpc){
+      c+='sed -i \'s|YOUR_RPC_APIKEY_'+(i+1)+'|'+rpc+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    }
+    // Port
+    const portEl=document.getElementById('port_'+i);
+    const port=portEl?.value.trim()||String(defaultPorts[i]||55050+i);
+    c+='sed -i \'s|NODE_PORT\\[YOUR_LICENSE_'+(i+1)+'\\]=55050|NODE_PORT\\['+l+'\\]='+port+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    c+='sed -i \'s|NODE_PORT\\[YOUR_LICENSE_'+(i+1)+'\\]=|NODE_PORT\\['+l+'\\]=|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+  });
+
+  // Step 5 — STORAGE_DRIVES array
+  c+='\n# 5. Fix STORAGE_DRIVES array\n';
+  lics.forEach((l,i)=>{
+    c+='sed -i \'s|"YOUR_STORAGE_PATH/YOUR_LICENSE_'+(i+1)+'"|"'+storage+'/'+l+'"|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+  });
+
+  // Step 6 — cron
+  c+='\n# 6. Add cron jobs\n';
+  c+='(crontab -l 2>/dev/null; echo "*/5 * * * * '+path+'/nodepulse-monitor.sh") | crontab -\n';
+  c+='(crontab -l 2>/dev/null; echo "*/5 * * * * '+path+'/nodepulse-guard.sh") | crontab -\n';
+  c+='(crontab -l 2>/dev/null; echo "*/15 * * * * '+path+'/nodepulse-ip-watch.sh") | crontab -\n';
+
+  // Step 7 — install proxy service
+  c+='\n# 7. Install proxy service\n';
+  c+='sudo cp ~/NodePulse/nodepulse-proxy.service /etc/systemd/system/\n';
+  c+='sudo systemctl daemon-reload\n';
+  c+='sudo systemctl enable nodepulse-proxy nodepulse-bot\n';
+  c+='sudo systemctl start nodepulse-proxy nodepulse-bot\n';
+
+  c+='\necho "✅ NodePulse setup complete!"\necho "Send /help to your Telegram bot to verify."';
+
+  const o=document.getElementById('setup-output');o.textContent=c;o.style.display='block';
+  document.getElementById('copy-setup').style.display='block';
+}
+function svcCmd(o,a,s,c){showOut(o,'sudo systemctl '+a+' '+s,c);}
+function multiCmd(o,cmd,c){showOut(o,cmd,c);}
+function scriptCmd(o,s,c){showOut(o,'bash ~/NodePulse/'+s,c);}
+function chmodCmd(o,f,c){showOut(o,'chmod +x ~/NodePulse/*.sh ~/NodePulse/*.py',c);}
+function chmodBoth(o,c){showOut(o,'chmod +x ~/NodePulse/*.sh ~/NodePulse/*.py',c);}
+function showOut(outId,cmd,copyId){const e=document.getElementById(outId);e.textContent='# Copy and run on your VM:\n'+cmd;e.style.display='block';if(copyId)document.getElementById(copyId).style.display='block';}
+function genCron(){
+  const u=document.getElementById('cron_user').value.trim()||'YOUR_USERNAME',
+    p='/home/'+u+'/NodePulse';
+  const c='(crontab -l 2>/dev/null; echo "*/5 * * * * '+p+'/nodepulse-monitor.sh") | crontab -\n'
+    +'(crontab -l 2>/dev/null; echo "*/5 * * * * '+p+'/nodepulse-guard.sh") | crontab -\n'
+    +'(crontab -l 2>/dev/null; echo "*/15 * * * * '+p+'/nodepulse-ip-watch.sh") | crontab -\n'
+    +'echo "✅ Done — verify: crontab -l | grep nodepulse"';
+  const o=document.getElementById('cron-out');o.textContent=c;o.style.display='block';
+  document.getElementById('copy-cron').style.display='block';
+}
+function copyOut(o,b){navigator.clipboard.writeText(document.getElementById(o).textContent).then(()=>{const btn=document.getElementById(b),orig=btn.textContent;btn.textContent='✅ Copied!';setTimeout(()=>btn.textContent=orig,2000);});}
+// ── Spiral background animation ───────────────────────────
+(function(){
+  const canvas = document.getElementById('spiral-bg');
+  const ctx    = canvas.getContext('2d');
+
+  function resize(){
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Spiral ribbon config
+  const ribbons = [
+    { angleOffset: 0,      color: '#FFD700', alpha: 0.18, width: 3 },   // DeNet yellow
+    { angleOffset: Math.PI * 0.4, color: '#005F73', alpha: 0.22, width: 2.5 }, // Peacock blue
+    { angleOffset: Math.PI * 0.8, color: '#FFB300', alpha: 0.12, width: 2 },   // Amber yellow
+    { angleOffset: Math.PI * 1.2, color: '#0A9396', alpha: 0.15, width: 2 },   // Teal peacock
+  ];
+
+  let tick = 0;
+
+  function drawSpiral(ribbon, t) {
+    const cx = canvas.width  * 0.5;
+    const cy = canvas.height * 0.45;
+    const turns = 6;
+    const maxR  = Math.max(canvas.width, canvas.height) * 0.72;
+    const steps = 800;
+
+    ctx.beginPath();
+    ctx.strokeStyle = ribbon.color;
+    ctx.globalAlpha = ribbon.alpha;
+    ctx.lineWidth   = ribbon.width;
+    ctx.shadowColor = ribbon.color;
+    ctx.shadowBlur  = 8;
+
+    for (let i = 0; i <= steps; i++) {
+      const frac  = i / steps;
+      const angle = ribbon.angleOffset + frac * turns * Math.PI * 2 + t * 0.008;
+      const r     = frac * maxR;
+      // Add sine wave wobble for ribbon effect
+      const wobble = Math.sin(frac * 20 + t * 0.04) * (r * 0.04);
+      const rx = cx + (r + wobble) * Math.cos(angle);
+      const ry = cy + (r + wobble) * Math.sin(angle) * 0.55; // flatten vertically
+
+      if (i === 0) ctx.moveTo(rx, ry);
+      else         ctx.lineTo(rx, ry);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur  = 0;
   }
 
-  const licArr = lics.split(/\s+/);
-  let licLine  = licArr.join(' ');
+  function drawGlow(t) {
+    // Pulsing central glow — DeNet yellow
+    const cx = canvas.width  * 0.5;
+    const cy = canvas.height * 0.45;
+    const pulse = 60 + Math.sin(t * 0.03) * 20;
+    const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, pulse);
+    grd.addColorStop(0, 'rgba(255,215,0,0.10)');
+    grd.addColorStop(0.5,'rgba(0,95,115,0.06)');
+    grd.addColorStop(1, 'rgba(13,27,42,0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, pulse * 2, pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-  let cmd = `# NodePulse Setup — Generated by Wizard\n`;
-  cmd += `# Run this in your Linux-Single-Wallet folder\n\n`;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  cmd += `# Set credentials in all scripts at once\n`;
-  cmd += `find . -name 'nodepulse-*' -exec sed -i \\\n`;
-  cmd += `  's|YOUR_TELEGRAM_BOT_TOKEN|${token}|g;\n`;
-  cmd += `   s|YOUR_TELEGRAM_CHAT_ID|${chatId}|g;\n`;
-  cmd += `   s|YOUR_WALLET_ADDRESS|${wallet}|g;\n`;
-  cmd += `   s|YOUR_NODE_PASSWORD|${pass}|g;\n`;
-  cmd += `   s|YOUR_TIMEZONE|${tz}|g;\n`;
-  cmd += `   s|YOUR_STORAGE_PATH|${storage}|g;\n`;
-  if (ddToken)  cmd += `   s|YOUR_DUCKDNS_TOKEN|${ddToken}|g;\n`;
-  if (ddDomain) cmd += `   s|YOUR_DUCKDNS_DOMAIN|${ddDomain}|g;\n`;
-  cmd += `  ' {} +\n\n`;
+    // Dark base
+    ctx.fillStyle = '#0D1B2A';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  cmd += `# Set license numbers\n`;
-  cmd += `sed -i 's|YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3|${licLine}|g' nodepulse-monitor.sh\n\n`;
+    drawGlow(tick);
+    ribbons.forEach(r => drawSpiral(r, tick));
 
-  // Per-license storage paths
-  licArr.forEach((lic, i) => {
-    cmd += `sed -i 's|YOUR_STORAGE_PATH/YOUR_LICENSE_${i+1}|${storage}/${lic}|g' nodepulse-monitor.sh\n`;
-  });
+    tick++;
+    requestAnimationFrame(animate);
+  }
 
-  cmd += `\n# Run setup\nbash nodepulse-setup.sh`;
-
-  const out = document.getElementById('output');
-  out.textContent = cmd;
-  out.style.display = 'block';
-  document.getElementById('copy-btn').style.display = 'inline-block';
-}
-
-function copyOutput() {
-  const text = document.getElementById('output').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    document.getElementById('copy-btn').textContent = '✅ Copied!';
-    setTimeout(() => document.getElementById('copy-btn').textContent = '📋 Copy Command', 2000);
-  });
-}
+  animate();
+})();
 </script>
 </body>
 </html>

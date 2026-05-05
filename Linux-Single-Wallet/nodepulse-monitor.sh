@@ -2,8 +2,8 @@
 
 # ============================================================
 # NodePulse Monitor & Auto-Restart Script
-# User: maqbool | Ubuntu VM
-# v4.0 — Per-node uptime, configurable timezone, DuckDNS, port/RPC per node
+# Linux Single-Wallet Version
+# v3.0 — Per-node uptime, configurable timezone, DuckDNS, port/RPC per node
 # ============================================================
 
 # --- Telegram Config ---
@@ -22,10 +22,10 @@ LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)
 # Per-node ports (from manager_config.yaml)
 declare -A NODE_PORT
 NODE_PORT[YOUR_LICENSE_1]=55050
-NODE_PORT[YOUR_LICENSE_2]=55056
-NODE_PORT[YOUR_LICENSE_3]=55051
+NODE_PORT[YOUR_LICENSE_2]=55051
+NODE_PORT[YOUR_LICENSE_3]=55052
 NODE_PORT[YOUR_LICENSE_4]=55053
-NODE_PORT[YOUR_LICENSE_5]=55057
+NODE_PORT[YOUR_LICENSE_5]=55054
 NODE_PORT[YOUR_LICENSE_6]=55055
 
 # Per-node private RPC endpoints (from manager_config.yaml)
