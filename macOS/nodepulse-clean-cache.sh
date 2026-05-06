@@ -9,17 +9,20 @@ clean_dir() {
 }
 
 echo "========================================"
-echo "     NodePulse macOS Cache Cleaner"
+echo " NodePulse macOS Cache Cleaner"
 echo "========================================"
-
 START_TIME=$(date +%s)
 echo ""
 
 # System caches
 clean_dir "/tmp"
-clean_dir "/var/folders/*/*/C"
 clean_dir "/Library/Caches"
-sudo rm -rf /Library/Logs/* 2>/dev/null
+sudo rm -rf /Library/Logs/* 2>/dev/null && echo "→ /Library/Logs"
+
+# /var/folders requires glob expansion — cannot pass glob to function
+for d in /var/folders/*/*/C; do
+    [[ -d "$d" ]] && rm -rf "$d"/* 2>/dev/null && echo "→ $d"
+done
 
 # User caches
 clean_dir "$HOME/Library/Caches"
@@ -31,13 +34,20 @@ clean_dir "$HOME/Library/Cookies"
 clean_dir "$HOME/Library/Caches/Google/Chrome"
 clean_dir "$HOME/Library/Caches/com.apple.Safari"
 clean_dir "$HOME/Library/Caches/com.microsoft.Edge"
-clean_dir "$HOME/Library/Application Support/Firefox/Profiles/*/cache2"
+
+# Firefox — requires glob expansion
+for d in "$HOME/Library/Application Support/Firefox/Profiles"/*/cache2; do
+    [[ -d "$d" ]] && rm -rf "$d"/* 2>/dev/null && echo "→ $d"
+done
+
+# Teams
 clean_dir "$HOME/Library/Application Support/Microsoft/Teams"
 
 # Trash
-rm -rf ~/.Trash/* 2>/dev/null
+rm -rf ~/.Trash/* 2>/dev/null && echo "→ ~/.Trash"
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
+
 echo ""
 echo "✅ Cleanup complete! ⏱️ ${DURATION}s"
