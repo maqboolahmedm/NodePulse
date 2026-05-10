@@ -4,7 +4,7 @@ All notable changes to NodePulse are documented here.
 
 ---
 
-## [NodePulse Final] — 2025
+## [NodePulse Final] — 2026
 
 ### Added
 - **NodePulse Guard** — per-node health scoring engine (0–100), replaces basic alert-only monitoring
