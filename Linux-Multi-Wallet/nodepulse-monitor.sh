@@ -2,7 +2,7 @@
 
 # ============================================================
 # DeNet Node Monitor — Multi-Wallet Version
-# NodePulse v2.0
+# NodePulse v2.0 — Patched: guard score injected into status.json
 # Supports up to 4 wallets with different passwords
 # Each wallet has its own licenses, storage, RPC keys
 # ============================================================
@@ -84,19 +84,14 @@ TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
 # ============================================================
 DENODE_BIN="/usr/bin/denode"
 
-# Timezone — examples:
-# Asia/Kolkata, Europe/Berlin, America/New_York, Asia/Manila
 LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
-# DuckDNS (optional)
 DUCKDNS_TOKEN="YOUR_DUCKDNS_TOKEN"
 DUCKDNS_DOMAIN="YOUR_DUCKDNS_DOMAIN"
 
-# Disk alert threshold
 DISK_ALERT_THRESHOLD=85
 DAILY_SUMMARY_HOUR=8
 
-# Penalty thresholds
 PENALTY_WARN=5
 PENALTY_CRITICAL=8
 PENALTY_MAX=10
@@ -283,11 +278,9 @@ restart_node() {
   local PASSWORD=$(get_wallet_password "$LICENSE")
   local WALLET_LABEL=$(get_wallet_label "$LICENSE")
 
-  # Get old PID from live process or saved file
   local OLD_PID=$(get_node_pid "$LICENSE")
   [ -z "$OLD_PID" ] && OLD_PID=$(get_saved_pid "$LICENSE")
 
-  # Calculate downtime
   local LAST_SEEN OFFLINE_DURATION WENT_DOWN_UTC
   LAST_SEEN=$(get_last_seen "$LICENSE")
   if [ -n "$LAST_SEEN" ]; then
@@ -487,7 +480,8 @@ update_duckdns() {
 }
 
 # ============================================================
-# Write status.json
+# Write status.json — PATCHED: injects guard health score
+# Only change from original: get_score() + "score" field
 # ============================================================
 write_status_json() {
   local DENODE_VERSION=$("$DENODE_BIN" --version 2>/dev/null | head -1 || echo "unknown")
@@ -503,6 +497,9 @@ rc_file   = os.path.expanduser("$RESTART_COUNT_FILE")
 pen_file  = os.path.expanduser("$PENALTY_FILE")
 dt_log    = os.path.expanduser("$DOWNTIME_LOG")
 penalty_max = int("$PENALTY_MAX")
+
+# ── PATCH: guard state directory ──────────────────────────
+guard_dir = os.path.expanduser("~/.nodepulse_guard")
 
 wallet_map = {}
 $(for L in "${ALL_LICENSES[@]}"; do
@@ -523,6 +520,14 @@ saved_pids  = read_kv(pid_file)
 last_seen   = read_kv(seen_file)
 restart_cnt = read_kv(rc_file)
 penalties   = read_kv(pen_file)
+
+# ── PATCH: read health score from nodepulse-guard.sh ──────
+def get_score(lic):
+    try:
+        with open(os.path.join(guard_dir, "score_" + str(lic))) as f:
+            return max(0, min(100, int(f.read().strip())))
+    except:
+        return None  # guard not yet running or score not written
 
 def get_last_downtime(lic):
     try:
@@ -581,7 +586,6 @@ for lic in all_licenses:
             last_seen_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
         except: pass
 
-    # Get storage path from env-style lookup
     storage_paths = {$(for L in "${ALL_LICENSES[@]}"; do echo "\"${L}\": \"${NODE_STORAGE[$L]}\","; done)}
     disk = get_disk(storage_paths.get(str(lic), ""))
 
@@ -598,7 +602,8 @@ for lic in all_licenses:
         "old_pid":       saved_pid if pid_changed else "",
         "last_seen":     last_seen_str,
         "last_downtime": get_last_downtime(lic),
-        "disk":          disk
+        "disk":          disk,
+        "score":         get_score(lic),   # ← PATCH: from nodepulse-guard
     })
 
 data = {
@@ -630,10 +635,10 @@ update_duckdns
 
 DOWN_COUNT=0
 for LICENSE in "${ALL_LICENSES[@]}"; do
-  local WL=$(get_wallet_label "$LICENSE")
+  WL=$(get_wallet_label "$LICENSE")
   if is_node_running "$LICENSE"; then
-    local PID=$(get_node_pid "$LICENSE")
-    local UP=$(get_node_uptime "$LICENSE")
+    PID=$(get_node_pid "$LICENSE")
+    UP=$(get_node_uptime "$LICENSE")
     log "✅ [${WL}] Node $LICENSE running (PID: $PID, Up: $UP)"
     save_pid "$LICENSE" "$PID"
     update_last_seen "$LICENSE"
@@ -652,7 +657,7 @@ done
 [ "$DOWN_COUNT" -eq 0 ] && log "All ${#ALL_LICENSES[@]} nodes running normally." || log "$DOWN_COUNT node(s) restarted."
 
 check_disk_space
-should_send_heartbeat   && send_heartbeat
+should_send_heartbeat     && send_heartbeat
 should_send_daily_summary && send_daily_summary
 write_status_json
 

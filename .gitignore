@@ -1,1 +1,67 @@
+# ──────────────────────────────────────────
+# NodePulse .gitignore
+# ──────────────────────────────────────────
+
+# Runtime state files (written by scripts, not source)
+status.json
+*.log
+*.log.*
+
+# NodePulse runtime directories
+.nodepulse/
+.nodepulse_guard/
+.denode/
+
+# Bot trigger file
+.bot_trigger
+
+# Secrets / credentials (never commit these)
+*.env
+.env
+secrets.sh
+config.local.sh
+*_TOKEN
+*_PASSWORD
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# OS junk
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V7
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor junk
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# Node (if wizard gets a build step later)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Session / handoff files (personal, not for repo)
+claude.md
+*_HANDOFF.md
+NEW_CHAT_HANDOFF.md
+
+# Temp
+*.tmp
+*.temp
 .gitignore.hidden

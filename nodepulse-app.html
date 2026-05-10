@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NodePulse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: #0D0D0D; height: 100%; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #111; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+    @keyframes pulse  { 0% { transform: scale(1); opacity: 0.3; } 100% { transform: scale(2.5); opacity: 0; } }
+    @keyframes blink  { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const YELLOW = "#FFD600";
+    const GREEN  = "#2DC84D";
+    const BG     = "#0D0D0D";
+    const CARD   = "#151515";
+    const BORDER = "#222222";
+    const MUTED  = "#555";
+
+    const STATUS_URL = "./status.json";
+    const REFRESH_MS = 30000;
+    const CMDS = ["/status", "/restartall", "/penalties", "/chain", "/disk", "/version", "/history", "/help"];
+
+    // ─── Normalise monitor format → app format ─────────────────────────────────
+    // monitor: status="running"/"down", disk={pct,used,total,free}|null
+    // score injected by write_status_json patch (reads guard state files)
+    function norm(n) {
+      return {
+        license:     n.license,
+        wallet_label:n.wallet_label  ?? "??",
+        status:      n.status === "running" ? "RUNNING" : "DOWN",
+        pid:         n.pid           ?? "—",
+        uptime:      n.uptime        ?? "—",
+        restarts:    n.restarts      ?? 0,
+        penalties:   n.penalties     ?? 0,
+        penalty_max: n.penalty_max   ?? 10,
+        last_seen:   n.last_seen     ?? "—",
+        disk_pct:    n.disk?.pct     ?? null,
+        disk_used:   n.disk?.used    ?? "—",
+        disk_total:  n.disk?.total   ?? "—",
+        score:       n.score         ?? null,  // from monitor patch
+        last_proof:  n.last_proof    ?? null,  // future field
+        chain:       n.chain         ?? null,  // future field
+      };
+    }
+
+    const isUp        = n => n.status === "RUNNING";
+    const statusColor = n => isUp(n) ? GREEN : "#FF4444";
+    const scoreColor  = v => v == null ? MUTED : v >= 80 ? GREEN : v >= 50 ? YELLOW : "#FF4444";
+    const nowStr      = () => new Date().toTimeString().slice(0, 8);
+
+    function ScoreRing({ score, size = 56 }) {
+      const has  = score != null;
+      const r    = (size - 8) / 2;
+      const circ = 2 * Math.PI * r;
+      const dash = has ? (score / 100) * circ : 0;
+      const col  = scoreColor(score);
+      return (
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e1e1e" strokeWidth={6} />
+          {has && <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={6}
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+            style={{ transition: "stroke-dasharray 1s ease", filter: `drop-shadow(0 0 4px ${col}88)` }} />}
+          <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central"
+            fill={has ? col : MUTED} fontSize={size * 0.24} fontFamily="'IBM Plex Mono', monospace" fontWeight="700"
+            style={{ transform: "rotate(90deg)", transformOrigin: `${size/2}px ${size/2}px` }}>
+            {has ? score : "—"}
+          </text>
+        </svg>
+      );
+    }
+
+    function PulseDot({ color }) {
+      return (
+        <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 12, height: 12 }}>
+          <span style={{ position: "absolute", width: 12, height: 12, borderRadius: "50%", background: color, opacity: 0.3, animation: "pulse 2s ease-out infinite" }} />
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, position: "relative", zIndex: 1 }} />
+        </span>
+      );
+    }
+
+    function Spinner() {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 16 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", border: `3px solid ${BORDER}`, borderTopColor: YELLOW, animation: "spin 0.8s linear infinite" }} />
+          <span style={{ color: MUTED, fontFamily: "'IBM Plex Mono'", fontSize: 11, letterSpacing: 2 }}>LOADING STATUS</span>
+        </div>
+      );
+    }
+
+    function ErrorState({ message, onRetry }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 20, textAlign: "center", padding: "0 32px" }}>
+          <div style={{ fontSize: 32 }}>⚠</div>
+          <div style={{ color: "#FF4444", fontFamily: "'Bebas Neue'", fontSize: 22, letterSpacing: 3 }}>STATUS UNAVAILABLE</div>
+          <div style={{ color: MUTED, fontFamily: "'IBM Plex Mono'", fontSize: 11, lineHeight: 1.8, maxWidth: 480 }}>
+            {message}<br /><br />
+            Make sure <span style={{ color: YELLOW }}>nodepulse-monitor.sh</span> is running via cron<br />
+            and writing to <span style={{ color: YELLOW }}>/var/www/html/nodepulse/status.json</span>
+          </div>
+          <button onClick={onRetry} style={{ background: "transparent", border: `1px solid ${YELLOW}`, borderRadius: 6,
+            color: YELLOW, fontFamily: "'IBM Plex Mono'", fontSize: 11, padding: "10px 24px", cursor: "pointer", letterSpacing: 2 }}>
+            ↺ RETRY
+          </button>
+        </div>
+      );
+    }
+
+    function NodeCard({ node, onAction }) {
+      const [hov, setHov] = useState(false);
+      const sc       = statusColor(node);
+      const diskWarn = node.disk_pct != null && node.disk_pct > 85;
+      return (
+        <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+          style={{ background: hov ? "#1a1a1a" : CARD, border: `1px solid ${hov ? sc + "55" : BORDER}`,
+            borderRadius: 12, padding: 20, transition: "all 0.25s ease",
+            boxShadow: hov ? `0 0 20px ${sc}18` : "none", animation: "fadein 0.4s ease both" }}>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <PulseDot color={sc} />
+                <span style={{ color: sc, fontFamily: "'IBM Plex Mono'", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>{node.status}</span>
+                <span style={{ color: MUTED, fontSize: 9, fontFamily: "'IBM Plex Mono'", letterSpacing: 1 }}>[{node.wallet_label}]</span>
+              </div>
+              <div style={{ color: "#fff", fontFamily: "'Bebas Neue'", fontSize: 28, letterSpacing: 2, lineHeight: 1 }}>#{node.license}</div>
+            </div>
+            <ScoreRing score={node.score} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px", marginBottom: 14 }}>
+            {[
+              { label: "UPTIME",     value: isUp(node) ? node.uptime : "—" },
+              { label: "PENALTIES",  value: node.penalties, warn: node.penalties > 0 },
+              { label: "PID",        value: isUp(node) ? node.pid : "—" },
+              { label: "DISK",       value: node.disk_pct != null ? `${node.disk_pct}%  (${node.disk_used}/${node.disk_total})` : "—", warn: diskWarn },
+              { label: "RESTARTS",   value: node.restarts },
+              { label: "LAST PROOF", value: node.last_proof != null ? `${node.last_proof}m ago` : "—" },
+            ].map(s => (
+              <div key={s.label}>
+                <div style={{ color: MUTED, fontFamily: "'IBM Plex Mono'", fontSize: 9, letterSpacing: 2, marginBottom: 2 }}>{s.label}</div>
+                <div style={{ color: s.warn ? "#FF4444" : "#ddd", fontFamily: "'IBM Plex Mono'", fontSize: 12, fontWeight: 600 }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {node.penalties > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ height: 3, background: "#1e1e1e", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.min((node.penalties / node.penalty_max) * 100, 100)}%`,
+                  background: node.penalties >= 8 ? "#FF4444" : YELLOW, transition: "width 1s ease" }} />
+              </div>
+              <div style={{ color: MUTED, fontSize: 9, fontFamily: "'IBM Plex Mono'", marginTop: 3, letterSpacing: 1 }}>
+                PENALTIES {node.penalties}/{node.penalty_max}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            {[
+              { label: "↺ RESTART", cmd: `/restart ${node.license}`, color: YELLOW },
+              { label: "◎ STATUS",  cmd: `/status`,                  color: GREEN  },
+            ].map(b => (
+              <button key={b.label} onClick={() => onAction(b.cmd)}
+                style={{ flex: 1, background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 6,
+                  color: b.color, fontFamily: "'IBM Plex Mono'", fontSize: 11, padding: "7px 0",
+                  cursor: "pointer", transition: "all 0.2s", letterSpacing: 1 }}
+                onMouseEnter={e => { e.currentTarget.style.background = b.color + "18"; e.currentTarget.style.borderColor = b.color; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = BORDER; }}>
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function CmdLog({ logs }) {
+      const ref = useRef();
+      useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [logs]);
+      return (
+        <div ref={ref} style={{ background: "#0a0a0a", border: `1px solid ${BORDER}`, borderRadius: 8,
+          padding: "12px 16px", height: 140, overflowY: "auto", fontFamily: "'IBM Plex Mono'", fontSize: 11 }}>
+          {logs.length === 0 ? <span style={{ color: MUTED }}>— awaiting commands —</span>
+            : logs.map((l, i) => (
+              <div key={i} style={{ marginBottom: 4 }}>
+                <span style={{ color: MUTED }}>{l.time} </span>
+                <span style={{ color: l.type === "cmd" ? YELLOW : GREEN }}>{l.msg}</span>
+              </div>
+            ))}
+        </div>
+      );
+    }
+
+    function GuardTab({ nodes }) {
+      const missingScores = nodes.some(n => n.score == null);
+      return (
+        <div>
+          <div style={{ color: MUTED, fontSize: 10, letterSpacing: 2, marginBottom: 20 }}>
+            HEALTH INTELLIGENCE · SCORES UPDATE EVERY 5 MIN · 30 MIN ALERT COOLDOWN
+            {missingScores && (
+              <span style={{ color: YELLOW, marginLeft: 16 }}>
+                ⚠ SCORES MISSING — apply write_status_json patch to nodepulse-monitor.sh
+              </span>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+            {nodes.map(n => {
+              const sc    = scoreColor(n.score);
+              const grade = n.score == null ? "— NO SCORE DATA" :
+                n.score >= 80 ? "● EXCELLENT" : n.score >= 60 ? "● GOOD" :
+                n.score >= 40 ? "◐ DEGRADED"  : "○ CRITICAL";
+              return (
+                <div key={n.license} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, animation: "fadein 0.4s ease both" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <div>
+                      <div style={{ color: MUTED, fontSize: 9, letterSpacing: 2, marginBottom: 2 }}>LICENSE [{n.wallet_label}]</div>
+                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: 26, letterSpacing: 2 }}>#{n.license}</div>
+                    </div>
+                    <ScoreRing score={n.score} size={64} />
+                  </div>
+                  <div style={{ height: 4, background: "#1e1e1e", borderRadius: 2, overflow: "hidden", marginBottom: 12 }}>
+                    <div style={{ height: "100%", width: `${n.score ?? 0}%`, background: sc, borderRadius: 2,
+                      boxShadow: `0 0 6px ${sc}88`, transition: "width 1s ease" }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: sc, fontSize: 10, letterSpacing: 2, fontWeight: 700 }}>{grade}</span>
+                    <span style={{ color: n.penalties > 0 ? "#FF4444" : MUTED, fontSize: 10 }}>
+                      {n.penalties > 0 ? `⚠ ${n.penalties}/${n.penalty_max}` : "✓ CLEAN"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 32, padding: 20, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, maxWidth: 560 }}>
+            <div style={{ color: MUTED, fontSize: 10, letterSpacing: 2, marginBottom: 16 }}>GUARD SCORING REFERENCE</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 32px" }}>
+              {[["HEALTHY","+2",GREEN],["PENDING (95–190m)","−3",YELLOW],["STALE (190m+)","−10","#FF4444"],
+                ["PROOF_FAIL ×2","−8","#FF4444"],["RPC_ERROR ×2","−8","#FF4444"],
+                ["LOW_GAS ×3","−3",YELLOW],["NO_FUNDS","−20","#FF4444"]
+              ].map(([l,v,c]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                  <span style={{ color: MUTED }}>{l}</span>
+                  <span style={{ color: c, fontWeight: 700 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [data,     setData]     = useState(null);
+      const [loading,  setLoading]  = useState(true);
+      const [error,    setError]    = useState(null);
+      const [tab,      setTab]      = useState("nodes");
+      const [lastSync, setLastSync] = useState(null);
+      const [logs,     setLogs]     = useState([]);
+      const timerRef = useRef();
+
+      const fetchStatus = useCallback(async () => {
+        try {
+          const res = await fetch(`${STATUS_URL}?t=${Date.now()}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status} — status.json not found`);
+          const json = await res.json();
+          setData(json);
+          setError(null);
+          setLastSync(new Date());
+          setLogs(l => l.length === 0
+            ? [{ time: new Date().toTimeString().slice(0,8), msg: `NodePulse connected — ${json.nodes?.length ?? 0} nodes`, type: "info" }]
+            : l);
+        } catch(e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        fetchStatus();
+        timerRef.current = setInterval(fetchStatus, REFRESH_MS);
+        return () => clearInterval(timerRef.current);
+      }, [fetchStatus]);
+
+      const addLog = cmd => {
+        const t = nowStr();
+        setLogs(l => [...l,
+          { time: t, msg: cmd,                                type: "cmd"  },
+          { time: t, msg: "→ sent to bot listener via proxy", type: "info" },
+        ]);
+      };
+
+      const nodes    = (data?.nodes ?? []).map(norm);
+      const running  = nodes.filter(isUp).length;
+      const down     = nodes.filter(n => !isUp(n)).length;
+      const scored   = nodes.filter(n => n.score != null);
+      const avgScore = scored.length ? Math.round(scored.reduce((a,n) => a + n.score, 0) / scored.length) : null;
+      const wallets  = data?.wallets  ?? [];
+      const host     = data?.host     ?? "—";
+      const rcVer    = data?.version  ?? "—";   // monitor field is "version" not "rc_version"
+
+      return (
+        <div style={{ background: BG, minHeight: "100vh", color: "#fff", fontFamily: "'IBM Plex Mono', monospace" }}>
+
+          <div style={{ borderBottom: `1px solid ${BORDER}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontFamily: "'Bebas Neue'", fontSize: 16, color: BG, lineHeight: 1 }}>NP</span>
+              </div>
+              <span style={{ fontFamily: "'Bebas Neue'", fontSize: 22, letterSpacing: 4 }}>NODEPULSE</span>
+              <span style={{ background: error ? "#FF444422" : GREEN+"22", color: error ? "#FF4444" : GREEN,
+                fontSize: 9, padding: "2px 8px", borderRadius: 4, letterSpacing: 2,
+                border: `1px solid ${error ? "#FF444444" : GREEN+"44"}` }}>
+                {error ? "OFFLINE" : "LIVE"}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              {host !== "—" && <span style={{ color: MUTED, fontSize: 10 }}>📍 {host}</span>}
+              <span style={{ color: MUTED, fontSize: 10, animation: "blink 3s ease infinite" }}>
+                ● {lastSync ? `${Math.round((Date.now()-lastSync)/1000)}s ago` : "—"}
+              </span>
+              <span style={{ color: MUTED, fontSize: 10 }}>{rcVer}</span>
+              <button onClick={fetchStatus}
+                style={{ background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 6,
+                  color: MUTED, fontSize: 11, padding: "4px 10px", cursor: "pointer",
+                  fontFamily: "'IBM Plex Mono'", letterSpacing: 1, transition: "all 0.2s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = YELLOW; e.currentTarget.style.color = YELLOW; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED; }}>↺</button>
+            </div>
+          </div>
+
+          {!loading && !error && (
+            <div style={{ borderBottom: `1px solid ${BORDER}`, padding: "0 32px", display: "flex", flexWrap: "wrap" }}>
+              {[
+                { label: "TOTAL",     value: nodes.length,                        color: "#fff"   },
+                { label: "RUNNING",   value: running,                              color: GREEN    },
+                { label: "DOWN",      value: down,                                 color: down > 0 ? "#FF4444" : MUTED },
+                { label: "AVG SCORE", value: avgScore != null ? avgScore : "—",   color: scoreColor(avgScore) },
+                { label: "WALLETS",   value: wallets.join(" · ") || "—",          color: MUTED, mono: true },
+              ].map((s, i) => (
+                <div key={i} style={{ padding: "14px 24px", borderRight: `1px solid ${BORDER}` }}>
+                  <div style={{ color: MUTED, fontSize: 9, letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ color: s.color, fontFamily: s.mono ? "'IBM Plex Mono'" : "'Bebas Neue'", fontSize: s.mono ? 12 : 20, letterSpacing: 2 }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ borderBottom: `1px solid ${BORDER}`, padding: "0 32px", display: "flex" }}>
+            {["nodes","terminal","guard"].map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                background: "transparent", border: "none",
+                borderBottom: `2px solid ${tab === t ? YELLOW : "transparent"}`,
+                color: tab === t ? YELLOW : MUTED,
+                fontFamily: "'IBM Plex Mono'", fontSize: 11, letterSpacing: 2,
+                padding: "14px 20px", cursor: "pointer", transition: "all 0.2s", textTransform: "uppercase"
+              }}>{t}</button>
+            ))}
+          </div>
+
+          <div style={{ padding: "28px 32px" }}>
+            {loading && <Spinner />}
+            {!loading && error && <ErrorState message={error} onRetry={fetchStatus} />}
+            {!loading && !error && (
+              <>
+                {tab === "nodes" && (
+                  nodes.length === 0
+                    ? <div style={{ color: MUTED, textAlign: "center", paddingTop: 80, fontFamily: "'IBM Plex Mono'", fontSize: 11 }}>No nodes in status.json</div>
+                    : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+                        {nodes.map(n => <NodeCard key={n.license} node={n} onAction={addLog} />)}
+                      </div>
+                )}
+                {tab === "terminal" && (
+                  <div style={{ maxWidth: 680 }}>
+                    <div style={{ color: MUTED, fontSize: 10, letterSpacing: 2, marginBottom: 12 }}>QUICK COMMANDS</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+                      {CMDS.map(cmd => (
+                        <button key={cmd} onClick={() => addLog(cmd)} style={{
+                          background: "transparent", border: `1px solid ${BORDER}`, borderRadius: 6,
+                          color: "#ccc", fontFamily: "'IBM Plex Mono'", fontSize: 11,
+                          padding: "8px 14px", cursor: "pointer", transition: "all 0.2s", letterSpacing: 1 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = YELLOW; e.currentTarget.style.color = YELLOW; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = "#ccc"; }}>
+                          {cmd}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ color: MUTED, fontSize: 10, letterSpacing: 2, marginBottom: 8 }}>COMMAND LOG</div>
+                    <CmdLog logs={logs} />
+                    <div style={{ marginTop: 16, color: MUTED, fontSize: 10, lineHeight: 1.8 }}>
+                      Commands routed via proxy → ~/.denode/.bot_trigger → bot listener<br />
+                      Proxy: port 8765 · systemd: nodepulse-proxy
+                    </div>
+                  </div>
+                )}
+                {tab === "guard" && <GuardTab nodes={nodes} />}
+              </>
+            )}
+          </div>
+
+          {!loading && lastSync && (
+            <div style={{ padding: "12px 32px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: MUTED, fontSize: 9, letterSpacing: 2 }}>NODEPULSE · COMMUNITY EDITION · github.com/maqboolahmedm/NodePulse</span>
+              <span style={{ color: MUTED, fontSize: 9 }}>UPDATED {lastSync.toTimeString().slice(0,8)} · REFRESH {REFRESH_MS/1000}s</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

@@ -79,8 +79,7 @@ NodePulse/
 │   ├── nodepulse-clean-cache.sh
 │   └── README.md
 ├── docs/
-│   ├── NodePulse_Community_Guide_v3.docx
-│   └── NodePulse_DeNet_Submission_v3.docx
+│   └── COMMUNITY_GUIDE.md
 ├── nodepulse.html             ← PWA dashboard
 ├── nodepulse-wizard.html      ← Setup wizard
 ├── nodepulse-manifest.json

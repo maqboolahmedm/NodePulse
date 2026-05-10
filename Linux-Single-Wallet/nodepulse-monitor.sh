@@ -3,7 +3,7 @@
 # ============================================================
 # NodePulse Monitor & Auto-Restart Script
 # Linux Single-Wallet Version
-# v3.0 — Per-node uptime, configurable timezone, DuckDNS, port/RPC per node
+# v3.1 — Patched: guard score injected into status.json
 # ============================================================
 
 # --- Telegram Config ---
@@ -19,7 +19,7 @@ DENODE_BIN="/usr/bin/denode"
 WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
 LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3)
 
-# Per-node ports (from manager_config.yaml)
+# Per-node ports
 declare -A NODE_PORT
 NODE_PORT[YOUR_LICENSE_1]=55050
 NODE_PORT[YOUR_LICENSE_2]=55051
@@ -28,7 +28,7 @@ NODE_PORT[YOUR_LICENSE_4]=55053
 NODE_PORT[YOUR_LICENSE_5]=55054
 NODE_PORT[YOUR_LICENSE_6]=55055
 
-# Per-node private RPC endpoints (from manager_config.yaml)
+# Per-node private RPC endpoints
 declare -A NODE_RPC
 NODE_RPC[YOUR_LICENSE_1]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_1"
 NODE_RPC[YOUR_LICENSE_2]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_2"
@@ -58,14 +58,16 @@ LAST_SEEN_FILE="$HOME/.denode/.node_last_seen"
 DOWNTIME_LOG="$HOME/.denode/.node_downtime_log"
 PENALTY_FILE="$HOME/.denode/.node_penalties"
 STATUS_JSON="/var/www/html/nodepulse/status.json"
+CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
+
 mkdir -p "$NODE_LOG_DIR" "$(dirname $STATUS_JSON)" 2>/dev/null || true
 touch "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
 
 # --- Penalty Config ---
-PENALTY_WARN=5       # Warn at this many penalties
-PENALTY_CRITICAL=8   # Critical alert at this many
-PENALTY_MAX=10       # Removed from pool at this many
-CYCLE_MINUTES=90     # Approximate cycle duration in minutes
+PENALTY_WARN=5
+PENALTY_CRITICAL=8
+PENALTY_MAX=10
+CYCLE_MINUTES=90
 
 # --- Disk Config ---
 DISK_ALERT_THRESHOLD=85
@@ -82,10 +84,6 @@ STORAGE_DRIVES=(
 DAILY_SUMMARY_HOUR=8
 
 # --- Timezone Config ---
-# Set your local timezone. Examples:
-# "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
-# "America/New_York" (US East), "Asia/Manila" (Philippines),
-# "America/Los_Angeles" (US West), "Asia/Singapore"
 LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
 # --- Display ---
@@ -94,28 +92,16 @@ export XAUTHORITY="$HOME/.Xauthority"
 export DENODE_PASSWORD="YOUR_NODE_PASSWORD"
 
 # ============================================================
-# Time Functions — UTC and IST displayed together
+# Time Functions
 # ============================================================
-
-now_utc() {
-  date -u '+%Y-%m-%d %H:%M:%S UTC'
-}
-
-now_local() {
-  TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'
-}
-
-now_both() {
-  echo "$(now_utc) | $(now_local)"
-}
+now_utc()  { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
+now_local(){ TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'; }
+now_both() { echo "$(now_utc) | $(now_local)"; }
 
 # ============================================================
 # Core Functions
 # ============================================================
-
-log() {
-  echo "[$(now_utc) | $(now_local)] $1" | tee -a "$LOG_FILE"
-}
+log() { echo "[$(now_utc) | $(now_local)] $1" | tee -a "$LOG_FILE"; }
 
 send_telegram() {
   local MESSAGE="$1"
@@ -125,116 +111,81 @@ send_telegram() {
     -d chat_id="${TELEGRAM_CHAT_ID}" \
     -d text="${MESSAGE}" \
     -d parse_mode="HTML" 2>&1)
-
   if echo "$RESPONSE" | grep -q '"ok":false'; then
-    log "⚠️  Telegram API error: $RESPONSE"
+    log "⚠️ Telegram API error: $RESPONSE"
   elif [ -z "$RESPONSE" ]; then
-    log "⚠️  Telegram: No response (network issue?)"
+    log "⚠️ Telegram: No response (network issue?)"
   fi
 }
 
 is_node_running() {
-  local LICENSE="$1"
-  ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $LICENSE" > /dev/null 2>&1
+  ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $1" > /dev/null 2>&1
   return $?
 }
 
 get_node_pid() {
-  local LICENSE="$1"
-  ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $LICENSE" | awk '{print $2}' | head -n 1
+  ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $1" | awk '{print $2}' | head -n 1
 }
 
-# Returns how long a node process has been running e.g. "2d 5h 14m" or "45m"
 get_node_uptime() {
   local LICENSE="$1"
-  local PID
-  PID=$(get_node_pid "$LICENSE")
-  if [ -z "$PID" ]; then
-    echo "not running"
-    return
-  fi
-
-  # ps etime format: [[DD-]HH:]MM:SS
-  local ETIME
-  ETIME=$(ps -o etime= -p "$PID" 2>/dev/null | tr -d ' ')
-
-  if [ -z "$ETIME" ]; then
-    echo "unknown"
-    return
-  fi
-
-  # Parse DD-HH:MM:SS or HH:MM:SS or MM:SS
+  local PID; PID=$(get_node_pid "$LICENSE")
+  if [ -z "$PID" ]; then echo "not running"; return; fi
+  local ETIME; ETIME=$(ps -o etime= -p "$PID" 2>/dev/null | tr -d ' ')
+  if [ -z "$ETIME" ]; then echo "unknown"; return; fi
   local DAYS=0 HOURS=0 MINS=0 SECS=0
-
   if echo "$ETIME" | grep -q '-'; then
     DAYS=$(echo "$ETIME" | cut -d'-' -f1)
     ETIME=$(echo "$ETIME" | cut -d'-' -f2)
   fi
-
-  local PARTS
-  IFS=':' read -ra PARTS <<< "$ETIME"
-
+  local PARTS; IFS=':' read -ra PARTS <<< "$ETIME"
   case ${#PARTS[@]} in
     3) HOURS=${PARTS[0]}; MINS=${PARTS[1]}; SECS=${PARTS[2]} ;;
     2) MINS=${PARTS[0]}; SECS=${PARTS[1]} ;;
     1) SECS=${PARTS[0]} ;;
   esac
-
-  # Remove leading zeros
-  DAYS=$((10#$DAYS))
-  HOURS=$((10#$HOURS))
-  MINS=$((10#$MINS))
-
+  DAYS=$((10#$DAYS)); HOURS=$((10#$HOURS)); MINS=$((10#$MINS))
   local RESULT=""
   [ "$DAYS"  -gt 0 ] && RESULT="${DAYS}d "
   [ "$HOURS" -gt 0 ] && RESULT="${RESULT}${HOURS}h "
   [ "$MINS"  -gt 0 ] && RESULT="${RESULT}${MINS}m"
-  [ -z "$RESULT"   ] && RESULT="< 1m"
-
+  [ -z "$RESULT" ]   && RESULT="< 1m"
   echo "$RESULT"
 }
 
 restart_node() {
   local LICENSE="$1"
   local OLD_PID
-
-  # Try live process first, fall back to saved PID file
   OLD_PID=$(get_node_pid "$LICENSE")
-  if [ -z "$OLD_PID" ]; then
-    OLD_PID=$(get_saved_pid "$LICENSE")
-  fi
+  [ -z "$OLD_PID" ] && OLD_PID=$(get_saved_pid "$LICENSE")
 
-  # Calculate downtime before restart
   local LAST_SEEN OFFLINE_DURATION WENT_DOWN_UTC
   LAST_SEEN=$(get_last_seen "$LICENSE")
   if [ -n "$LAST_SEEN" ]; then
-    local NOW
-    NOW=$(date +%s)
+    local NOW; NOW=$(date +%s)
     local OFFLINE_SECS=$(( NOW - LAST_SEEN ))
     OFFLINE_DURATION=$(format_duration "$OFFLINE_SECS")
     WENT_DOWN_UTC=$(date -u -d "@${LAST_SEEN}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \
                     date -u -r "$LAST_SEEN" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
   else
-    OFFLINE_DURATION="unknown"
-    WENT_DOWN_UTC="unknown"
+    OFFLINE_DURATION="unknown"; WENT_DOWN_UTC="unknown"
   fi
 
   log "Restarting node $LICENSE (last seen alive: ${WENT_DOWN_UTC}, offline ~${OFFLINE_DURATION})..."
+
   nohup "$DENODE_BIN" \
     --address "$WALLET_ADDRESS" \
     --license "$LICENSE" \
     >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
+
   sleep 3
+
   if is_node_running "$LICENSE"; then
-    local NEW_PID
-    NEW_PID=$(get_node_pid "$LICENSE")
+    local NEW_PID; NEW_PID=$(get_node_pid "$LICENSE")
     increment_restart_count "$LICENSE"
-    local TOTAL_RESTARTS
-    TOTAL_RESTARTS=$(get_restart_count "$LICENSE")
-    # Update PID state and last seen
+    local TOTAL_RESTARTS; TOTAL_RESTARTS=$(get_restart_count "$LICENSE")
     save_pid "$LICENSE" "$NEW_PID"
     update_last_seen "$LICENSE"
-    # Log downtime event
     echo "${LICENSE}|$(date -u '+%Y-%m-%d %H:%M:%S UTC')|${WENT_DOWN_UTC}|${OFFLINE_DURATION}|${OLD_PID:-unknown}|${NEW_PID}" >> "$DOWNTIME_LOG"
     log "✅ Node $LICENSE restarted (PID: $NEW_PID, offline ~${OFFLINE_DURATION}, Total restarts: $TOTAL_RESTARTS)"
     send_telegram "✅ <b>DeNet Node Restarted</b>
@@ -260,36 +211,26 @@ restart_node() {
 }
 
 # ============================================================
-# Restart Counter Functions
+# Restart Counter
 # ============================================================
-
 increment_restart_count() {
   local LICENSE="$1"
-  local CURRENT
-  CURRENT=$(get_restart_count "$LICENSE")
+  local CURRENT; CURRENT=$(get_restart_count "$LICENSE")
   local NEW_COUNT=$(( CURRENT + 1 ))
-  if [ -f "$RESTART_COUNT_FILE" ]; then
-    sed -i "/^${LICENSE}=/d" "$RESTART_COUNT_FILE"
-  fi
+  [ -f "$RESTART_COUNT_FILE" ] && sed -i "/^${LICENSE}=/d" "$RESTART_COUNT_FILE"
   echo "${LICENSE}=${NEW_COUNT}" >> "$RESTART_COUNT_FILE"
 }
 
 get_restart_count() {
-  local LICENSE="$1"
-  if [ ! -f "$RESTART_COUNT_FILE" ]; then
-    echo "0"
-    return
-  fi
-  local COUNT
-  COUNT=$(grep "^${LICENSE}=" "$RESTART_COUNT_FILE" 2>/dev/null | cut -d= -f2)
+  [ ! -f "$RESTART_COUNT_FILE" ] && echo "0" && return
+  local COUNT; COUNT=$(grep "^${1}=" "$RESTART_COUNT_FILE" 2>/dev/null | cut -d= -f2)
   echo "${COUNT:-0}"
 }
 
 get_all_restart_counts() {
   local LINES=""
   for LIC in "${LICENSES[@]}"; do
-    local COUNT
-    COUNT=$(get_restart_count "$LIC")
+    local COUNT; COUNT=$(get_restart_count "$LIC")
     local ICON="🟢"
     [ "$COUNT" -gt 0 ] && ICON="🔄"
     [ "$COUNT" -ge 5 ] && ICON="🔴"
@@ -298,50 +239,19 @@ get_all_restart_counts() {
   echo -e "$LINES"
 }
 
-reset_restart_counts() {
-  > "$RESTART_COUNT_FILE"
-  log "🔄 Restart counts reset."
-}
+reset_restart_counts() { > "$RESTART_COUNT_FILE"; log "🔄 Restart counts reset."; }
 
 # ============================================================
-# PID Tracking & Downtime Functions
+# PID Tracking & Downtime
 # ============================================================
+get_saved_pid()    { local V; V=$(grep "^${1}=" "$PID_STATE_FILE" 2>/dev/null | cut -d= -f2); echo "${V:-}"; }
+save_pid()         { sed -i "/^${1}=/d" "$PID_STATE_FILE" 2>/dev/null; echo "${1}=${2}" >> "$PID_STATE_FILE"; }
+update_last_seen() { local N; N=$(date +%s); sed -i "/^${1}=/d" "$LAST_SEEN_FILE" 2>/dev/null; echo "${1}=${N}" >> "$LAST_SEEN_FILE"; }
+get_last_seen()    { local V; V=$(grep "^${1}=" "$LAST_SEEN_FILE" 2>/dev/null | cut -d= -f2); echo "${V:-}"; }
 
-get_saved_pid() {
-  local LICENSE="$1"
-  local VAL
-  VAL=$(grep "^${LICENSE}=" "$PID_STATE_FILE" 2>/dev/null | cut -d= -f2)
-  echo "${VAL:-}"
-}
-
-save_pid() {
-  local LICENSE="$1"
-  local PID="$2"
-  sed -i "/^${LICENSE}=/d" "$PID_STATE_FILE" 2>/dev/null
-  echo "${LICENSE}=${PID}" >> "$PID_STATE_FILE"
-}
-
-update_last_seen() {
-  local LICENSE="$1"
-  local NOW
-  NOW=$(date +%s)
-  sed -i "/^${LICENSE}=/d" "$LAST_SEEN_FILE" 2>/dev/null
-  echo "${LICENSE}=${NOW}" >> "$LAST_SEEN_FILE"
-}
-
-get_last_seen() {
-  local LICENSE="$1"
-  local VAL
-  VAL=$(grep "^${LICENSE}=" "$LAST_SEEN_FILE" 2>/dev/null | cut -d= -f2)
-  echo "${VAL:-}"
-}
-
-# Format seconds into "Xh Ym" or "Xm"
 format_duration() {
   local SECS="$1"
-  local DAYS=$(( SECS / 86400 ))
-  local HOURS=$(( (SECS % 86400) / 3600 ))
-  local MINS=$(( (SECS % 3600) / 60 ))
+  local DAYS=$(( SECS / 86400 )) HOURS=$(( (SECS % 86400) / 3600 )) MINS=$(( (SECS % 3600) / 60 ))
   local RESULT=""
   [ "$DAYS"  -gt 0 ] && RESULT="${DAYS}d "
   [ "$HOURS" -gt 0 ] && RESULT="${RESULT}${HOURS}h "
@@ -349,136 +259,60 @@ format_duration() {
   echo "$RESULT"
 }
 
-# Called when a PID change is detected — records downtime event
 record_downtime_event() {
-  local LICENSE="$1"
-  local OLD_PID="$2"
-  local NEW_PID="$3"
-  local LAST_SEEN
-  LAST_SEEN=$(get_last_seen "$LICENSE")
-  local NOW
-  NOW=$(date +%s)
-  local WENT_DOWN_AT="unknown"
-  local DOWNTIME_DURATION="unknown"
-  local WENT_DOWN_UTC="unknown"
-
+  local LICENSE="$1" OLD_PID="$2" NEW_PID="$3"
+  local LAST_SEEN; LAST_SEEN=$(get_last_seen "$LICENSE")
+  local NOW; NOW=$(date +%s)
+  local WENT_DOWN_AT="" DOWNTIME_DURATION="unknown" WENT_DOWN_UTC="unknown"
   if [ -n "$LAST_SEEN" ]; then
-    # Node was last confirmed alive at LAST_SEEN
-    # It went down sometime between LAST_SEEN and NOW
-    # Best estimate: midpoint, but we report last-seen time
-    WENT_DOWN_AT="$LAST_SEEN"
     WENT_DOWN_UTC=$(date -u -d "@${LAST_SEEN}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \
                     date -u -r "$LAST_SEEN" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
-    local OFFLINE_SECS=$(( NOW - LAST_SEEN ))
-    DOWNTIME_DURATION=$(format_duration "$OFFLINE_SECS")
+    DOWNTIME_DURATION=$(format_duration $(( NOW - LAST_SEEN )))
   fi
-
-  # Save to downtime log
   echo "${LICENSE}|$(date -u '+%Y-%m-%d %H:%M:%S UTC')|${WENT_DOWN_UTC}|${DOWNTIME_DURATION}|${OLD_PID}|${NEW_PID}" >> "$DOWNTIME_LOG"
-
   echo "$WENT_DOWN_UTC|$DOWNTIME_DURATION"
 }
 
-# Check if PID changed since last heartbeat — returns info string if changed
 check_pid_change() {
   local LICENSE="$1"
-  local CURRENT_PID
-  CURRENT_PID=$(get_node_pid "$LICENSE")
-  local SAVED_PID
-  SAVED_PID=$(get_saved_pid "$LICENSE")
-
+  local CURRENT_PID; CURRENT_PID=$(get_node_pid "$LICENSE")
+  local SAVED_PID;   SAVED_PID=$(get_saved_pid "$LICENSE")
   if [ -n "$SAVED_PID" ] && [ -n "$CURRENT_PID" ] && [ "$SAVED_PID" != "$CURRENT_PID" ]; then
-    # PID changed — node was restarted silently
-    local INFO
-    INFO=$(record_downtime_event "$LICENSE" "$SAVED_PID" "$CURRENT_PID")
-    local WENT_DOWN
-    WENT_DOWN=$(echo "$INFO" | cut -d'|' -f1)
-    local DURATION
-    DURATION=$(echo "$INFO" | cut -d'|' -f2)
+    local INFO; INFO=$(record_downtime_event "$LICENSE" "$SAVED_PID" "$CURRENT_PID")
+    local WENT_DOWN; WENT_DOWN=$(echo "$INFO" | cut -d'|' -f1)
+    local DURATION;  DURATION=$(echo "$INFO"  | cut -d'|' -f2)
     echo "RESTARTED|${SAVED_PID}|${CURRENT_PID}|${WENT_DOWN}|${DURATION}"
   else
     echo "OK"
   fi
 }
 
-# NOTE: Telegram command handling moved to denet-bot-listener.sh (systemd service)
-
 # ============================================================
-# Penalty Tracking Functions
+# Penalty Tracking
 # ============================================================
+get_penalty_count() { local V; V=$(grep "^${1}=" "$PENALTY_FILE" 2>/dev/null | cut -d= -f2); echo "${V:-0}"; }
+set_penalty_count() { sed -i "/^${1}=/d" "$PENALTY_FILE" 2>/dev/null; echo "${1}=${2}" >> "$PENALTY_FILE"; }
+increment_penalty() { local N=$(( $(get_penalty_count "$1") + 1 )); set_penalty_count "$1" "$N"; echo "$N"; }
+reset_penalty()     { set_penalty_count "$1" "0"; log "✅ Node $1 penalties reset to 0 (successful proof cycle)"; }
 
-get_penalty_count() {
-  local LICENSE="$1"
-  local VAL
-  VAL=$(grep "^${LICENSE}=" "$PENALTY_FILE" 2>/dev/null | cut -d= -f2)
-  echo "${VAL:-0}"
-}
-
-set_penalty_count() {
-  local LICENSE="$1"
-  local COUNT="$2"
-  sed -i "/^${LICENSE}=/d" "$PENALTY_FILE" 2>/dev/null
-  echo "${LICENSE}=${COUNT}" >> "$PENALTY_FILE"
-}
-
-increment_penalty() {
-  local LICENSE="$1"
-  local CURRENT
-  CURRENT=$(get_penalty_count "$LICENSE")
-  local NEW=$(( CURRENT + 1 ))
-  set_penalty_count "$LICENSE" "$NEW"
-  echo "$NEW"
-}
-
-reset_penalty() {
-  local LICENSE="$1"
-  set_penalty_count "$LICENSE" "0"
-  log "✅ Node $LICENSE penalties reset to 0 (successful proof cycle)"
-}
-
-# Check node logs for proof submission or missed cycle
-# Returns: "PROOF_OK", "MISSED", or "UNKNOWN"
 check_proof_status() {
   local LICENSE="$1"
   local LOG_A="$NODE_LOG_DIR/license-${LICENSE}.log"
   local LOG_B="$NODE_LOG_DIR/node-${LICENSE}.log"
   local NODE_LOG=""
-
-  if   [ -f "$LOG_A" ]; then NODE_LOG="$LOG_A"
-  elif [ -f "$LOG_B" ]; then NODE_LOG="$LOG_B"
-  else echo "UNKNOWN"; return; fi
-
-  # Check recent logs for proof submission success
-  local RECENT
-  RECENT=$(tail -100 "$NODE_LOG" 2>/dev/null)
-
-  # DeNet RC12 log patterns for successful proof
-  if echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent"; then
-    echo "PROOF_OK"
-    return
-  fi
-
-  # Patterns for missed cycle / penalty
-  if echo "$RECENT" | grep -qiE "missed|penalty|failed to send proof|proof failed|deadline exceeded"; then
-    echo "MISSED"
-    return
-  fi
-
+  [ -f "$LOG_A" ] && NODE_LOG="$LOG_A" || { [ -f "$LOG_B" ] && NODE_LOG="$LOG_B"; }
+  [ -z "$NODE_LOG" ] && echo "UNKNOWN" && return
+  local RECENT; RECENT=$(tail -100 "$NODE_LOG" 2>/dev/null)
+  echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent" && echo "PROOF_OK" && return
+  echo "$RECENT" | grep -qiE "missed|penalty|failed to send proof|proof failed|deadline exceeded"            && echo "MISSED"   && return
   echo "UNKNOWN"
 }
 
-# Full penalty check — call every cron run
 check_and_update_penalties() {
   local LICENSE="$1"
-  if ! is_node_running "$LICENSE"; then
-    return  # Node is down — handled by restart logic
-  fi
-
-  local PROOF_STATUS
-  PROOF_STATUS=$(check_proof_status "$LICENSE")
-  local CURRENT_PENALTIES
-  CURRENT_PENALTIES=$(get_penalty_count "$LICENSE")
-
+  is_node_running "$LICENSE" || return
+  local PROOF_STATUS; PROOF_STATUS=$(check_proof_status "$LICENSE")
+  local CURRENT_PENALTIES; CURRENT_PENALTIES=$(get_penalty_count "$LICENSE")
   if [ "$PROOF_STATUS" = "PROOF_OK" ]; then
     if [ "$CURRENT_PENALTIES" -gt 0 ]; then
       reset_penalty "$LICENSE"
@@ -491,13 +325,9 @@ check_and_update_penalties() {
     fi
     return
   fi
-
   if [ "$PROOF_STATUS" = "MISSED" ]; then
-    local NEW_PENALTIES
-    NEW_PENALTIES=$(increment_penalty "$LICENSE")
+    local NEW_PENALTIES; NEW_PENALTIES=$(increment_penalty "$LICENSE")
     log "⚠️ Node $LICENSE missed proof cycle — penalties: ${NEW_PENALTIES}/${PENALTY_MAX}"
-
-    # Warning at threshold
     if [ "$NEW_PENALTIES" -eq "$PENALTY_WARN" ]; then
       send_telegram "⚠️ <b>Node ${LICENSE} — Penalty Warning</b>
 🔑 License: <code>${LICENSE}</code>
@@ -506,9 +336,7 @@ check_and_update_penalties() {
 💡 Monitor closely — if next cycle fails, penalties increase
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
-
-    # Critical alert
-    elif [ "$NEW_PENALTIES" -ge "$PENALTY_CRITICAL" ]; then
+    elif [ "$NEW_PENALTIES" -ge "$PENALTY_CRITICAL" ] && [ "$NEW_PENALTIES" -lt "$PENALTY_MAX" ]; then
       send_telegram "🚨 <b>Node ${LICENSE} — CRITICAL Penalty Alert</b>
 🔑 License: <code>${LICENSE}</code>
 📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
@@ -516,8 +344,6 @@ check_and_update_penalties() {
 🔄 Consider restarting node now
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
-
-    # Pool removal
     elif [ "$NEW_PENALTIES" -ge "$PENALTY_MAX" ]; then
       send_telegram "🚫 <b>Node ${LICENSE} — REMOVED FROM POOL</b>
 🔑 License: <code>${LICENSE}</code>
@@ -525,9 +351,7 @@ check_and_update_penalties() {
 🔄 Restarting node — will auto re-join pool...
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
-      # Auto restart to trigger re-join
-      local OLD_PID
-      OLD_PID=$(get_node_pid "$LICENSE")
+      local OLD_PID; OLD_PID=$(get_node_pid "$LICENSE")
       [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
       restart_node "$LICENSE"
       set_penalty_count "$LICENSE" "0"
@@ -538,61 +362,48 @@ check_and_update_penalties() {
 get_penalty_summary() {
   local LINES=""
   for LIC in "${LICENSES[@]}"; do
-    local COUNT ICON
-    COUNT=$(get_penalty_count "$LIC")
-    if   [ "$COUNT" -eq 0 ];                      then ICON="🟢"
-    elif [ "$COUNT" -lt "$PENALTY_WARN" ];         then ICON="🟡"
-    elif [ "$COUNT" -lt "$PENALTY_CRITICAL" ];     then ICON="🟠"
-    else                                                ICON="🔴"
-    fi
+    local COUNT; COUNT=$(get_penalty_count "$LIC")
+    local ICON="🟢"
+    [ "$COUNT" -ge "$PENALTY_WARN" ]     && ICON="🟡"
+    [ "$COUNT" -ge "$PENALTY_CRITICAL" ] && ICON="🟠"
     LINES="${LINES}${ICON} Node <code>${LIC}</code> — <b>${COUNT}/${PENALTY_MAX}</b> penalties\n"
   done
   echo -e "$LINES"
 }
 
 # ============================================================
-# DuckDNS Update
+# DuckDNS
 # ============================================================
-
 update_duckdns() {
   local RESULT
   RESULT=$(curl -s --max-time 10 \
     "https://www.duckdns.org/update?domains=${DUCKDNS_DOMAIN}&token=${DUCKDNS_TOKEN}&ip=")
-  if [ "$RESULT" = "OK" ]; then
-    log "🌐 DuckDNS updated successfully."
-  else
-    log "⚠️  DuckDNS update failed: $RESULT"
-  fi
+  [ "$RESULT" = "OK" ] && log "🌐 DuckDNS updated successfully." || log "⚠️ DuckDNS update failed: $RESULT"
 }
 
 # ============================================================
-# Feature 1 — Disk Space Monitoring
+# Disk Monitoring
 # ============================================================
-
 check_disk_space() {
   for DRIVE in "${STORAGE_DRIVES[@]}"; do
     if [ ! -d "$DRIVE" ]; then
-      log "⚠️  Drive $DRIVE not found or not mounted!"
+      log "⚠️ Drive $DRIVE not found or not mounted!"
       send_telegram "⚠️ <b>DeNet Drive Not Mounted</b>
 💾 Drive: <code>${DRIVE}</code>
 🕐 $(now_utc)
 🕐 $(now_local)
 📍 Host: $(hostname)
-
 <i>Check if the drive is connected and mounted correctly.</i>"
       continue
     fi
-
     local USAGE TOTAL USED FREE
     USAGE=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
     TOTAL=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
-    USED=$(df -h "$DRIVE"  | awk 'NR==2 {print $3}')
-    FREE=$(df -h "$DRIVE"  | awk 'NR==2 {print $4}')
-
+    USED=$(df -h  "$DRIVE" | awk 'NR==2 {print $3}')
+    FREE=$(df -h  "$DRIVE" | awk 'NR==2 {print $4}')
     log "💾 $DRIVE — ${USAGE}% used (${USED}/${TOTAL}, free: ${FREE})"
-
     if [ "$USAGE" -ge "$DISK_ALERT_THRESHOLD" ]; then
-      log "⚠️  Drive $DRIVE at ${USAGE}% — exceeds threshold!"
+      log "⚠️ Drive $DRIVE at ${USAGE}% — exceeds threshold!"
       send_telegram "⚠️ <b>DeNet Drive Space Warning</b>
 💾 Drive: <code>${DRIVE}</code>
 📊 Usage: <b>${USAGE}%</b> (threshold: ${DISK_ALERT_THRESHOLD}%)
@@ -609,25 +420,22 @@ get_disk_summary() {
   local SUMMARY=""
   for DRIVE in "${STORAGE_DRIVES[@]}"; do
     if [ ! -d "$DRIVE" ]; then
-      SUMMARY="${SUMMARY}❌ $(basename $DRIVE) — NOT MOUNTED\n"
-      continue
+      SUMMARY="${SUMMARY}❌ $(basename $DRIVE) — NOT MOUNTED\n"; continue
     fi
     local USAGE USED TOTAL FREE
     USAGE=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
-    USED=$(df -h "$DRIVE"  | awk 'NR==2 {print $3}')
+    USED=$(df -h  "$DRIVE" | awk 'NR==2 {print $3}')
     TOTAL=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
-    FREE=$(df -h "$DRIVE"  | awk 'NR==2 {print $4}')
-    local ICON="🟢"
-    [ "$USAGE" -ge "$DISK_ALERT_THRESHOLD" ] && ICON="🔴"
+    FREE=$(df -h  "$DRIVE" | awk 'NR==2 {print $4}')
+    local ICON="🟢"; [ "$USAGE" -ge "$DISK_ALERT_THRESHOLD" ] && ICON="🔴"
     SUMMARY="${SUMMARY}${ICON} $(basename $DRIVE): ${USAGE}% — ${USED}/${TOTAL} (free: ${FREE})\n"
   done
   echo -e "$SUMMARY"
 }
 
 # ============================================================
-# Feature 2 — Log Error Alerts
+# Error Alerts
 # ============================================================
-
 ERROR_PATTERNS=(
   "roothash mismatch|Roothash Mismatch"
   "context deadline exceeded|Transaction Timeout"
@@ -642,39 +450,19 @@ check_node_errors() {
   local LOG_A="$NODE_LOG_DIR/license-${LICENSE}.log"
   local LOG_B="$NODE_LOG_DIR/node-${LICENSE}.log"
   local NODE_LOG=""
-
-  if [ -f "$LOG_A" ]; then
-    NODE_LOG="$LOG_A"
-  elif [ -f "$LOG_B" ]; then
-    NODE_LOG="$LOG_B"
-  else
-    return
-  fi
-
-  local RECENT_LINES
-  RECENT_LINES=$(tail -50 "$NODE_LOG" 2>/dev/null)
-
+  [ -f "$LOG_A" ] && NODE_LOG="$LOG_A" || { [ -f "$LOG_B" ] && NODE_LOG="$LOG_B"; }
+  [ -z "$NODE_LOG" ] && return
+  local RECENT_LINES; RECENT_LINES=$(tail -50 "$NODE_LOG" 2>/dev/null)
   for PATTERN_ENTRY in "${ERROR_PATTERNS[@]}"; do
-    local PATTERN="${PATTERN_ENTRY%%|*}"
-    local LABEL="${PATTERN_ENTRY##*|}"
-
+    local PATTERN="${PATTERN_ENTRY%%|*}" LABEL="${PATTERN_ENTRY##*|}"
     if echo "$RECENT_LINES" | grep -qi "$PATTERN"; then
       local STATE_KEY="${LICENSE}_${PATTERN// /_}"
       local LAST_ALERTED=""
-
-      if [ -f "$ERROR_STATE_FILE" ]; then
-        LAST_ALERTED=$(grep "^${STATE_KEY}=" "$ERROR_STATE_FILE" 2>/dev/null | cut -d= -f2)
-      fi
-
-      local NOW
-      NOW=$(date +%s)
-      local ALERT_INTERVAL=3600
-
-      if [ -z "$LAST_ALERTED" ] || [ $(( NOW - LAST_ALERTED )) -ge "$ALERT_INTERVAL" ]; then
-        local ERROR_LINE
-        ERROR_LINE=$(echo "$RECENT_LINES" | grep -i "$PATTERN" | tail -1)
-
-        log "⚠️  Node $LICENSE — $LABEL detected"
+      [ -f "$ERROR_STATE_FILE" ] && LAST_ALERTED=$(grep "^${STATE_KEY}=" "$ERROR_STATE_FILE" 2>/dev/null | cut -d= -f2)
+      local NOW; NOW=$(date +%s)
+      if [ -z "$LAST_ALERTED" ] || [ $(( NOW - LAST_ALERTED )) -ge 3600 ]; then
+        local ERROR_LINE; ERROR_LINE=$(echo "$RECENT_LINES" | grep -i "$PATTERN" | tail -1)
+        log "⚠️ Node $LICENSE — $LABEL detected"
         send_telegram "⚠️ <b>DeNet Node Error Detected</b>
 🔑 License: <code>${LICENSE}</code>
 🔴 Error: <b>${LABEL}</b>
@@ -682,12 +470,8 @@ check_node_errors() {
 🕐 $(now_utc)
 🕐 $(now_local)
 📍 Host: $(hostname)
-
 <i>Node process is still running. This may auto-resolve.</i>"
-
-        if [ -f "$ERROR_STATE_FILE" ]; then
-          sed -i "/^${STATE_KEY}=/d" "$ERROR_STATE_FILE" 2>/dev/null
-        fi
+        sed -i "/^${STATE_KEY}=/d" "$ERROR_STATE_FILE" 2>/dev/null
         echo "${STATE_KEY}=${NOW}" >> "$ERROR_STATE_FILE"
       fi
     fi
@@ -695,18 +479,14 @@ check_node_errors() {
 }
 
 # ============================================================
-# Feature 3 — Daily Summary Report
+# Daily Summary
 # ============================================================
-
 send_daily_summary() {
-  local STATUS_LINES=""
-  local UP_COUNT=0 DOWN_COUNT=0
-
+  local STATUS_LINES="" UP_COUNT=0 DOWN_COUNT=0
   for LICENSE in "${LICENSES[@]}"; do
     if is_node_running "$LICENSE"; then
-      local PID UPTIME
-      PID=$(get_node_pid "$LICENSE")
-      UPTIME=$(get_node_uptime "$LICENSE")
+      local PID; PID=$(get_node_pid "$LICENSE")
+      local UPTIME; UPTIME=$(get_node_uptime "$LICENSE")
       STATUS_LINES="${STATUS_LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b>\n"
       UP_COUNT=$(( UP_COUNT + 1 ))
     else
@@ -714,31 +494,21 @@ send_daily_summary() {
       DOWN_COUNT=$(( DOWN_COUNT + 1 ))
     fi
   done
-
-  local DISK_INFO OVERALL
-  DISK_INFO=$(get_disk_summary)
-
-  if [ "$DOWN_COUNT" -eq 0 ]; then
-    OVERALL="✅ All 6 nodes healthy"
-  else
-    OVERALL="⚠️ ${DOWN_COUNT} node(s) are DOWN"
-  fi
-
+  local DISK_INFO; DISK_INFO=$(get_disk_summary)
+  local OVERALL
+  [ "$DOWN_COUNT" -eq 0 ] && OVERALL="✅ All 6 nodes healthy" || OVERALL="⚠️ ${DOWN_COUNT} node(s) are DOWN"
   send_telegram "📊 <b>DeNet Daily Summary Report</b>
 📅 $(now_utc)
 📅 $(now_local)
 📍 Host: $(hostname)
-
 <b>Node Status (${UP_COUNT}/6 online):</b>
 $(echo -e "$STATUS_LINES")
 <b>Overall:</b> ${OVERALL}
-
 💾 <b>Disk Usage:</b>
 $(echo -e "$DISK_INFO")
 🔄 <b>Restart Counts (all-time):</b>
 $(get_all_restart_counts)
 <i>Next report tomorrow at ${DAILY_SUMMARY_HOUR}:00 AM local time</i>"
-
   log "📊 Daily summary sent to Telegram."
   date +%s > "$DAILY_SUMMARY_FILE"
 }
@@ -747,86 +517,56 @@ should_send_daily_summary() {
   local CURRENT_HOUR
   CURRENT_HOUR=$((10#$(TZ="${LOCAL_TIMEZONE}" date '+%H')))
   [ "$CURRENT_HOUR" -ne "$DAILY_SUMMARY_HOUR" ] && return 1
-
-  if [ ! -f "$DAILY_SUMMARY_FILE" ]; then
-    return 0
-  fi
+  [ ! -f "$DAILY_SUMMARY_FILE" ] && return 0
   local LAST NOW DIFF
-  LAST=$(cat "$DAILY_SUMMARY_FILE")
-  NOW=$(date +%s)
-  DIFF=$(( NOW - LAST ))
+  LAST=$(cat "$DAILY_SUMMARY_FILE"); NOW=$(date +%s); DIFF=$(( NOW - LAST ))
   [ "$DIFF" -lt 82800 ] && return 1
   return 0
 }
 
 # ============================================================
-# Hourly Heartbeat
+# Heartbeat
 # ============================================================
-
 send_heartbeat() {
-  local STATUS_LINES=""
-  local RESTART_ALERT_LINES=""
-  local HAS_RESTART_ALERT=0
-
+  local STATUS_LINES="" RESTART_ALERT_LINES="" HAS_RESTART_ALERT=0
   for LICENSE in "${LICENSES[@]}"; do
     if is_node_running "$LICENSE"; then
-      local PID UPTIME RC
-      PID=$(get_node_pid "$LICENSE")
-      UPTIME=$(get_node_uptime "$LICENSE")
-      RC=$(get_restart_count "$LICENSE")
-
-      # Check if PID changed since last heartbeat
-      local PID_CHECK
-      PID_CHECK=$(check_pid_change "$LICENSE")
-
+      local PID; PID=$(get_node_pid "$LICENSE")
+      local UPTIME; UPTIME=$(get_node_uptime "$LICENSE")
+      local RC; RC=$(get_restart_count "$LICENSE")
+      local PID_CHECK; PID_CHECK=$(check_pid_change "$LICENSE")
       if [ "$PID_CHECK" != "OK" ]; then
-        # PID changed — silent restart detected
         local OLD_PID WENT_DOWN OFFLINE_DURATION
-        OLD_PID=$(echo "$PID_CHECK" | cut -d'|' -f2)
-        WENT_DOWN=$(echo "$PID_CHECK" | cut -d'|' -f4)
-        OFFLINE_DURATION=$(echo "$PID_CHECK" | cut -d'|' -f5)
-        local PENALTIES
-        PENALTIES=$(get_penalty_count "$LICENSE")
-
+        OLD_PID=$(echo "$PID_CHECK"         | cut -d'|' -f2)
+        WENT_DOWN=$(echo "$PID_CHECK"       | cut -d'|' -f4)
+        OFFLINE_DURATION=$(echo "$PID_CHECK"| cut -d'|' -f5)
+        local PENALTIES; PENALTIES=$(get_penalty_count "$LICENSE")
         STATUS_LINES="${STATUS_LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES}⚠️ Node <code>${LICENSE}</code> was restarted silently!\n"
-        RESTART_ALERT_LINES="${RESTART_ALERT_LINES}   🔴 Old PID: <code>${OLD_PID}</code> → 🟢 New PID: <code>${PID}</code>\n"
-        RESTART_ALERT_LINES="${RESTART_ALERT_LINES}   📅 Last seen alive: <b>${WENT_DOWN}</b>\n"
-        RESTART_ALERT_LINES="${RESTART_ALERT_LINES}   ⏱ Was offline for: <b>${OFFLINE_DURATION}</b>\n"
+        RESTART_ALERT_LINES="${RESTART_ALERT_LINES} 🔴 Old PID: <code>${OLD_PID}</code> → 🟢 New PID: <code>${PID}</code>\n"
+        RESTART_ALERT_LINES="${RESTART_ALERT_LINES} 📅 Last seen alive: <b>${WENT_DOWN}</b>\n"
+        RESTART_ALERT_LINES="${RESTART_ALERT_LINES} ⏱ Was offline for: <b>${OFFLINE_DURATION}</b>\n"
         HAS_RESTART_ALERT=1
         log "⚠️ PID change detected for node $LICENSE: $OLD_PID → $PID (offline ~${OFFLINE_DURATION})"
       else
-        local PENALTIES
-        PENALTIES=$(get_penalty_count "$LICENSE")
+        local PENALTIES; PENALTIES=$(get_penalty_count "$LICENSE")
         local PENALTY_ICON="🟢"
         [ "$PENALTIES" -ge "$PENALTY_WARN" ]     && PENALTY_ICON="🟡"
         [ "$PENALTIES" -ge "$PENALTY_CRITICAL" ] && PENALTY_ICON="🟠"
         STATUS_LINES="${STATUS_LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — ${PENALTY_ICON} Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>\n"
       fi
-
-      # Update saved PID and last seen timestamp
       save_pid "$LICENSE" "$PID"
       update_last_seen "$LICENSE"
-
     else
-      local RC
-      RC=$(get_restart_count "$LICENSE")
+      local RC; RC=$(get_restart_count "$LICENSE")
       STATUS_LINES="${STATUS_LINES}🔴 <code>${LICENSE}</code> — <b>DOWN</b> — Restarts: <b>${RC}</b>\n"
-      # Don't update last_seen — it's down
     fi
   done
-
-  local DISK_INFO
-  DISK_INFO=$(get_disk_summary)
-
-  # Build restart section only if there were silent restarts
+  local DISK_INFO; DISK_INFO=$(get_disk_summary)
   local RESTART_SECTION=""
-  if [ "$HAS_RESTART_ALERT" -eq 1 ]; then
-    RESTART_SECTION="
+  [ "$HAS_RESTART_ALERT" -eq 1 ] && RESTART_SECTION="
 ⚠️ <b>Silent Restart Detected:</b>
 $(echo -e "$RESTART_ALERT_LINES")"
-  fi
-
   send_telegram "💓 <b>DeNet Node Monitor HeartBeat</b>
 📍 Host: $(hostname)
 🕐 $(now_utc)
@@ -836,7 +576,6 @@ ${RESTART_SECTION}
 $(echo -e "$STATUS_LINES")
 💾 <b>Disk:</b>
 $(echo -e "$DISK_INFO")"
-
   log "💓 Heartbeat sent to Telegram."
   date +%s > "$HEARTBEAT_FILE"
 }
@@ -845,33 +584,25 @@ should_send_heartbeat() {
   local INTERVAL=3600
   [ ! -f "$HEARTBEAT_FILE" ] && return 0
   local LAST NOW DIFF
-  LAST=$(cat "$HEARTBEAT_FILE")
-  NOW=$(date +%s)
-  DIFF=$(( NOW - LAST ))
+  LAST=$(cat "$HEARTBEAT_FILE"); NOW=$(date +%s); DIFF=$(( NOW - LAST ))
   [ "$DIFF" -ge "$INTERVAL" ] && return 0
   return 1
 }
 
 # ============================================================
-# Blockchain Status — Parse from local node logs (no API needed!)
-# Reads stage transitions directly from denode log files
+# Chain Status (from node logs — no API needed)
 # ============================================================
-
-CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
-
 check_chain_status_from_logs() {
   log "⛓ Checking on-chain status from node logs..."
-
   python3 - <<CHAINEOF
-import os, re, json
+import os, re, json, subprocess
 from datetime import datetime, timezone, timedelta
 
 licenses = [$(printf '"%s",' "${LICENSES[@]}" | sed 's/,$//')]
-log_dir   = os.path.expanduser("$NODE_LOG_DIR")
-now_utc   = datetime.now(timezone.utc)
-results   = {}
+log_dir  = os.path.expanduser("$NODE_LOG_DIR")
+now_utc  = datetime.now(timezone.utc)
+results  = {}
 
-# Patterns to look for in logs
 PROOF_OK_PATTERN   = re.compile(r'Proof of Storage stage handling completed|Collect Proofs handling completed', re.IGNORECASE)
 PROOF_FAIL_PATTERN = re.compile(r'Failed to send proof|failed to submit', re.IGNORECASE)
 STAGE_PATTERN      = re.compile(r'Current Stage:\s*(\w[\w ]+\w)', re.IGNORECASE)
@@ -879,21 +610,16 @@ POOL_PATTERN       = re.compile(r'License ID is in (\d+) pool', re.IGNORECASE)
 TIMESTAMP_PATTERN  = re.compile(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
 
 def parse_log_timestamp(line):
-    """Extract datetime from log line — logs are in LOCAL timezone (IST +5:30)"""
     m = TIMESTAMP_PATTERN.search(line)
     if not m: return None
     try:
         dt_naive = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
-        # Logs use LOCAL_TIMEZONE — convert to UTC
-        import subprocess
         result = subprocess.run(
             ['date', '-d', f'TZ="$LOCAL_TIMEZONE" {m.group(1)}', '+%s'],
             capture_output=True, text=True, shell=False
         )
         if result.returncode == 0 and result.stdout.strip():
             return datetime.fromtimestamp(int(result.stdout.strip()), tz=timezone.utc)
-        # Fallback: assume IST (+5:30) offset
-        from datetime import timedelta
         ist_offset = timedelta(hours=5, minutes=30)
         dt_ist = dt_naive.replace(tzinfo=timezone(ist_offset))
         return dt_ist.astimezone(timezone.utc)
@@ -901,100 +627,57 @@ def parse_log_timestamp(line):
     return None
 
 for lic in licenses:
-    # Try both log file naming conventions
-    log_a = os.path.join(log_dir, f"node-{lic}.log")
-    log_b = os.path.join(log_dir, f"license-{lic}.log")
+    log_a    = os.path.join(log_dir, f"node-{lic}.log")
+    log_b    = os.path.join(log_dir, f"license-{lic}.log")
     log_file = log_a if os.path.exists(log_a) else (log_b if os.path.exists(log_b) else None)
-
     if not log_file:
         results[str(lic)] = {"status": "unknown", "reason": "no log file", "last_proof": "", "pool": "", "last_error": ""}
         continue
-
-    # Read last 500 lines — enough for 2 full cycles
     try:
         with open(log_file, 'rb') as f:
-            # Read last 100KB efficiently
-            f.seek(0, 2)
-            size = f.tell()
+            f.seek(0, 2); size = f.tell()
             f.seek(max(0, size - 102400))
             lines = f.read().decode('utf-8', errors='ignore').splitlines()
     except Exception as e:
         results[str(lic)] = {"status": "unknown", "reason": str(e), "last_proof": "", "pool": "", "last_error": ""}
         continue
 
-    last_proof_time  = None
-    last_error_time  = None
-    last_error_msg   = ""
-    current_stage    = ""
-    pool_number      = ""
-    last_ts          = None
+    last_proof_time = None; last_error_time = None; last_error_msg = ""
+    current_stage = ""; pool_number = ""; last_ts = None
 
     for line in reversed(lines):
-        # Get timestamp of this line
         ts = parse_log_timestamp(line)
-        if ts and last_ts is None:
-            last_ts = ts
-
-        # Pool number
+        if ts and last_ts is None: last_ts = ts
         if not pool_number:
             m = POOL_PATTERN.search(line)
             if m: pool_number = m.group(1)
-
-        # Current stage
         if not current_stage:
             m = STAGE_PATTERN.search(line)
             if m: current_stage = m.group(1).strip()
-
-        # Last successful proof
         if last_proof_time is None and PROOF_OK_PATTERN.search(line):
             last_proof_time = ts or last_ts
-
-        # Last error
         if last_error_time is None and PROOF_FAIL_PATTERN.search(line):
-            last_error_time = ts or last_ts
-            last_error_msg  = line.strip()[:120]
+            last_error_time = ts or last_ts; last_error_msg = line.strip()[:120]
+        if last_proof_time and pool_number and current_stage: break
 
-        # Stop if we have everything
-        if last_proof_time and pool_number and current_stage:
-            break
-
-    # Determine status based on last proof time
     if last_proof_time:
-        age_min = (now_utc - last_proof_time).total_seconds() / 60
-        if age_min < 95:
-            status = "online"
-        elif age_min < 190:
-            status = "pending"
-        else:
-            status = "offline"
+        age_min    = (now_utc - last_proof_time).total_seconds() / 60
+        status     = "online" if age_min < 95 else ("pending" if age_min < 190 else "offline")
         last_proof_str = last_proof_time.strftime("%Y-%m-%d %H:%M UTC")
-        age_str = f"{int(age_min)}m ago" if age_min < 60 else f"{age_min/60:.1f}h ago"
+        age_str    = f"{int(age_min)}m ago" if age_min < 60 else f"{age_min/60:.1f}h ago"
     else:
-        status = "unknown"
-        last_proof_str = "No proof found in recent logs"
-        age_str = "unknown"
+        status = "unknown"; last_proof_str = "No proof found in recent logs"; age_str = "unknown"
 
-    results[str(lic)] = {
-        "status":      status,
-        "last_proof":  last_proof_str,
-        "age":         age_str,
-        "pool":        pool_number,
-        "stage":       current_stage,
-        "last_error":  last_error_msg,
-    }
+    results[str(lic)] = {"status": status, "last_proof": last_proof_str,
+                          "age": age_str, "pool": pool_number,
+                          "stage": current_stage, "last_error": last_error_msg}
     print(f"[{lic}] {status.upper()} | Pool: {pool_number} | Stage: {current_stage} | Last proof: {age_str}")
 
-# Save to chain status file
-out = {
-    "fetched_at": now_utc.strftime("%Y-%m-%d %H:%M:%S UTC"),
-    "source":     "node_logs",
-    "nodes":      results
-}
+out = {"fetched_at": now_utc.strftime("%Y-%m-%d %H:%M:%S UTC"), "source": "node_logs", "nodes": results}
 with open(os.path.expanduser("$CHAIN_STATUS_FILE"), 'w') as f:
     json.dump(out, f, indent=2)
 print("Chain status saved ✅")
 CHAINEOF
-
   log "⛓ Chain status updated from node logs."
 }
 
@@ -1013,16 +696,15 @@ try:
     else: print(0)
 except: print(0)
 " 2>/dev/null || echo 0)
-  NOW=$(date +%s)
-  DIFF=$(( NOW - LAST ))
+  NOW=$(date +%s); DIFF=$(( NOW - LAST ))
   [ "$DIFF" -ge 300 ] && return 0
   return 1
 }
 
 # ============================================================
-# NodePulse — Write status.json for PWA Dashboard
+# Write status.json — PATCHED v3.1: injects guard health score
+# Only change from v3.0: get_score() + "score" field in nodes
 # ============================================================
-
 write_status_json() {
   local DENODE_VERSION
   DENODE_VERSION=$("$DENODE_BIN" --version 2>/dev/null | head -1 || echo "unknown")
@@ -1031,14 +713,17 @@ write_status_json() {
 import json, os, subprocess
 from datetime import datetime, timezone
 
-licenses  = [1072, 1864, 1865, 1866, 1867, 2157]
-pid_file  = os.path.expanduser("$PID_STATE_FILE")
-seen_file = os.path.expanduser("$LAST_SEEN_FILE")
-rc_file   = os.path.expanduser("$RESTART_COUNT_FILE")
-dt_log    = os.path.expanduser("$DOWNTIME_LOG")
-pen_file  = os.path.expanduser("$PENALTY_FILE")
+licenses    = [$(printf '"%s",' "${LICENSES[@]}" | sed 's/,$//')]
+pid_file    = os.path.expanduser("$PID_STATE_FILE")
+seen_file   = os.path.expanduser("$LAST_SEEN_FILE")
+rc_file     = os.path.expanduser("$RESTART_COUNT_FILE")
+dt_log      = os.path.expanduser("$DOWNTIME_LOG")
+pen_file    = os.path.expanduser("$PENALTY_FILE")
 penalty_max = int("$PENALTY_MAX")
-drives    = ["/mnt/Denet-Storage/" + str(l) for l in licenses]
+drives      = [$(printf '"%s",' "${STORAGE_DRIVES[@]}" | sed 's/,$//')]
+
+# ── PATCH: guard state directory ──────────────────────────
+guard_dir = os.path.expanduser("~/.nodepulse_guard")
 
 def read_kv(path):
     out = {}
@@ -1055,6 +740,14 @@ last_seen   = read_kv(seen_file)
 restart_cnt = read_kv(rc_file)
 penalties   = read_kv(pen_file)
 
+# ── PATCH: read health score from nodepulse-guard.sh state ─
+def get_score(lic):
+    try:
+        with open(os.path.join(guard_dir, "score_" + str(lic))) as f:
+            return max(0, min(100, int(f.read().strip())))
+    except:
+        return None  # guard not yet running or score not written yet
+
 def get_last_downtime(lic):
     try:
         lines = [l for l in open(dt_log) if l.startswith(str(lic)+"|")]
@@ -1070,10 +763,8 @@ def get_ps_info(lic):
         for line in r.stdout.splitlines():
             if "/usr/bin/denode" in line and f"--license {lic}" in line and "grep" not in line:
                 parts = line.split()
-                pid = parts[1]
-                # get uptime
-                r2 = subprocess.run(["ps", "-o", "etime=", "-p", pid],
-                                     capture_output=True, text=True)
+                pid   = parts[1]
+                r2    = subprocess.run(["ps", "-o", "etime=", "-p", pid], capture_output=True, text=True)
                 etime = r2.stdout.strip()
                 return pid, etime
     except: pass
@@ -1083,8 +774,7 @@ def parse_etime(et):
     if not et: return "unknown"
     days, hours, mins = 0, 0, 0
     if "-" in et:
-        days, et = et.split("-", 1)
-        days = int(days)
+        days, et = et.split("-", 1); days = int(days)
     parts = et.split(":")
     if len(parts) == 3: hours, mins = int(parts[0]), int(parts[1])
     elif len(parts) == 2: mins = int(parts[0])
@@ -1098,38 +788,42 @@ def get_disk(drive):
     try:
         r = subprocess.run(["df", "-h", drive], capture_output=True, text=True)
         parts = r.stdout.splitlines()[1].split()
-        pct = int(parts[4].replace("%",""))
+        pct   = int(parts[4].replace("%",""))
         return {"used": parts[2], "total": parts[1], "free": parts[3], "pct": pct}
     except: return None
 
 now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-nodes = []
+
+storage_paths = {$(for L in "${LICENSES[@]}"; do echo "\"${L}\": \"${NODE_STORAGE[$L]}\","; done)}
+
+nodes  = []
 for lic in licenses:
-    pid, etime = get_ps_info(lic)
-    running   = pid is not None
-    saved_pid = saved_pids.get(str(lic), "")
+    pid, etime  = get_ps_info(lic)
+    running     = pid is not None
+    saved_pid   = saved_pids.get(str(lic), "")
     pid_changed = saved_pid and pid and saved_pid != pid
-    ls_ts = last_seen.get(str(lic), "")
+    ls_ts       = last_seen.get(str(lic), "")
     last_seen_str = ""
     if ls_ts:
         try:
             dt = datetime.fromtimestamp(int(ls_ts), tz=timezone.utc)
             last_seen_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
         except: pass
-    disk = get_disk(f"/mnt/Denet-Storage/{lic}")
+    disk = get_disk(storage_paths.get(str(lic), ""))
     nodes.append({
-        "license":        lic,
-        "status":         "running" if running else "down",
-        "pid":            pid or "",
-        "uptime":         parse_etime(etime) if running else "",
-        "restarts":       int(restart_cnt.get(str(lic), 0)),
-        "penalties":      int(penalties.get(str(lic), 0)),
-        "penalty_max":    penalty_max,
-        "pid_changed":    bool(pid_changed),
-        "old_pid":        saved_pid if pid_changed else "",
-        "last_seen":      last_seen_str,
-        "last_downtime":  get_last_downtime(lic),
-        "disk":           disk
+        "license":       lic,
+        "status":        "running" if running else "down",
+        "pid":           pid or "",
+        "uptime":        parse_etime(etime) if running else "",
+        "restarts":      int(restart_cnt.get(str(lic), 0)),
+        "penalties":     int(penalties.get(str(lic), 0)),
+        "penalty_max":   penalty_max,
+        "pid_changed":   bool(pid_changed),
+        "old_pid":       saved_pid if pid_changed else "",
+        "last_seen":     last_seen_str,
+        "last_downtime": get_last_downtime(lic),
+        "disk":          disk,
+        "score":         get_score(lic),   # ← PATCH: injected from nodepulse-guard
     })
 
 data = {
@@ -1153,7 +847,6 @@ PYEOF
 # ============================================================
 # Main Monitor Loop
 # ============================================================
-
 log "========== DeNet Monitor Run Started =========="
 
 DOWN_COUNT=0
@@ -1167,13 +860,11 @@ for LICENSE in "${LICENSES[@]}"; do
     PID=$(get_node_pid "$LICENSE")
     UPTIME=$(get_node_uptime "$LICENSE")
     log "✅ Node $LICENSE is running (PID: $PID, Uptime: $UPTIME)"
-    # Save PID and last-seen every run — not just hourly
-    # This ensures we always have the latest PID even before heartbeat
     save_pid "$LICENSE" "$PID"
     update_last_seen "$LICENSE"
   else
     log "⚠️  Node $LICENSE is DOWN — attempting restart..."
-    DOWN_COUNT=$((DOWN_COUNT + 1))
+    DOWN_COUNT=$(( DOWN_COUNT + 1 ))
     send_telegram "⚠️ <b>DeNet Node Down Detected</b>
 🔑 License: <code>${LICENSE}</code>
 🔄 Attempting restart...
@@ -1203,23 +894,22 @@ for LICENSE in "${LICENSES[@]}"; do
   log "📊 Node $LICENSE — penalties: ${PENALTIES}/${PENALTY_MAX}"
 done
 
-# 6. Check blockchain status from node logs (no API needed!)
+# 6. Check blockchain status from node logs
 if should_check_chain_status; then
   check_chain_status_from_logs
 fi
 
-# 5. Hourly heartbeat
+# 7. Hourly heartbeat
 if should_send_heartbeat; then
   send_heartbeat
 fi
 
-# 6. Daily summary
+# 8. Daily summary
 if should_send_daily_summary; then
   send_daily_summary
 fi
 
-# 7. Write status.json for NodePulse dashboard
+# 9. Write status.json for NodePulse dashboard
 write_status_json
 
 log "========== DeNet Monitor Run Finished =========="
-# placeholder

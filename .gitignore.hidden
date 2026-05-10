@@ -1,5 +1,0 @@
-.claude/     # Claude settings private
-node_modules/
-# ... other Node.js ignores
-
-
