@@ -9,7 +9,7 @@
 TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
 TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
 
-# --- Wallet Config (must match denet-monitor.sh) ---
+# --- Wallet Config (must match nodepulse-monitor.sh) ---
 WALLET_1_ADDRESS="YOUR_WALLET_1_ADDRESS"
 WALLET_1_PASSWORD="YOUR_WALLET_1_PASSWORD"
 WALLET_1_LICENSES=(YOUR_W1_LICENSE_1 YOUR_W1_LICENSE_2 YOUR_W1_LICENSE_3)
@@ -32,14 +32,17 @@ declare -A NODE_STORAGE
 # Wallet 1 nodes
 NODE_WALLET[YOUR_W1_LICENSE_1]="$WALLET_1_ADDRESS"
 NODE_STORAGE[YOUR_W1_LICENSE_1]="YOUR_STORAGE_PATH/YOUR_W1_LICENSE_1"
+
 NODE_WALLET[YOUR_W1_LICENSE_2]="$WALLET_1_ADDRESS"
 NODE_STORAGE[YOUR_W1_LICENSE_2]="YOUR_STORAGE_PATH/YOUR_W1_LICENSE_2"
+
 NODE_WALLET[YOUR_W1_LICENSE_3]="$WALLET_1_ADDRESS"
 NODE_STORAGE[YOUR_W1_LICENSE_3]="YOUR_STORAGE_PATH/YOUR_W1_LICENSE_3"
 
 # Wallet 2 nodes
 NODE_WALLET[YOUR_W2_LICENSE_1]="$WALLET_2_ADDRESS"
 NODE_STORAGE[YOUR_W2_LICENSE_1]="YOUR_STORAGE_PATH/YOUR_W2_LICENSE_1"
+
 NODE_WALLET[YOUR_W2_LICENSE_2]="$WALLET_2_ADDRESS"
 NODE_STORAGE[YOUR_W2_LICENSE_2]="YOUR_STORAGE_PATH/YOUR_W2_LICENSE_2"
 
@@ -71,9 +74,10 @@ ALL_LICENSES=()
 # ============================================================
 # Helpers
 # ============================================================
+
 now_utc()   { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
 now_local() { TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'; }
-log() { echo "[$(now_utc) | $(now_local)] $1" | tee -a "$BOT_LOG"; }
+log()       { echo "[$(now_utc) | $(now_local)] $1" | tee -a "$BOT_LOG"; }
 
 get_wallet_label() {
   local WALLET="${NODE_WALLET[$1]}"
@@ -116,7 +120,7 @@ get_node_uptime() {
   [ "$DAYS"  -gt 0 ] && R="${DAYS}d "
   [ "$HOURS" -gt 0 ] && R="${R}${HOURS}h "
   [ "$MINS"  -gt 0 ] && R="${R}${MINS}m"
-  [ -z "$R"         ] && R="&lt; 1m"
+  [ -z "$R"         ] && R="< 1m"
   echo "$R"
 }
 
@@ -148,7 +152,7 @@ get_last_seen() {
 
 format_duration() {
   local SECS="$1"
-  local DAYS=$(( SECS/86400 )); local HOURS=$(( (SECS%86400)/3600 )); local MINS=$(( (SECS%3600)/60 ))
+  local DAYS=$(( SECS/86400 )) HOURS=$(( (SECS%86400)/3600 )) MINS=$(( (SECS%3600)/60 ))
   local R=""
   [ "$DAYS"  -gt 0 ] && R="${DAYS}d "
   [ "$HOURS" -gt 0 ] && R="${R}${HOURS}h "
@@ -160,10 +164,10 @@ get_last_downtime() {
   local LAST=$(grep "^${1}|" "$DOWNTIME_LOG" 2>/dev/null | tail -1)
   [ -z "$LAST" ] && echo "No recorded downtime." && return
   local RESTART_AT=$(echo "$LAST" | cut -d'|' -f2)
-  local WENT_DOWN=$(echo "$LAST"  | cut -d'|' -f3)
-  local DURATION=$(echo "$LAST"   | cut -d'|' -f4)
-  local OLD_PID=$(echo "$LAST"    | cut -d'|' -f5)
-  local NEW_PID=$(echo "$LAST"    | cut -d'|' -f6)
+  local WENT_DOWN=$(echo  "$LAST" | cut -d'|' -f3)
+  local DURATION=$(echo   "$LAST" | cut -d'|' -f4)
+  local OLD_PID=$(echo    "$LAST" | cut -d'|' -f5)
+  local NEW_PID=$(echo    "$LAST" | cut -d'|' -f6)
   local WENT_DOWN_LOCAL="" RESTART_AT_LOCAL=""
   [ "$WENT_DOWN" != "unknown" ] && WENT_DOWN_LOCAL=$(TZ="${LOCAL_TIMEZONE}" date -d "$WENT_DOWN" '+%H:%M %Z' 2>/dev/null) && [ -n "$WENT_DOWN_LOCAL" ] && WENT_DOWN_LOCAL=" (${WENT_DOWN_LOCAL})"
   [ -n "$RESTART_AT" ] && RESTART_AT_LOCAL=$(TZ="${LOCAL_TIMEZONE}" date -d "$RESTART_AT" '+%H:%M %Z' 2>/dev/null) && [ -n "$RESTART_AT_LOCAL" ] && RESTART_AT_LOCAL=" (${RESTART_AT_LOCAL})"
@@ -176,6 +180,7 @@ get_last_downtime() {
 # ============================================================
 # Telegram
 # ============================================================
+
 send_message() {
   curl -s --max-time 15 -X POST \
     "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -190,12 +195,13 @@ get_updates() {
 # ============================================================
 # Command Handlers
 # ============================================================
+
 cmd_status() {
   local CHAT_ID="$1"
   local W1="" W2="" W3="" W4=""
   for LICENSE in "${ALL_LICENSES[@]}"; do
     local WL=$(get_wallet_label "$LICENSE")
-    local RC=$(get_restart_count "$LICENSE")
+    local RC=$(get_penalty_count "$LICENSE")
     local PEN=$(get_penalty_count "$LICENSE")
     local PEN_ICON="🟢"
     [ "$PEN" -ge 5 ] && PEN_ICON="🟡"
@@ -203,8 +209,10 @@ cmd_status() {
     local LINE
     if is_node_running "$LICENSE"; then
       local PID=$(get_node_pid "$LICENSE"); local UP=$(get_node_uptime "$LICENSE")
+      local RC=$(get_restart_count "$LICENSE")
       LINE="🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UP}</b> — R:<b>${RC}</b> — ${PEN_ICON}P:<b>${PEN}</b>\n"
     else
+      local RC=$(get_restart_count "$LICENSE")
       LINE="🔴 <code>${LICENSE}</code> — <b>DOWN</b> — R:<b>${RC}</b>\n"
     fi
     case "$WL" in W1) W1="${W1}${LINE}" ;; W2) W2="${W2}${LINE}" ;; W3) W3="${W3}${LINE}" ;; W4) W4="${W4}${LINE}" ;; esac
@@ -235,8 +243,8 @@ cmd_penalties() {
     local WL=$(get_wallet_label "$LICENSE")
     local PEN=$(get_penalty_count "$LICENSE")
     local ICON="🟢"; local MSG_P="Clean"
-    [ "$PEN" -ge 5 ]  && ICON="🟡" && MSG_P="Watch"
-    [ "$PEN" -ge 8 ]  && ICON="🟠" && MSG_P="Warning!"
+    [ "$PEN" -ge 5  ] && ICON="🟡" && MSG_P="Watch"
+    [ "$PEN" -ge 8  ] && ICON="🟠" && MSG_P="Warning!"
     [ "$PEN" -ge 10 ] && ICON="🔴" && MSG_P="CRITICAL!"
     local LINE="${ICON} <code>${LICENSE}</code> — <b>${PEN}/${PENALTY_MAX}</b> — ${MSG_P}\n"
     case "$WL" in W1) W1="${W1}${LINE}" ;; W2) W2="${W2}${LINE}" ;; W3) W3="${W3}${LINE}" ;; W4) W4="${W4}${LINE}" ;; esac
@@ -264,7 +272,9 @@ cmd_restart_node() {
   local VALID=0
   for L in "${ALL_LICENSES[@]}"; do [ "$L" = "$LICENSE" ] && VALID=1 && break; done
   if [ "$VALID" -eq 0 ]; then
-    send_message "$CHAT_ID" "❌ Unknown license: <code>${LICENSE}</code>"; return
+    send_message "$CHAT_ID" "❌ Unknown license: <code>${LICENSE}</code>
+Valid licenses: ${ALL_LICENSES[*]}"
+    return
   fi
   local WL=$(get_wallet_label "$LICENSE")
   local WALLET="${NODE_WALLET[$LICENSE]}"
@@ -294,13 +304,13 @@ cmd_restart_node() {
 
 cmd_restart_all() {
   local CHAT_ID="$1"
-  send_message "$CHAT_ID" "🔄 <b>Restarting ALL ${#ALL_LICENSES[@]} nodes...</b>
+  local TOTAL_NODES=${#ALL_LICENSES[@]}
+  send_message "$CHAT_ID" "🔄 <b>Restarting ALL ${TOTAL_NODES} nodes...</b>
 ℹ️ Free while nodes are in pool"
   local SUCCESS=0 FAILED=0
   for LICENSE in "${ALL_LICENSES[@]}"; do
     local WALLET="${NODE_WALLET[$LICENSE]}"
     local PASSWORD=$(get_wallet_password "$LICENSE")
-    local WL=$(get_wallet_label "$LICENSE")
     local OLD_PID=$(get_node_pid "$LICENSE")
     [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 1
     export DENODE_PASSWORD="$PASSWORD"
@@ -308,8 +318,7 @@ cmd_restart_all() {
       >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
     sleep 3
     if is_node_running "$LICENSE"; then
-      increment_restart_count "$LICENSE"
-      SUCCESS=$(( SUCCESS + 1 ))
+      increment_restart_count "$LICENSE"; SUCCESS=$(( SUCCESS + 1 ))
     else
       FAILED=$(( FAILED + 1 ))
     fi
@@ -325,7 +334,7 @@ cmd_restart_all() {
     fi
   done
   send_message "$CHAT_ID" "$([ "$FAILED" -eq 0 ] && echo "✅" || echo "⚠️") <b>Restart All Complete</b>
-✅ Success: <b>${SUCCESS}/${#ALL_LICENSES[@]}</b>
+✅ Success: <b>${SUCCESS}/${TOTAL_NODES}</b>
 $([ "$FAILED" -gt 0 ] && echo "❌ Failed: <b>${FAILED}</b>")
 🕐 $(now_utc) | $(now_local)
 
@@ -333,8 +342,7 @@ $(echo -e "$LINES")"
 }
 
 cmd_history() {
-  local CHAT_ID="$1"
-  local LINES=""
+  local CHAT_ID="$1"; local LINES=""
   for LICENSE in "${ALL_LICENSES[@]}"; do
     local WL=$(get_wallet_label "$LICENSE")
     local INFO=$(get_last_downtime "$LICENSE")
@@ -349,18 +357,19 @@ $(echo -e "$LINES")"
 }
 
 cmd_disk() {
-  local CHAT_ID="$1"
-  local LINES=""
+  local CHAT_ID="$1"; local LINES=""
   for LICENSE in "${ALL_LICENSES[@]}"; do
     local WL=$(get_wallet_label "$LICENSE")
     local DRIVE="${NODE_STORAGE[$LICENSE]}"
     [ -z "$DRIVE" ] && continue
     if [ ! -d "$DRIVE" ]; then LINES="${LINES}❌ [${WL}] <code>${LICENSE}</code> — NOT MOUNTED\n"; continue; fi
     local USAGE=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
-    local USED=$(df -h "$DRIVE" | awk 'NR==2 {print $3}')
+    local USED=$(df -h  "$DRIVE" | awk 'NR==2 {print $3}')
     local TOTAL=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
-    local FREE=$(df -h "$DRIVE" | awk 'NR==2 {print $4}')
-    local ICON="🟢"; [ "$USAGE" -ge 85 ] && ICON="🔴"; [ "$USAGE" -ge 70 ] && [ "$USAGE" -lt 85 ] && ICON="🟡"
+    local FREE=$(df -h  "$DRIVE" | awk 'NR==2 {print $4}')
+    local ICON="🟢"
+    [ "$USAGE" -ge 85 ] && ICON="🔴"
+    [ "$USAGE" -ge 70 ] && [ "$USAGE" -lt 85 ] && ICON="🟡"
     LINES="${LINES}${ICON} [${WL}] <code>${LICENSE}</code>: ${USAGE}% — ${USED}/${TOTAL} (free: ${FREE})\n"
   done
   send_message "$CHAT_ID" "💾 <b>Disk Usage</b>
@@ -404,25 +413,17 @@ cmd_reset_counts() {
 
 cmd_chain() {
   local CHAT_ID="$1"
-  local W1_ADDR="${WALLET_1_ADDRESS:0:10}...${WALLET_1_ADDRESS: -6}"
-  local W2_ADDR="${WALLET_2_ADDRESS:0:10}...${WALLET_2_ADDRESS: -6}"
   local MSG="⛓ <b>On-Chain Status</b>
 🕐 $(now_utc) | $(now_local)
-
 🔗 <b>Check transactions per wallet:</b>"
   [ -n "$WALLET_1_ADDRESS" ] && MSG="${MSG}
-💼 <a href=\"https://peaq.subscan.io/account/${WALLET_1_ADDRESS}\">Wallet 1 — ${W1_ADDR}</a>"
+💼 <a href=\"https://peaq.subscan.io/account/${WALLET_1_ADDRESS}\">Wallet 1 — ${WALLET_1_ADDRESS:0:10}...${WALLET_1_ADDRESS: -6}</a>"
   [ -n "$WALLET_2_ADDRESS" ] && MSG="${MSG}
-💼 <a href=\"https://peaq.subscan.io/account/${WALLET_2_ADDRESS}\">Wallet 2 — ${W2_ADDR}</a>"
+💼 <a href=\"https://peaq.subscan.io/account/${WALLET_2_ADDRESS}\">Wallet 2 — ${WALLET_2_ADDRESS:0:10}...${WALLET_2_ADDRESS: -6}</a>"
   [ -n "$WALLET_3_ADDRESS" ] && MSG="${MSG}
 💼 <a href=\"https://peaq.subscan.io/account/${WALLET_3_ADDRESS}\">Wallet 3</a>"
   [ -n "$WALLET_4_ADDRESS" ] && MSG="${MSG}
 💼 <a href=\"https://peaq.subscan.io/account/${WALLET_4_ADDRESS}\">Wallet 4</a>"
-  MSG="${MSG}
-
-<i>ONLINE = tx in last 4h
-PENDING = 4–8h since last tx
-OFFLINE = 8h+ no activity</i>"
   send_message "$CHAT_ID" "$MSG"
 }
 
@@ -430,11 +431,11 @@ cmd_help() {
   local CHAT_ID="$1"
   send_message "$CHAT_ID" "🤖 <b>DeNet Node Monitor Bot</b>
 📍 Host: $(hostname)
-🔢 Wallets: $([ -n "$WALLET_1_ADDRESS" ] && echo W1) $([ -n "$WALLET_2_ADDRESS" ] && echo W2) $([ -n "$WALLET_3_ADDRESS" ] && echo W3) $([ -n "$WALLET_4_ADDRESS" ] && echo W4)
+💼 Wallets: $([ -n "$WALLET_1_ADDRESS" ] && echo W1) $([ -n "$WALLET_2_ADDRESS" ] && echo W2) $([ -n "$WALLET_3_ADDRESS" ] && echo W3) $([ -n "$WALLET_4_ADDRESS" ] && echo W4)
 🔢 Total nodes: ${#ALL_LICENSES[@]}
 
 🔄 <b>Restart:</b>
-/restart 1072 — Restart specific node
+/restart LICENSE — Restart specific node
 /restartall — Restart all nodes
 ℹ️ Free while node is in pool
 
@@ -455,6 +456,7 @@ cmd_help() {
 # ============================================================
 # Main Loop
 # ============================================================
+
 log "=========================================="
 log "  DeNet Multi-Wallet Bot Started"
 log "  Total nodes: ${#ALL_LICENSES[@]}"
@@ -462,28 +464,56 @@ log "=========================================="
 
 send_message "$TELEGRAM_CHAT_ID" "🤖 <b>DeNet Multi-Wallet Bot Started</b>
 📍 Host: $(hostname)
-🔢 Wallets active: $([ -n "$WALLET_1_ADDRESS" ] && echo W1) $([ -n "$WALLET_2_ADDRESS" ] && echo W2) $([ -n "$WALLET_3_ADDRESS" ] && echo W3) $([ -n "$WALLET_4_ADDRESS" ] && echo W4)
+💼 Wallets: $([ -n "$WALLET_1_ADDRESS" ] && echo W1) $([ -n "$WALLET_2_ADDRESS" ] && echo W2) $([ -n "$WALLET_3_ADDRESS" ] && echo W3) $([ -n "$WALLET_4_ADDRESS" ] && echo W4)
 🔢 Total nodes: ${#ALL_LICENSES[@]}
 🕐 $(now_utc) | $(now_local)
-
 Send /help for commands."
 
 OFFSET=0
 [ -f "$OFFSET_FILE" ] && OFFSET=$(cat "$OFFSET_FILE")
 
+BOT_TRIGGER_FILE="$HOME/.denode/.bot_trigger"
+
 while true; do
+
+  # Check trigger file from proxy/dashboard
+  if [ -f "$BOT_TRIGGER_FILE" ]; then
+    TRIGGER_CMD=$(cat "$BOT_TRIGGER_FILE")
+    rm -f "$BOT_TRIGGER_FILE"
+    if [ -n "$TRIGGER_CMD" ]; then
+      log "Web app command: $TRIGGER_CMD"
+      TEXT_LOWER="${TRIGGER_CMD,,}"
+      case "$TEXT_LOWER" in
+        /status|/s)       cmd_status       "$TELEGRAM_CHAT_ID" ;;
+        /chain|/txn)      cmd_chain        "$TELEGRAM_CHAT_ID" ;;
+        /penalties|/pen)  cmd_penalties    "$TELEGRAM_CHAT_ID" ;;
+        /restarts|/rc)    cmd_restarts     "$TELEGRAM_CHAT_ID" ;;
+        /restartall)      cmd_restart_all  "$TELEGRAM_CHAT_ID" ;;
+        /resetcounts)     cmd_reset_counts "$TELEGRAM_CHAT_ID" ;;
+        /disk)            cmd_disk         "$TELEGRAM_CHAT_ID" ;;
+        /history|/h)      cmd_history      "$TELEGRAM_CHAT_ID" ;;
+        /version)         cmd_version      "$TELEGRAM_CHAT_ID" ;;
+        /help|/start)     cmd_help         "$TELEGRAM_CHAT_ID" ;;
+        /restart\ *)      cmd_restart_node "$TELEGRAM_CHAT_ID" "$(echo "$TRIGGER_CMD" | awk '{print $2}')" ;;
+      esac
+    fi
+  fi
+
   UPDATES=$(get_updates "$OFFSET")
+
   if ! echo "$UPDATES" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)" 2>/dev/null; then
+    log "⚠️ Telegram API error — retrying in 5s..."
     sleep 5; continue
   fi
+
   RESULT=$(echo "$UPDATES" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
-for u in data.get('result',[]):
-    uid = u.get('update_id',0)
-    msg = u.get('message',{})
-    cid = str(msg.get('chat',{}).get('id',''))
-    txt = msg.get('text','').strip()
+for u in data.get('result', []):
+    uid = u.get('update_id', 0)
+    msg = u.get('message', {})
+    cid = str(msg.get('chat', {}).get('id', ''))
+    txt = msg.get('text', '').strip()
     print(f'{uid}|{cid}|{txt}')
 " 2>/dev/null)
 
@@ -495,20 +525,25 @@ for u in data.get('result',[]):
     TEXT_LOWER="${TEXT,,}"
     log "Command: $TEXT"
     case "$TEXT_LOWER" in
-      /status|/s)            cmd_status "$CHAT_ID" ;;
-      /chain|/txn)           cmd_chain "$CHAT_ID" ;;
-      /penalties|/pen)       cmd_penalties "$CHAT_ID" ;;
-      /restarts|/rc)         cmd_restarts "$CHAT_ID" ;;
-      /restartall)           cmd_restart_all "$CHAT_ID" ;;
-      /resetcounts)          cmd_reset_counts "$CHAT_ID" ;;
-      /disk)                 cmd_disk "$CHAT_ID" ;;
-      /history|/h)           cmd_history "$CHAT_ID" ;;
-      /version)              cmd_version "$CHAT_ID" ;;
-      /help|/start)          cmd_help "$CHAT_ID" ;;
-      /restart\ *)           cmd_restart_node "$CHAT_ID" "$(echo "$TEXT" | awk '{print $2}')" ;;
-      *) echo "$TEXT" | grep -q '^/' && send_message "$CHAT_ID" "❓ Unknown command. Send /help" ;;
+      /status|/s)                  cmd_status       "$CHAT_ID" ;;
+      /chain|/txn)                 cmd_chain        "$CHAT_ID" ;;
+      /penalties|/pen)             cmd_penalties    "$CHAT_ID" ;;
+      /restarts|/rc)               cmd_restarts     "$CHAT_ID" ;;
+      /restartall|/restart_all)    cmd_restart_all  "$CHAT_ID" ;;
+      /resetcounts|/reset_counts)  cmd_reset_counts "$CHAT_ID" ;;
+      /disk|/storage)              cmd_disk         "$CHAT_ID" ;;
+      /history|/h)                 cmd_history      "$CHAT_ID" ;;
+      /version|/ver)               cmd_version      "$CHAT_ID" ;;
+      /help|/start)                cmd_help         "$CHAT_ID" ;;
+      /restart\ *)
+        cmd_restart_node "$CHAT_ID" "$(echo "$TEXT" | awk '{print $2}')"
+        ;;
+      *)
+        echo "$TEXT" | grep -q '^/' && send_message "$CHAT_ID" "❓ Unknown command. Send /help"
+        ;;
     esac
   done <<< "$RESULT"
 
   echo "$OFFSET" > "$OFFSET_FILE"
+
 done

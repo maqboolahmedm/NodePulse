@@ -217,13 +217,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent);}
     </div>
 
     <div class="step">
-      <div class="step-title">🤖 nodepulse-bot (Telegram Bot)</div>
+      <div class="step-title">🤖 nodepulse-bot-listener (Telegram Bot)</div>
       <div class="grid3">
-        <button class="svc-btn green" onclick="svcCmd('bot-out','start','nodepulse-bot','copy-bot')">▶ Start</button>
-        <button class="svc-btn red"   onclick="svcCmd('bot-out','stop','nodepulse-bot','copy-bot')">■ Stop</button>
-        <button class="svc-btn blue"  onclick="svcCmd('bot-out','restart','nodepulse-bot','copy-bot')">↺ Restart</button>
+        <button class="svc-btn green" onclick="svcCmd('bot-out','start','nodepulse-bot-listener','copy-bot')">▶ Start</button>
+        <button class="svc-btn red"   onclick="svcCmd('bot-out','stop','nodepulse-bot-listener','copy-bot')">■ Stop</button>
+        <button class="svc-btn blue"  onclick="svcCmd('bot-out','restart','nodepulse-bot-listener','copy-bot')">↺ Restart</button>
       </div>
-      <button class="svc-btn" style="margin-top:6px;width:100%;" onclick="svcCmd('bot-out','status','nodepulse-bot','copy-bot')">📊 Status</button>
+      <button class="svc-btn" style="margin-top:6px;width:100%;" onclick="svcCmd('bot-out','status','nodepulse-bot-listener','copy-bot')">📊 Status</button>
       <div id="bot-out" class="output"></div>
       <button class="btn-ghost" style="display:none" id="copy-bot" onclick="copyOut('bot-out','copy-bot')">📋 Copy</button>
     </div>
@@ -255,9 +255,9 @@ input:focus,select:focus{outline:none;border-color:var(--accent);}
     <div class="step">
       <div class="step-title">⚡ All Services</div>
       <div class="grid3">
-        <button class="svc-btn green" onclick="multiCmd('all-out','sudo systemctl start nodepulse-bot nodepulse-proxy nginx','copy-all')">▶ Start All</button>
-        <button class="svc-btn red"   onclick="multiCmd('all-out','sudo systemctl stop nodepulse-bot nodepulse-proxy','copy-all')">■ Stop All</button>
-        <button class="svc-btn blue"  onclick="multiCmd('all-out','sudo systemctl restart nodepulse-bot nodepulse-proxy nginx','copy-all')">↺ Restart All</button>
+        <button class="svc-btn green" onclick="multiCmd('all-out','sudo systemctl start nodepulse-bot-listener nodepulse-proxy nginx','copy-all')">▶ Start All</button>
+        <button class="svc-btn red"   onclick="multiCmd('all-out','sudo systemctl stop nodepulse-bot-listener nodepulse-proxy','copy-all')">■ Stop All</button>
+        <button class="svc-btn blue"  onclick="multiCmd('all-out','sudo systemctl restart nodepulse-bot-listener nodepulse-proxy nginx','copy-all')">↺ Restart All</button>
       </div>
       <div id="all-out" class="output"></div>
       <button class="btn-ghost" style="display:none" id="copy-all" onclick="copyOut('all-out','copy-all')">📋 Copy</button>
@@ -451,9 +451,10 @@ function generate(){
   c += "' {} +\n\n";
 
   const licLine = lics.join(' ');
-  const ph = lics.map((_,i)=>'YOUR_LICENSE_'+(i+1)).join(' ');
-  c += '# 3. Set license numbers\n';
-  c += 'sed -i \'s|'+ph+'|'+licLine+'|g\' ~/NodePulse/nodepulse-monitor.sh\n\n';
+  c += '# 3. Set license numbers (matches any number of placeholders)\n';
+  c += 'sed -i \'s|LICENSES=([^)]*)|LICENSES=('+licLine+')|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+  c += 'sed -i \'s|LICENSES=([^)]*)|LICENSES=('+licLine+')|g\' ~/NodePulse/nodepulse-guard.sh\n';
+  c += 'sed -i \'s|LICENSES=([^)]*)|LICENSES=('+licLine+')|g\' ~/NodePulse/nodepulse-bot-listener.sh\n\n';
 
   c += '# 4. Per-license storage paths, RPC keys and ports\n';
   const dp = [55050,55051,55052,55053,55054,55055];
@@ -465,9 +466,10 @@ function generate(){
     c += 'sed -i \'s|NODE_PORT\\[YOUR_LICENSE_'+(i+1)+'\\]=55050|NODE_PORT\\['+l+'\\]='+port+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
   });
 
-  c += '\n# 5. Fix STORAGE_DRIVES array\n';
+  c += '\n# 5. Fix STORAGE_DRIVES array (monitor + bot-listener)\n';
   lics.forEach((l,i) => {
     c += 'sed -i \'s|"YOUR_STORAGE_PATH/YOUR_LICENSE_'+(i+1)+'"|"'+storage+'/'+l+'"|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    c += 'sed -i \'s|"YOUR_STORAGE_PATH/YOUR_LICENSE_'+(i+1)+'"|"'+storage+'/'+l+'"|g\' ~/NodePulse/nodepulse-bot-listener.sh\n';
   });
 
   c += '\n# 6. Add cron jobs\n';
@@ -479,8 +481,8 @@ function generate(){
   c += '\n# 7. Install proxy service\n';
   c += 'sudo cp ~/NodePulse/nodepulse-proxy.service /etc/systemd/system/\n';
   c += 'sudo systemctl daemon-reload\n';
-  c += 'sudo systemctl enable nodepulse-proxy nodepulse-bot\n';
-  c += 'sudo systemctl start nodepulse-proxy nodepulse-bot\n';
+  c += 'sudo systemctl enable nodepulse-proxy nodepulse-bot-listener\n';
+  c += 'sudo systemctl start nodepulse-proxy nodepulse-bot-listener\n';
 
   c += '\necho "✅ NodePulse setup complete!"\necho "Send /help to your Telegram bot to verify."';
 
@@ -526,22 +528,31 @@ function generateMulti(token, chatId, tz, user, ddTok, ddDom) {
   c += '# 3. Set wallet addresses and passwords\n';
   wallets.forEach(w => {
     c += 'sed -i \'s|YOUR_WALLET_'+w.n+'_ADDRESS|'+w.addr+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    c += 'sed -i \'s|YOUR_WALLET_'+w.n+'_ADDRESS|'+w.addr+'|g\' ~/NodePulse/nodepulse-bot-listener.sh\n';
     c += 'sed -i \'s|YOUR_WALLET_'+w.n+'_PASSWORD|'+w.pass+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    c += 'sed -i \'s|YOUR_WALLET_'+w.n+'_PASSWORD|'+w.pass+'|g\' ~/NodePulse/nodepulse-bot-listener.sh\n';
     const licLine = w.lics.join(' ');
     const ph = w.lics.map((_,i)=>'YOUR_W'+w.n+'_LICENSE_'+(i+1)).join(' ');
     c += 'sed -i \'s|'+ph+'|'+licLine+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+    c += 'sed -i \'s|'+ph+'|'+licLine+'|g\' ~/NodePulse/nodepulse-bot-listener.sh\n';
   });
 
   c += '\n# 4. Per-license storage, RPC, ports\n';
   wallets.forEach(w => {
     w.lics.forEach((lic, i) => {
       c += 'sed -i \'s|YOUR_STORAGE_PATH/YOUR_W'+w.n+'_LICENSE_'+(i+1)+'|'+w.storage+'/'+lic+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
+      c += 'sed -i \'s|YOUR_STORAGE_PATH/YOUR_W'+w.n+'_LICENSE_'+(i+1)+'|'+w.storage+'/'+lic+'|g\' ~/NodePulse/nodepulse-bot-listener.sh\n';
       const rpc  = document.getElementById('mw_rpc_'+lic)?.value.trim();
       const port = document.getElementById('mw_port_'+lic)?.value.trim();
       if (rpc)  c += 'sed -i \'s|YOUR_W'+w.n+'_RPC_APIKEY_'+(i+1)+'|'+rpc+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
       if (port) c += 'sed -i \'s|YOUR_W'+w.n+'_PORT_'+(i+1)+'|'+port+'|g\' ~/NodePulse/nodepulse-monitor.sh\n';
     });
   });
+
+  // Combined license list for guard (single LICENSES array) and bot-listener
+  const allLics = wallets.flatMap(w => w.lics).join(' ');
+  c += '\n# 4b. Set combined license list in guard\n';
+  c += 'sed -i \'s|LICENSES=([^)]*)|LICENSES=('+allLics+')|g\' ~/NodePulse/nodepulse-guard.sh\n';
 
   c += '\n# 5. Add cron jobs\n';
   c += '(crontab -l 2>/dev/null; echo "*/5 * * * * '+path+'/nodepulse-monitor.sh") | crontab -\n';
@@ -552,8 +563,8 @@ function generateMulti(token, chatId, tz, user, ddTok, ddDom) {
   c += '\n# 6. Install services\n';
   c += 'sudo cp ~/NodePulse/nodepulse-proxy.service /etc/systemd/system/\n';
   c += 'sudo systemctl daemon-reload\n';
-  c += 'sudo systemctl enable nodepulse-proxy nodepulse-bot\n';
-  c += 'sudo systemctl start nodepulse-proxy nodepulse-bot\n';
+  c += 'sudo systemctl enable nodepulse-proxy nodepulse-bot-listener\n';
+  c += 'sudo systemctl start nodepulse-proxy nodepulse-bot-listener\n';
 
   c += '\necho "✅ NodePulse Multi-Wallet setup complete!"';
 

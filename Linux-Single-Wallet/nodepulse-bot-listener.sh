@@ -2,7 +2,6 @@
 
 # ============================================================
 # DeNet Telegram Bot Listener
-# User: maqbool | Ubuntu VM
 # Runs as a systemd service — always alive, instant response
 # v1.0
 # ============================================================
@@ -34,6 +33,16 @@ BOT_LOG="$HOME/.denode/bot-listener.log"
 # "America/New_York" (US East), "Asia/Manila" (Philippines)
 LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
+# --- Storage Drives ---
+STORAGE_DRIVES=(
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
+)
+
 mkdir -p "$NODE_LOG_DIR"
 touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
 
@@ -41,7 +50,7 @@ touch "$RESTART_COUNT_FILE" "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" 
 # Time
 # ============================================================
 
-now_utc() { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
+now_utc()   { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
 now_local() { TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'; }
 
 # ============================================================
@@ -71,31 +80,26 @@ get_node_uptime() {
   local PID
   PID=$(get_node_pid "$LICENSE")
   [ -z "$PID" ] && echo "not running" && return
-
   local ETIME
   ETIME=$(ps -o etime= -p "$PID" 2>/dev/null | tr -d ' ')
   [ -z "$ETIME" ] && echo "unknown" && return
-
   local DAYS=0 HOURS=0 MINS=0
   if echo "$ETIME" | grep -q '-'; then
     DAYS=$(echo "$ETIME" | cut -d'-' -f1)
     ETIME=$(echo "$ETIME" | cut -d'-' -f2)
   fi
-
   local PARTS
   IFS=':' read -ra PARTS <<< "$ETIME"
   case ${#PARTS[@]} in
     3) HOURS=${PARTS[0]}; MINS=${PARTS[1]} ;;
     2) MINS=${PARTS[0]} ;;
   esac
-
   DAYS=$((10#$DAYS)); HOURS=$((10#$HOURS)); MINS=$((10#$MINS))
-
   local RESULT=""
   [ "$DAYS"  -gt 0 ] && RESULT="${DAYS}d "
   [ "$HOURS" -gt 0 ] && RESULT="${RESULT}${HOURS}h "
   [ "$MINS"  -gt 0 ] && RESULT="${RESULT}${MINS}m"
-  [ -z "$RESULT"   ] && RESULT="&lt; 1m"
+  [ -z "$RESULT"   ] && RESULT="< 1m"
   echo "$RESULT"
 }
 
@@ -139,7 +143,6 @@ reset_restart_counts() {
 
 # ============================================================
 # PID Tracking & Downtime Functions
-# (shared state files with denet-monitor.sh)
 # ============================================================
 
 get_saved_pid() {
@@ -168,14 +171,10 @@ format_duration() {
   echo "$RESULT"
 }
 
-# Returns downtime info for a node if its PID changed
 get_pid_change_info() {
   local LICENSE="$1"
-  local CURRENT_PID
-  CURRENT_PID=$(get_node_pid "$LICENSE")
-  local SAVED_PID
-  SAVED_PID=$(get_saved_pid "$LICENSE")
-
+  local CURRENT_PID; CURRENT_PID=$(get_node_pid "$LICENSE")
+  local SAVED_PID;   SAVED_PID=$(get_saved_pid "$LICENSE")
   if [ -n "$SAVED_PID" ] && [ -n "$CURRENT_PID" ] && [ "$SAVED_PID" != "$CURRENT_PID" ]; then
     local LAST_SEEN NOW OFFLINE_SECS OFFLINE_DURATION WENT_DOWN_UTC
     LAST_SEEN=$(get_last_seen "$LICENSE")
@@ -186,8 +185,7 @@ get_pid_change_info() {
       WENT_DOWN_UTC=$(date -u -d "@${LAST_SEEN}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \
                       date -u -r "$LAST_SEEN" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
     else
-      OFFLINE_DURATION="unknown"
-      WENT_DOWN_UTC="unknown"
+      OFFLINE_DURATION="unknown"; WENT_DOWN_UTC="unknown"
     fi
     echo "CHANGED|${SAVED_PID}|${CURRENT_PID}|${WENT_DOWN_UTC}|${OFFLINE_DURATION}"
   else
@@ -195,7 +193,6 @@ get_pid_change_info() {
   fi
 }
 
-# Get last downtime event for a node from the log
 get_last_downtime() {
   local LICENSE="$1"
   if [ ! -f "$DOWNTIME_LOG" ]; then echo "No history yet."; return; fi
@@ -208,8 +205,6 @@ get_last_downtime() {
   DURATION=$(echo   "$LAST" | cut -d'|' -f4)
   OLD_PID=$(echo    "$LAST" | cut -d'|' -f5)
   NEW_PID=$(echo    "$LAST" | cut -d'|' -f6)
-
-  # Convert UTC timestamps to IST for display
   local WENT_DOWN_LOCAL="" RESTART_AT_LOCAL=""
   if [ "$WENT_DOWN" != "unknown" ] && [ -n "$WENT_DOWN" ]; then
     WENT_DOWN_LOCAL=$(TZ="${LOCAL_TIMEZONE}" date -d "$WENT_DOWN" '+%H:%M %Z' 2>/dev/null || echo "")
@@ -219,7 +214,6 @@ get_last_downtime() {
     RESTART_AT_LOCAL=$(TZ="${LOCAL_TIMEZONE}" date -d "$RESTART_AT" '+%H:%M %Z' 2>/dev/null || echo "")
     [ -n "$RESTART_AT_LOCAL" ] && RESTART_AT_LOCAL=" (${RESTART_AT_LOCAL})"
   fi
-
   echo "📅 Last down: ${WENT_DOWN}${WENT_DOWN_LOCAL}
 ⏱ Offline: ${DURATION}
 🔄 Restarted: ${RESTART_AT}${RESTART_AT_LOCAL}
@@ -252,25 +246,18 @@ get_updates() {
 
 cmd_status() {
   local CHAT_ID="$1"
-  local LINES=""
-  local RESTART_SECTION=""
-  local HAS_ALERT=0
-
+  local LINES="" RESTART_SECTION="" HAS_ALERT=0
   for LICENSE in "${LICENSES[@]}"; do
     if is_node_running "$LICENSE"; then
-      local PID UPTIME RC
+      local PID UPTIME RC PID_INFO
       PID=$(get_node_pid "$LICENSE")
       UPTIME=$(get_node_uptime "$LICENSE")
       RC=$(get_restart_count "$LICENSE")
-
-      # Check for silent PID change
-      local PID_INFO
       PID_INFO=$(get_pid_change_info "$LICENSE")
-
       if [ "$PID_INFO" != "SAME" ]; then
         local OLD_PID WENT_DOWN OFFLINE_DUR
-        OLD_PID=$(echo "$PID_INFO" | cut -d'|' -f2)
-        WENT_DOWN=$(echo "$PID_INFO" | cut -d'|' -f4)
+        OLD_PID=$(echo "$PID_INFO"     | cut -d'|' -f2)
+        WENT_DOWN=$(echo "$PID_INFO"   | cut -d'|' -f4)
         OFFLINE_DUR=$(echo "$PID_INFO" | cut -d'|' -f5)
         LINES="${LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>\n"
         RESTART_SECTION="${RESTART_SECTION}⚠️ <code>${LICENSE}</code> restarted silently!\n"
@@ -294,13 +281,11 @@ cmd_status() {
       fi
     fi
   done
-
   local ALERT_BLOCK=""
   [ "$HAS_ALERT" -eq 1 ] && ALERT_BLOCK="
 ⚠️ <b>Silent Restarts Detected:</b>
 $(echo -e "$RESTART_SECTION")"
-
-  send_message "$CHAT_ID" "📊 <b>DeNet Node Monitor HeartBeat</b>
+  send_message "$CHAT_ID" "📊 <b>DeNet Node Status</b>
 🕐 $(now_utc)
 🕐 $(now_local)
 📍 Host: $(hostname)
@@ -320,7 +305,6 @@ cmd_restarts() {
     [ "$COUNT" -ge 5 ] && ICON="🔴"
     LINES="${LINES}${ICON} Node <code>${LICENSE}</code> — <b>${COUNT}</b> restart(s)\n"
   done
-
   send_message "$CHAT_ID" "🔄 <b>DeNet Node Restart Counts</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
@@ -332,49 +316,33 @@ $(echo -e "$LINES")
 cmd_restart_node() {
   local CHAT_ID="$1"
   local LICENSE="$2"
-
-  # Validate license
   local VALID=0
   for L in "${LICENSES[@]}"; do
     [ "$L" = "$LICENSE" ] && VALID=1 && break
   done
-
   if [ "$VALID" -eq 0 ]; then
     send_message "$CHAT_ID" "❌ <b>Unknown license:</b> <code>${LICENSE}</code>
 
-Valid licenses: 1072, 1864, 1865, 1866, 1867, 2157"
+Valid licenses: ${LICENSES[*]}"
     return
   fi
-
   send_message "$CHAT_ID" "🔄 <b>Restarting Node ${LICENSE}...</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
-
 <i>Please wait...</i>"
-
   log "Manual restart requested for node $LICENSE"
-
-  # Kill existing process
   local OLD_PID
   OLD_PID=$(get_node_pid "$LICENSE")
-  if [ -n "$OLD_PID" ]; then
-    kill "$OLD_PID" 2>/dev/null
-    sleep 2
-  fi
-
-  # Start node
+  if [ -n "$OLD_PID" ]; then kill "$OLD_PID" 2>/dev/null && sleep 2; fi
   nohup "$DENODE_BIN" \
     --address "$WALLET_ADDRESS" \
     --license "$LICENSE" \
     >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
-
   sleep 4
-
   if is_node_running "$LICENSE"; then
-    local NEW_PID
+    local NEW_PID TOTAL
     NEW_PID=$(get_node_pid "$LICENSE")
     increment_restart_count "$LICENSE"
-    local TOTAL
     TOTAL=$(get_restart_count "$LICENSE")
     log "Node $LICENSE restarted successfully (PID: $NEW_PID, Total restarts: $TOTAL)"
     send_message "$CHAT_ID" "✅ <b>Node ${LICENSE} Restarted</b>
@@ -383,54 +351,44 @@ Valid licenses: 1072, 1864, 1865, 1866, 1867, 2157"
 🕐 $(now_utc)
 🕐 $(now_local)
 📍 Host: $(hostname)
-
 ℹ️ Restart is free while node is in pool"
   else
     log "Node $LICENSE FAILED to restart!"
     send_message "$CHAT_ID" "❌ <b>Node ${LICENSE} Failed to Restart!</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
-
 ⚠️ Manual intervention required on the VM."
   fi
 }
 
 cmd_restart_all() {
   local CHAT_ID="$1"
-
-  send_message "$CHAT_ID" "🔄 <b>Restarting ALL 6 Nodes...</b>
+  local TOTAL_NODES=${#LICENSES[@]}
+  send_message "$CHAT_ID" "🔄 <b>Restarting ALL ${TOTAL_NODES} Nodes...</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
-
 ℹ️ Nodes will restart — <b>free while in pool</b>
 <i>Starting restart sequence...</i>"
-
   log "Manual restart ALL requested"
-
   local SUCCESS=0 FAILED=0
-
   for LICENSE in "${LICENSES[@]}"; do
     local OLD_PID
     OLD_PID=$(get_node_pid "$LICENSE")
     [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 1
-
     nohup "$DENODE_BIN" \
       --address "$WALLET_ADDRESS" \
       --license "$LICENSE" \
       >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
-
     sleep 4
-
     if is_node_running "$LICENSE"; then
       increment_restart_count "$LICENSE"
-      SUCCESS=$((SUCCESS + 1))
+      SUCCESS=$(( SUCCESS + 1 ))
       log "Node $LICENSE restarted OK"
     else
-      FAILED=$((FAILED + 1))
+      FAILED=$(( FAILED + 1 ))
       log "Node $LICENSE FAILED to restart"
     fi
   done
-
   local RESULT_LINES=""
   for LICENSE in "${LICENSES[@]}"; do
     if is_node_running "$LICENSE"; then
@@ -442,10 +400,9 @@ cmd_restart_all() {
       RESULT_LINES="${RESULT_LINES}❌ <code>${LICENSE}</code> — FAILED\n"
     fi
   done
-
   send_message "$CHAT_ID" "$([ "$FAILED" -eq 0 ] && echo "✅" || echo "⚠️") <b>Restart All Complete</b>
-✅ Success: <b>${SUCCESS}/6</b>
-$([ "$FAILED" -gt 0 ] && echo "❌ Failed: <b>${FAILED}/6</b>")
+✅ Success: <b>${SUCCESS}/${TOTAL_NODES}</b>
+$([ "$FAILED" -gt 0 ] && echo "❌ Failed: <b>${FAILED}/${TOTAL_NODES}</b>")
 🕐 $(now_utc)
 🕐 $(now_local)
 📍 Host: $(hostname)
@@ -464,15 +421,6 @@ cmd_reset_counts() {
 cmd_disk() {
   local CHAT_ID="$1"
   local LINES=""
-  local STORAGE_DRIVES=(
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
-    "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
-  )
-
   for DRIVE in "${STORAGE_DRIVES[@]}"; do
     if [ ! -d "$DRIVE" ]; then
       LINES="${LINES}❌ $(basename $DRIVE) — NOT MOUNTED\n"
@@ -480,15 +428,14 @@ cmd_disk() {
     fi
     local USAGE USED TOTAL FREE ICON
     USAGE=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
-    USED=$(df -h "$DRIVE" | awk 'NR==2 {print $3}')
+    USED=$(df -h  "$DRIVE" | awk 'NR==2 {print $3}')
     TOTAL=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
-    FREE=$(df -h "$DRIVE" | awk 'NR==2 {print $4}')
+    FREE=$(df -h  "$DRIVE" | awk 'NR==2 {print $4}')
     ICON="🟢"
     [ "$USAGE" -ge 85 ] && ICON="🔴"
     [ "$USAGE" -ge 70 ] && [ "$USAGE" -lt 85 ] && ICON="🟡"
     LINES="${LINES}${ICON} <code>$(basename $DRIVE)</code>: ${USAGE}% — ${USED}/${TOTAL} (free: ${FREE})\n"
   done
-
   send_message "$CHAT_ID" "💾 <b>DeNet Disk Usage</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
@@ -509,47 +456,35 @@ cmd_version() {
 cmd_history() {
   local CHAT_ID="$1"
   local LINES=""
-
   for LICENSE in "${LICENSES[@]}"; do
     local INFO RC
     INFO=$(get_last_downtime "$LICENSE")
     RC=$(get_restart_count "$LICENSE")
     LINES="${LINES}🔑 <code>${LICENSE}</code> — Restarts: <b>${RC}</b>\n   └ ${INFO}\n"
   done
-
   send_message "$CHAT_ID" "📋 <b>DeNet Node Downtime History</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
 
-$(echo -e "$LINES")
-<i>Use /history for last event per node</i>"
+$(echo -e "$LINES")"
 }
 
 cmd_penalties() {
   local CHAT_ID="$1"
-  local LINES=""
-  local HAS_ISSUES=0
-
+  local LINES="" HAS_ISSUES=0
   for LICENSE in "${LICENSES[@]}"; do
     local COUNT ICON STATUS_MSG
     COUNT=$(get_penalty_count "$LICENSE")
-
     if   [ "$COUNT" -eq 0 ];  then ICON="🟢"; STATUS_MSG="Clean"
     elif [ "$COUNT" -lt 5 ];  then ICON="🟡"; STATUS_MSG="Watch"
-    elif [ "$COUNT" -lt 8 ];  then ICON="🟠"; STATUS_MSG="Warning! $(( PENALTY_MAX - COUNT )) cycles left"
-                                   HAS_ISSUES=1
-    elif [ "$COUNT" -lt 10 ]; then ICON="🔴"; STATUS_MSG="CRITICAL! $(( PENALTY_MAX - COUNT )) cycle(s) left"
-                                   HAS_ISSUES=1
-    else                           ICON="🚫"; STATUS_MSG="Pool removal threshold reached"
-                                   HAS_ISSUES=1
+    elif [ "$COUNT" -lt 8 ];  then ICON="🟠"; STATUS_MSG="Warning! $(( PENALTY_MAX - COUNT )) cycles left"; HAS_ISSUES=1
+    elif [ "$COUNT" -lt 10 ]; then ICON="🔴"; STATUS_MSG="CRITICAL! $(( PENALTY_MAX - COUNT )) cycle(s) left"; HAS_ISSUES=1
+    else                           ICON="🚫"; STATUS_MSG="Pool removal threshold reached"; HAS_ISSUES=1
     fi
-
     LINES="${LINES}${ICON} <code>${LICENSE}</code> — <b>${COUNT}/${PENALTY_MAX}</b> — ${STATUS_MSG}\n"
   done
-
   local FOOTER=""
   [ "$HAS_ISSUES" -eq 1 ] && FOOTER="\n⚠️ <i>Penalties reset to 0 after a successful proof cycle</i>"
-
   send_message "$CHAT_ID" "📊 <b>DeNet Node Penalty Status</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
@@ -561,53 +496,44 @@ $(echo -e "$LINES")
 
 cmd_chain() {
   local CHAT_ID="$1"
-
   if [ ! -f "$CHAIN_STATUS_FILE" ]; then
     send_message "$CHAT_ID" "⛓ <b>Chain Status</b>
 ⚠️ No data yet — wait for next monitor run (~5 min)
 📍 Host: $(hostname)"
     return
   fi
-
   local LINES=""
-  # Read file directly in Python — avoids shell escaping/control char issues
   LINES=$(python3 - "$CHAIN_STATUS_FILE" <<'PYEOF'
 import json, sys
-
 try:
     with open(sys.argv[1]) as f:
         data = json.load(f)
     nodes   = data.get('nodes', {})
-    fetched = data.get('fetched_at','unknown')
+    fetched = data.get('fetched_at', 'unknown')
     lines   = []
-
     for lic, info in nodes.items():
-        status     = info.get('status','unknown').upper()
-        age        = info.get('age','unknown')
-        pool       = info.get('pool','')
-        stage      = info.get('stage','')
-        err        = info.get('last_error','')
-
+        status    = info.get('status', 'unknown').upper()
+        age       = info.get('age', 'unknown')
+        pool      = info.get('pool', '')
+        stage     = info.get('stage', '')
+        err       = info.get('last_error', '')
         if   status == 'ONLINE':  icon = '🟢'
         elif status == 'PENDING': icon = '🟡'
         elif status == 'OFFLINE': icon = '🔴'
         else:                     icon = '⚪'
-
-        pool_str  = f' | Pool: {pool}' if pool else ''
+        pool_str  = f' | Pool: {pool}' if pool  else ''
         stage_str = f' | {stage}'      if stage else ''
         err_str   = f'\n   ⚠️ {err[:80]}' if err and status != 'ONLINE' else ''
         lines.append(f'{icon} <code>{lic}</code> — <b>{status}</b>{pool_str}{stage_str}\n   📅 Last proof: {age}{err_str}')
-
     print('\n'.join(lines))
     print(f'FETCHED:{fetched}')
 except Exception as e:
     print(f'ERROR:{e}')
 PYEOF
 )
-
-  local FETCHED=$(echo "$LINES" | grep "^FETCHED:" | cut -d: -f2-)
+  local FETCHED
+  FETCHED=$(echo "$LINES" | grep "^FETCHED:" | cut -d: -f2-)
   LINES=$(echo "$LINES" | grep -v "^FETCHED:\|^ERROR:")
-
   send_message "$CHAT_ID" "⛓ <b>On-Chain Status (from node logs)</b>
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)
@@ -626,7 +552,7 @@ cmd_help() {
 📍 Host: $(hostname)
 
 🔄 <b>Restart Commands:</b>
-/restart 1072 — Restart a specific node
+/restart LICENSE — Restart a specific node
 /restartall — Restart all nodes
 ℹ️ Restart is free while node is in pool
 
@@ -663,13 +589,11 @@ Ready to receive commands. Send /help for the list."
 BOT_TRIGGER_FILE="$HOME/.denode/.bot_trigger"
 
 OFFSET=0
-if [ -f "$OFFSET_FILE" ]; then
-  OFFSET=$(cat "$OFFSET_FILE")
-fi
+[ -f "$OFFSET_FILE" ] && OFFSET=$(cat "$OFFSET_FILE")
 
 while true; do
 
-  # Check for web app trigger file — commands from nodepulse-proxy
+  # Check for web app trigger file
   if [ -f "$BOT_TRIGGER_FILE" ]; then
     TRIGGER_CMD=$(cat "$BOT_TRIGGER_FILE")
     rm -f "$BOT_TRIGGER_FILE"
@@ -677,108 +601,75 @@ while true; do
       log "Web app command: $TRIGGER_CMD"
       TEXT_LOWER="${TRIGGER_CMD,,}"
       case "$TEXT_LOWER" in
-        /status|/s)           cmd_status "$TELEGRAM_CHAT_ID" ;;
-        /chain|/txn)          cmd_chain "$TELEGRAM_CHAT_ID" ;;
-        /restarts|/rc)        cmd_restarts "$TELEGRAM_CHAT_ID" ;;
-        /penalties|/pen)      cmd_penalties "$TELEGRAM_CHAT_ID" ;;
-        /restartall)          cmd_restart_all "$TELEGRAM_CHAT_ID" ;;
-        /resetcounts)         cmd_reset_counts "$TELEGRAM_CHAT_ID" ;;
-        /disk)                cmd_disk "$TELEGRAM_CHAT_ID" ;;
-        /history|/h)          cmd_history "$TELEGRAM_CHAT_ID" ;;
-        /version)             cmd_version "$TELEGRAM_CHAT_ID" ;;
-        /help|/start)         cmd_help "$TELEGRAM_CHAT_ID" ;;
-        /restart\ *)          cmd_restart_node "$TELEGRAM_CHAT_ID" "$(echo "$TRIGGER_CMD" | awk '{print $2}')" ;;
+        /status|/s)       cmd_status      "$TELEGRAM_CHAT_ID" ;;
+        /chain|/txn)      cmd_chain       "$TELEGRAM_CHAT_ID" ;;
+        /restarts|/rc)    cmd_restarts    "$TELEGRAM_CHAT_ID" ;;
+        /penalties|/pen)  cmd_penalties   "$TELEGRAM_CHAT_ID" ;;
+        /restartall)      cmd_restart_all "$TELEGRAM_CHAT_ID" ;;
+        /resetcounts)     cmd_reset_counts "$TELEGRAM_CHAT_ID" ;;
+        /disk)            cmd_disk        "$TELEGRAM_CHAT_ID" ;;
+        /history|/h)      cmd_history     "$TELEGRAM_CHAT_ID" ;;
+        /version)         cmd_version     "$TELEGRAM_CHAT_ID" ;;
+        /help|/start)     cmd_help        "$TELEGRAM_CHAT_ID" ;;
+        /restart\ *)      cmd_restart_node "$TELEGRAM_CHAT_ID" "$(echo "$TRIGGER_CMD" | awk '{print $2}')" ;;
       esac
     fi
   fi
 
   UPDATES=$(get_updates "$OFFSET")
 
-  # Check for valid response
   if ! echo "$UPDATES" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)" 2>/dev/null; then
     log "⚠️ Telegram API error or timeout — retrying in 5s..."
     sleep 5
     continue
   fi
 
-  # Process updates
   RESULT=$(echo "$UPDATES" | python3 -c "
 import json, sys
-
-data = json.load(sys.stdin)
+data    = json.load(sys.stdin)
 results = data.get('result', [])
-
 for update in results:
-    uid = update.get('update_id', 0)
-    msg = update.get('message', {})
+    uid     = update.get('update_id', 0)
+    msg     = update.get('message', {})
     chat_id = str(msg.get('chat', {}).get('id', ''))
-    text = msg.get('text', '').strip()
+    text    = msg.get('text', '').strip()
     print(f'{uid}|{chat_id}|{text}')
 " 2>/dev/null)
 
   while IFS='|' read -r UPDATE_ID CHAT_ID TEXT; do
     [ -z "$UPDATE_ID" ] && continue
-
-    # Update offset
     NEXT_OFFSET=$(( UPDATE_ID + 1 ))
     [ "$NEXT_OFFSET" -gt "$OFFSET" ] && OFFSET="$NEXT_OFFSET"
-
-    # Only handle messages from authorized chat
     if [ "$CHAT_ID" != "$TELEGRAM_CHAT_ID" ]; then
       log "Ignored message from unauthorized chat: $CHAT_ID"
       continue
     fi
-
     TEXT_LOWER="${TEXT,,}"
     log "Command received: $TEXT"
-
     case "$TEXT_LOWER" in
-      /status|/s)
-        cmd_status "$CHAT_ID"
-        ;;
-      /chain|/blockchain|/txn)
-        cmd_chain "$CHAT_ID"
-        ;;
-      /restarts|/restart_counts|/rc)
-        cmd_restarts "$CHAT_ID"
-        ;;
-      /penalties|/penalty|/pen)
-        cmd_penalties "$CHAT_ID"
-        ;;
-      /restartall|/restart_all)
-        cmd_restart_all "$CHAT_ID"
-        ;;
-      /resetcounts|/reset_counts)
-        cmd_reset_counts "$CHAT_ID"
-        ;;
-      /disk|/storage)
-        cmd_disk "$CHAT_ID"
-        ;;
-      /history|/h)
-        cmd_history "$CHAT_ID"
-        ;;
-      /version|/ver)
-        cmd_version "$CHAT_ID"
-        ;;
-      /help|/start)
-        cmd_help "$CHAT_ID"
-        ;;
+      /status|/s)                  cmd_status       "$CHAT_ID" ;;
+      /chain|/blockchain|/txn)     cmd_chain        "$CHAT_ID" ;;
+      /restarts|/restart_counts|/rc) cmd_restarts   "$CHAT_ID" ;;
+      /penalties|/penalty|/pen)    cmd_penalties    "$CHAT_ID" ;;
+      /restartall|/restart_all)    cmd_restart_all  "$CHAT_ID" ;;
+      /resetcounts|/reset_counts)  cmd_reset_counts "$CHAT_ID" ;;
+      /disk|/storage)              cmd_disk         "$CHAT_ID" ;;
+      /history|/h)                 cmd_history      "$CHAT_ID" ;;
+      /version|/ver)               cmd_version      "$CHAT_ID" ;;
+      /help|/start)                cmd_help         "$CHAT_ID" ;;
       /restart\ *)
         LICENSE=$(echo "$TEXT" | awk '{print $2}')
         cmd_restart_node "$CHAT_ID" "$LICENSE"
         ;;
       *)
-        # Unknown command
         if echo "$TEXT" | grep -q '^/'; then
           send_message "$CHAT_ID" "❓ Unknown command: <code>${TEXT}</code>
 Send /help for the list of commands."
         fi
         ;;
     esac
-
   done <<< "$RESULT"
 
-  # Save offset
   echo "$OFFSET" > "$OFFSET_FILE"
 
 done

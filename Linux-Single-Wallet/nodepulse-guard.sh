@@ -2,10 +2,10 @@
 
 # ============================================================
 # NodePulse Guard — Community Intelligence Agent
-# Linux Single Wallet Version (lsw)
+# Linux Single Wallet Version
 # github.com/maqboolahmedm/NodePulse
 #
-# Runs every 5 min via cron alongside denet-monitor-lsw.sh
+# Runs every 5 min via cron alongside nodepulse-monitor.sh
 # Diagnoses node issues with confidence scoring
 # Tracks health scores, incident history, verification
 # ============================================================
@@ -20,10 +20,8 @@ LOCAL_TIMEZONE="YOUR_TIMEZONE"
 PENALTY_FILE="$HOME/.denode/.node_penalties"
 PENALTY_MAX=10
 COOLDOWN_MINUTES=30
-
 GUARD_DIR="$HOME/.nodepulse_guard"
 GUARD_LOG="$GUARD_DIR/guard.log"
-GUARD_STATE="$GUARD_DIR/state.json"
 GUARD_COOLDOWN="$GUARD_DIR/cooldowns"
 GUARD_HEALTH="$GUARD_DIR/health_scores"
 LAST_REPORT_FILE="$GUARD_DIR/.last_report"
@@ -64,6 +62,8 @@ update_health_score() {
   [ "$NEW" -lt 0   ] && NEW=0
   sed -i "/^${LIC}=/d" "$GUARD_HEALTH" 2>/dev/null
   echo "${LIC}=${NEW}" >> "$GUARD_HEALTH"
+  # Write individual score file for status.json / nodepulse-app.html
+  echo "$NEW" > "${GUARD_DIR}/score_${LIC}"
 }
 
 is_in_cooldown() {
@@ -81,7 +81,7 @@ set_cooldown() {
   echo "${KEY}=$(date +%s)" >> "$GUARD_COOLDOWN"
 }
 
-# ── Watcher — analyse node log ──────────────────────────────
+# ── Watcher ─────────────────────────────────────────────────
 watch_node() {
   local LICENSE="$1"
   local LOG_A="$NODE_LOG_DIR/node-${LICENSE}.log"
@@ -133,21 +133,20 @@ for line in reversed(lines):
     ):
         eff = ts or last_seen_ts
         if eff: last_proof_min = (now - eff).total_seconds() / 60
-
     ll = line.lower()
-    if 'gas price less than block base fee'    in ll: issues.append('LOW_GAS')
-    elif 'replacement transaction underpriced' in ll: issues.append('TX_UNDERPRICED')
-    elif 'insufficient funds'                  in ll: issues.append('NO_FUNDS')
-    elif 'connection refused' in ll or 'dial tcp' in ll: issues.append('RPC_ERROR')
-    elif 'context deadline exceeded'           in ll: issues.append('RPC_TIMEOUT')
+    if   'gas price less than block base fee' in ll:                           issues.append('LOW_GAS')
+    elif 'replacement transaction underpriced' in ll:                          issues.append('TX_UNDERPRICED')
+    elif 'insufficient funds' in ll:                                           issues.append('NO_FUNDS')
+    elif 'connection refused' in ll or 'dial tcp' in ll:                       issues.append('RPC_ERROR')
+    elif 'context deadline exceeded' in ll:                                    issues.append('RPC_TIMEOUT')
     elif 'transaction was not mined' in ll or 'failed to wait for transaction mining' in ll:
-        issues.append('TX_NOT_MINED')
+                                                                               issues.append('TX_NOT_MINED')
     elif 'failed to send proof' in ll and 'gas' not in ll and 'replacement' not in ll and 'mined' not in ll:
-        issues.append('PROOF_FAIL')
+                                                                               issues.append('PROOF_FAIL')
 
 counts = Counter(issues)
 if last_proof_min is not None:
-    if last_proof_min < 95:    chain = "HEALTHY"
+    if   last_proof_min < 95:  chain = "HEALTHY"
     elif last_proof_min < 190: chain = "PENDING"
     else:                      chain = "STALE"
 else: chain = "UNKNOWN"
@@ -155,29 +154,30 @@ else: chain = "UNKNOWN"
 age_str = f"{int(last_proof_min)}m" if last_proof_min else "unknown"
 
 serious = []
-if counts['NO_FUNDS']       >= 1: serious.append(('NO_FUNDS',      95))
-if counts['TX_NOT_MINED']   >= 3: serious.append(('TX_NOT_MINED',  80))
-if counts['PROOF_FAIL']     >= 2: serious.append(('PROOF_FAIL',    70))
-if counts['RPC_ERROR']      >= 2: serious.append(('RPC_ERROR',     75))
-if counts['RPC_TIMEOUT']    >= 3: serious.append(('RPC_TIMEOUT',   60))
-if counts['LOW_GAS']        >= 3: serious.append(('LOW_GAS',       50))
-if counts['TX_UNDERPRICED'] >= 3: serious.append(('TX_UNDERPRICED',45))
+if counts['NO_FUNDS']      >= 1: serious.append(('NO_FUNDS',       95))
+if counts['TX_NOT_MINED']  >= 3: serious.append(('TX_NOT_MINED',   80))
+if counts['PROOF_FAIL']    >= 2: serious.append(('PROOF_FAIL',     70))
+if counts['RPC_ERROR']     >= 2: serious.append(('RPC_ERROR',      75))
+if counts['RPC_TIMEOUT']   >= 3: serious.append(('RPC_TIMEOUT',    60))
+if counts['LOW_GAS']       >= 3: serious.append(('LOW_GAS',        50))
+if counts['TX_UNDERPRICED']>= 3: serious.append(('TX_UNDERPRICED', 45))
 
 if not serious:
-    if chain == "HEALTHY":
-        print(f"HEALTHY~Last proof {age_str} ago | Pool {pool_number} | {last_stage}~100~none")
-    elif chain == "PENDING":
-        print(f"PENDING~Last proof {age_str} ago | Pool {pool_number} | {last_stage}~60~monitor")
-    elif chain == "STALE":
-        print(f"STALE~No proof for {age_str} | Pool {pool_number} | {last_stage}~70~monitor")
-    else:
-        print(f"STARTING~Warming up | Pool {pool_number} | {last_stage}~50~none")
+    if   chain == "HEALTHY": print(f"HEALTHY~Last proof {age_str} ago | Pool {pool_number} | {last_stage}~100~none")
+    elif chain == "PENDING": print(f"PENDING~Last proof {age_str} ago | Pool {pool_number} | {last_stage}~60~monitor")
+    elif chain == "STALE":   print(f"STALE~No proof for {age_str} | Pool {pool_number} | {last_stage}~70~monitor")
+    else:                    print(f"STARTING~Warming up | Pool {pool_number} | {last_stage}~50~none")
 else:
-    top = serious[0]
-    msgs = {'NO_FUNDS':'Insufficient PEAQ balance','TX_NOT_MINED':'Transaction not mined',
-            'PROOF_FAIL':'Proof failing repeatedly','RPC_ERROR':'RPC refusing connections',
-            'RPC_TIMEOUT':'RPC timing out','LOW_GAS':'Gas spike (transient)',
-            'TX_UNDERPRICED':'Transaction underpriced'}
+    top  = serious[0]
+    msgs = {
+        'NO_FUNDS':      'Insufficient PEAQ balance',
+        'TX_NOT_MINED':  'Transaction not mined',
+        'PROOF_FAIL':    'Proof failing repeatedly',
+        'RPC_ERROR':     'RPC refusing connections',
+        'RPC_TIMEOUT':   'RPC timing out',
+        'LOW_GAS':       'Gas spike (transient)',
+        'TX_UNDERPRICED':'Transaction underpriced'
+    }
     print(f"{top[0]}~{msgs.get(top[0],'Unknown')} | Pool {pool_number} | {last_stage}~{top[1]}~monitor")
 PYEOF
 }
@@ -194,9 +194,9 @@ ALL_HEALTHY=1
 
 for LICENSE in "${LICENSES[@]}"; do
   RESULT=$(watch_node "$LICENSE")
-  CODE=$(echo "$RESULT"  | cut -d'~' -f1)
-  MSG=$(echo "$RESULT"   | cut -d'~' -f2)
-  CONF=$(echo "$RESULT"  | cut -d'~' -f3)
+  CODE=$(echo "$RESULT" | cut -d'~' -f1)
+  MSG=$(echo  "$RESULT" | cut -d'~' -f2)
+  CONF=$(echo "$RESULT" | cut -d'~' -f3)
   SCORE=$(get_health_score "$LICENSE")
 
   case "$CODE" in
