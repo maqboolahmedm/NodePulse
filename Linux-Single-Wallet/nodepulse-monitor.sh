@@ -7,44 +7,44 @@
 # ============================================================
 
 # --- Telegram Config ---
-TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
-TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
+TELEGRAM_BOT_TOKEN="8826850348:AAHbd8FM1L2wHbayDSMPf99V-Cs7CXzOSq4"
+TELEGRAM_CHAT_ID="6611983178"
 
 # --- DuckDNS Config ---
-DUCKDNS_TOKEN="YOUR_DUCKDNS_TOKEN"
-DUCKDNS_DOMAIN="YOUR_DUCKDNS_DOMAIN"
+DUCKDNS_TOKEN="b66fcd39-911d-403c-9232-acedc3ff16c8"
+DUCKDNS_DOMAIN="maqbool-nodepulse"
 
 # --- Node Config ---
 DENODE_BIN="/usr/bin/denode"
-WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
-LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3 YOUR_LICENSE_4 YOUR_LICENSE_5 YOUR_LICENSE_6)
+WALLET_ADDRESS="0x0caC3Ca8C0c58199FEb045E236459107b961A071"
+LICENSES=(1072 1864 1865 1866 1867 2157)
 
 # Per-node ports
 declare -A NODE_PORT
-NODE_PORT[YOUR_LICENSE_1]=55050
-NODE_PORT[YOUR_LICENSE_2]=55051
-NODE_PORT[YOUR_LICENSE_3]=55052
-NODE_PORT[YOUR_LICENSE_4]=55053
-NODE_PORT[YOUR_LICENSE_5]=55054
-NODE_PORT[YOUR_LICENSE_6]=55055
+NODE_PORT[1072]=55050
+NODE_PORT[1864]=55051
+NODE_PORT[1865]=55052
+NODE_PORT[1866]=55053
+NODE_PORT[1867]=55054
+NODE_PORT[2157]=55055
 
 # Per-node private RPC endpoints
 declare -A NODE_RPC
-NODE_RPC[YOUR_LICENSE_1]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_1"
-NODE_RPC[YOUR_LICENSE_2]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_2"
-NODE_RPC[YOUR_LICENSE_3]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_3"
-NODE_RPC[YOUR_LICENSE_4]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_4"
-NODE_RPC[YOUR_LICENSE_5]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_5"
-NODE_RPC[YOUR_LICENSE_6]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_6"
+NODE_RPC[1072]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=6f415c07-f0a5-4ad7-9f7f-c88d040fe717"
+NODE_RPC[1864]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=a7964ac0-3435-43a0-96f2-7085b4f76f13"
+NODE_RPC[1865]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=70249e45-ed1f-4f36-9be8-caaf743c1e8d"
+NODE_RPC[1866]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=3cbad1ff-8db8-43e6-8f4e-d1e83784eddc"
+NODE_RPC[1867]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=f41225b4-f359-42fb-8377-f532a064db68"
+NODE_RPC[2157]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=87a91a4b-025a-4f5c-858a-678c7696cc27"
 
 # Per-node storage paths
 declare -A NODE_STORAGE
-NODE_STORAGE[YOUR_LICENSE_1]="YOUR_STORAGE_PATH/YOUR_LICENSE_1"
-NODE_STORAGE[YOUR_LICENSE_2]="YOUR_STORAGE_PATH/YOUR_LICENSE_2"
-NODE_STORAGE[YOUR_LICENSE_3]="YOUR_STORAGE_PATH/YOUR_LICENSE_3"
-NODE_STORAGE[YOUR_LICENSE_4]="YOUR_STORAGE_PATH/YOUR_LICENSE_4"
-NODE_STORAGE[YOUR_LICENSE_5]="YOUR_STORAGE_PATH/YOUR_LICENSE_5"
-NODE_STORAGE[YOUR_LICENSE_6]="YOUR_STORAGE_PATH/YOUR_LICENSE_6"
+NODE_STORAGE[1072]="/mnt/Denet-Storage/YOUR_LICENSE_1"
+NODE_STORAGE[1864]="/mnt/Denet-Storage/YOUR_LICENSE_2"
+NODE_STORAGE[1865]="/mnt/Denet-Storage/YOUR_LICENSE_3"
+NODE_STORAGE[1866]="/mnt/Denet-Storage/YOUR_LICENSE_4"
+NODE_STORAGE[1867]="/mnt/Denet-Storage/YOUR_LICENSE_5"
+NODE_STORAGE[2157]="/mnt/Denet-Storage/YOUR_LICENSE_6"
 
 # --- Log Config ---
 LOG_FILE="$HOME/.denode/monitor.log"
@@ -76,27 +76,27 @@ CYCLE_MINUTES=90
 # --- Disk Config ---
 DISK_ALERT_THRESHOLD=85
 STORAGE_DRIVES=(
-  "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
-  "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
-  "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
-  "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
-  "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
-  "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
+  "/mnt/Denet-Storage/1072"
+  "/mnt/Denet-Storage/1864"
+  "/mnt/Denet-Storage/1865"
+  "/mnt/Denet-Storage/1866"
+  "/mnt/Denet-Storage/1867"
+  "/mnt/Denet-Storage/2157"
 )
 
 # --- Daily Summary Config ---
 DAILY_SUMMARY_HOUR=8
 
 # --- Timezone Config ---
-LOCAL_TIMEZONE="YOUR_TIMEZONE"
+LOCAL_TIMEZONE="Asia/Kolkata"
 
 # --- Display ---
 export DISPLAY=:0
 export XAUTHORITY="$HOME/.Xauthority"
-export DENODE_PASSWORD="YOUR_NODE_PASSWORD"
+export DENODE_PASSWORD="maqbool@18PRAQS"
 
 # --- Tunnel health: log silence threshold (seconds) ---
-TUNNEL_SILENCE_THRESHOLD=4800
+TUNNEL_SILENCE_THRESHOLD=6000
 
 # ============================================================
 # Time Functions
@@ -353,8 +353,8 @@ check_proof_status() {
   [ -f "$LOG_A" ] && NODE_LOG="$LOG_A" || { [ -f "$LOG_B" ] && NODE_LOG="$LOG_B"; }
   [ -z "$NODE_LOG" ] && echo "UNKNOWN" && return
   local RECENT; RECENT=$(tail -100 "$NODE_LOG" 2>/dev/null)
-  echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent" && echo "PROOF_OK" && return
-  echo "$RECENT" | grep -qiE "missed|penalty|failed to send proof|proof failed|deadline exceeded"            && echo "MISSED"   && return
+  echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent|Proof of Storage stage handling completed|Successfully submitted Fill Roothash" && echo "PROOF_OK" && return
+  echo "$RECENT" | grep -qiE "Failed to send hash proof|failed to submit Send Hash Proof"            && echo "MISSED"   && return
   echo "UNKNOWN"
 }
 
@@ -401,11 +401,10 @@ check_and_update_penalties() {
 🔄 Restarting node — will auto re-join pool...
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
-      # AUTO-RESTART DISABLED — pool removal takes 15h
-      # local OLD_PID; OLD_PID=$(get_node_pid "$LICENSE")
-      # [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-      # restart_node "$LICENSE"
-      # set_penalty_count "$LICENSE" "0"
+      local OLD_PID; OLD_PID=$(get_node_pid "$LICENSE")
+      [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+      restart_node "$LICENSE"
+      set_penalty_count "$LICENSE" "0"
     fi
   fi
 }
@@ -949,8 +948,8 @@ for LICENSE in "${LICENSES[@]}"; do
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
         OLD_PID=$(get_node_pid "$LICENSE")
-        # [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-        # restart_node "$LICENSE"
+        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+        restart_node "$LICENSE"
         ;;
       NO_PORT)
         log "🔌 Node $LICENSE — port not listening (log still active — may be re-tunneling)"

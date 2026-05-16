@@ -7,13 +7,13 @@
 # github.com/maqboolahmedm/NodePulse
 # ============================================================
 
-TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
-TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
-LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3 YOUR_LICENSE_4 YOUR_LICENSE_5 YOUR_LICENSE_6)
-WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
+TELEGRAM_BOT_TOKEN="8826850348:AAHbd8FM1L2wHbayDSMPf99V-Cs7CXzOSq4"
+TELEGRAM_CHAT_ID="6611983178"
+LICENSES=(1072 1864 1865 1866 1867 2157)
+WALLET_ADDRESS="0x0caC3Ca8C0c58199FEb045E236459107b961A071"
 DENODE_BIN="/usr/bin/denode"
 NODE_LOG_DIR="$HOME/.denode/logs"
-LOCAL_TIMEZONE="YOUR_TIMEZONE"
+LOCAL_TIMEZONE="Asia/Kolkata"
 PENALTY_FILE="$HOME/.denode/.node_penalties"
 PENALTY_MAX=10
 COOLDOWN_MINUTES=30
@@ -25,7 +25,7 @@ LAST_REPORT_FILE="$GUARD_DIR/.last_report"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
 
 # Log silence threshold — seconds before flagging TUNNEL_DEAD
-TUNNEL_SILENCE_THRESHOLD=4800
+TUNNEL_SILENCE_THRESHOLD=6000
 
 mkdir -p "$GUARD_DIR"
 touch "$GUARD_LOG" "$GUARD_COOLDOWN" "$GUARD_HEALTH" "$PAUSED_FILE"
@@ -155,7 +155,7 @@ for line in reversed(lines):
     elif 'context deadline exceeded' in ll:                                         issues.append('RPC_TIMEOUT')
     elif 'transaction was not mined' in ll or 'failed to wait for transaction mining' in ll:
                                                                                     issues.append('TX_NOT_MINED')
-    elif 'failed to send proof' in ll and 'gas' not in ll and 'replacement' not in ll and 'mined' not in ll:
+    elif 'failed to send hash proof' in ll or ('failed to submit send hash proof' in ll and 'replacement' not in ll):
                                                                                     issues.append('PROOF_FAIL')
 
 counts = Counter(issues)
@@ -182,7 +182,8 @@ if counts['TX_UNDERPRICED'] >= 3: serious.append(('TX_UNDERPRICED', 45))
 # ── Tunnel dead detection ────────────────────────────────────
 # Flag if log silent AND last proof was recent enough that node
 # should be active — likely the tunnel dropped
-if log_silent and last_proof_min is not None and last_proof_min < 190:
+holding_data = any("Holding data" in l for l in lines[-20:])
+if log_silent and not holding_data and last_proof_min is not None and last_proof_min < 190:
     serious.insert(0, ('TUNNEL_DEAD', 85))
 
 if not serious:

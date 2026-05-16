@@ -2,18 +2,18 @@
 
 # ============================================================
 # NodePulse Guard — Community Intelligence Agent
-# Linux Multi-Wallet Version
+# Linux Single Wallet Version
 # v1.1 — Added: pause check, TUNNEL_DEAD detection
 # github.com/maqboolahmedm/NodePulse
 # ============================================================
 
-TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
-TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
-LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3 YOUR_LICENSE_4 YOUR_LICENSE_5 YOUR_LICENSE_6)
-WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
+TELEGRAM_BOT_TOKEN="8826850348:AAHbd8FM1L2wHbayDSMPf99V-Cs7CXzOSq4"
+TELEGRAM_CHAT_ID="6611983178"
+LICENSES=(1072 1864 1865 1866 1867 2157)
+WALLET_ADDRESS="0x0caC3Ca8C0c58199FEb045E236459107b961A071"
 DENODE_BIN="/usr/bin/denode"
 NODE_LOG_DIR="$HOME/.denode/logs"
-LOCAL_TIMEZONE="YOUR_TIMEZONE"
+LOCAL_TIMEZONE="Asia/Kolkata"
 PENALTY_FILE="$HOME/.denode/.node_penalties"
 PENALTY_MAX=10
 COOLDOWN_MINUTES=30
@@ -24,7 +24,8 @@ GUARD_HEALTH="$GUARD_DIR/health_scores"
 LAST_REPORT_FILE="$GUARD_DIR/.last_report"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
 
-TUNNEL_SILENCE_THRESHOLD=4800
+# Log silence threshold — seconds before flagging TUNNEL_DEAD
+TUNNEL_SILENCE_THRESHOLD=6000
 
 mkdir -p "$GUARD_DIR"
 touch "$GUARD_LOG" "$GUARD_COOLDOWN" "$GUARD_HEALTH" "$PAUSED_FILE"
@@ -44,6 +45,7 @@ is_node_running() {
   ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $1" > /dev/null 2>&1
 }
 
+# ── Pause check — set by bot /stop command ──────────────────
 is_paused() {
   grep -qx "$1" "$PAUSED_FILE" 2>/dev/null
 }
@@ -85,7 +87,8 @@ set_cooldown() {
 }
 
 # ============================================================
-# Watcher
+# Watcher — analyzes node log for issues
+# Now also detects TUNNEL_DEAD via log silence
 # ============================================================
 watch_node() {
   local LICENSE="$1"
@@ -99,7 +102,7 @@ import sys, re, os, time
 from datetime import datetime, timezone, timedelta
 from collections import Counter
 
-log_file          = sys.argv[1]
+log_file  = sys.argv[1]
 silence_threshold = int(sys.argv[2])
 
 try:
@@ -109,6 +112,7 @@ try:
 except Exception as e:
     print(f"READ_ERROR~Cannot read log: {e}~0~none"); sys.exit(0)
 
+# ── Tunnel dead check via log file modification time ────────
 log_age_secs = int(time.time() - os.path.getmtime(log_file))
 log_silent   = log_age_secs > silence_threshold
 
@@ -151,11 +155,12 @@ for line in reversed(lines):
     elif 'context deadline exceeded' in ll:                                         issues.append('RPC_TIMEOUT')
     elif 'transaction was not mined' in ll or 'failed to wait for transaction mining' in ll:
                                                                                     issues.append('TX_NOT_MINED')
-    elif 'failed to send proof' in ll and 'gas' not in ll and 'replacement' not in ll and 'mined' not in ll:
+    elif 'failed to send hash proof' in ll or ('failed to submit send hash proof' in ll and 'replacement' not in ll):
                                                                                     issues.append('PROOF_FAIL')
 
 counts = Counter(issues)
 
+# ── Chain status ─────────────────────────────────────────────
 if last_proof_min is not None:
     if   last_proof_min < 95:  chain = "HEALTHY"
     elif last_proof_min < 190: chain = "PENDING"
@@ -164,6 +169,7 @@ else: chain = "UNKNOWN"
 
 age_str = f"{int(last_proof_min)}m" if last_proof_min else "unknown"
 
+# ── Serious issues ───────────────────────────────────────────
 serious = []
 if counts['NO_FUNDS']       >= 1: serious.append(('NO_FUNDS',       95))
 if counts['TX_NOT_MINED']   >= 3: serious.append(('TX_NOT_MINED',   80))
@@ -173,7 +179,11 @@ if counts['RPC_TIMEOUT']    >= 3: serious.append(('RPC_TIMEOUT',    60))
 if counts['LOW_GAS']        >= 3: serious.append(('LOW_GAS',        50))
 if counts['TX_UNDERPRICED'] >= 3: serious.append(('TX_UNDERPRICED', 45))
 
-if log_silent and last_proof_min is not None and last_proof_min < 190:
+# ── Tunnel dead detection ────────────────────────────────────
+# Flag if log silent AND last proof was recent enough that node
+# should be active — likely the tunnel dropped
+holding_data = any("Holding data" in l for l in lines[-20:])
+if log_silent and not holding_data and last_proof_min is not None and last_proof_min < 190:
     serious.insert(0, ('TUNNEL_DEAD', 85))
 
 if not serious:
@@ -201,7 +211,7 @@ PYEOF
 # Main
 # ============================================================
 log "=========================================="
-log "  NodePulse Guard Started (MW)"
+log "  NodePulse Guard Started"
 log "  Nodes: ${#LICENSES[@]} | Cooldown: ${COOLDOWN_MINUTES}min"
 log "=========================================="
 
