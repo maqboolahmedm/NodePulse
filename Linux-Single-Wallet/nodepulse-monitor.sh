@@ -3,7 +3,7 @@
 # ============================================================
 # NodePulse Monitor & Auto-Restart Script
 # Linux Single-Wallet Version
-# v3.1 — Patched: guard score injected into status.json
+# v3.2 — Added: pause check, tunnel health detection
 # ============================================================
 
 # --- Telegram Config ---
@@ -60,8 +60,12 @@ PENALTY_FILE="$HOME/.denode/.node_penalties"
 STATUS_JSON="/var/www/html/nodepulse/status.json"
 CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
 
-mkdir -p "$NODE_LOG_DIR" "$(dirname $STATUS_JSON)" 2>/dev/null || true
-touch "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE"
+# --- Pause/Stop support (set by bot /stop command) ---
+GUARD_DIR="$HOME/.nodepulse_guard"
+PAUSED_FILE="$GUARD_DIR/paused_nodes"
+
+mkdir -p "$NODE_LOG_DIR" "$GUARD_DIR" "$(dirname $STATUS_JSON)" 2>/dev/null || true
+touch "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE" "$PAUSED_FILE"
 
 # --- Penalty Config ---
 PENALTY_WARN=5
@@ -90,6 +94,9 @@ LOCAL_TIMEZONE="YOUR_TIMEZONE"
 export DISPLAY=:0
 export XAUTHORITY="$HOME/.Xauthority"
 export DENODE_PASSWORD="YOUR_NODE_PASSWORD"
+
+# --- Tunnel health: log silence threshold (seconds) ---
+TUNNEL_SILENCE_THRESHOLD=600
 
 # ============================================================
 # Time Functions
@@ -125,6 +132,49 @@ is_node_running() {
 
 get_node_pid() {
   ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $1" | awk '{print $2}' | head -n 1
+}
+
+# ── Pause check — set by bot /stop command ──────────────────
+is_paused() {
+  grep -qx "$1" "$PAUSED_FILE" 2>/dev/null
+}
+
+# ============================================================
+# Tunnel Health Check
+# Checks two signals:
+#   1. Is the node's port listening locally?
+#   2. Has the log file been updated recently?
+# If process is running but BOTH signals are dead → tunnel issue
+# Returns: OK | NO_PORT | SILENT | DEAD
+# ============================================================
+check_tunnel_health() {
+  local LICENSE="$1"
+  local PORT="${NODE_PORT[$LICENSE]}"
+  local LOG="$NODE_LOG_DIR/node-${LICENSE}.log"
+
+  local PORT_OPEN=0
+  local LOG_FRESH=0
+
+  # Check if port is listening
+  if [ -n "$PORT" ] && ss -tlnp 2>/dev/null | grep -q ":${PORT}"; then
+    PORT_OPEN=1
+  fi
+
+  # Check log freshness
+  if [ -f "$LOG" ]; then
+    local LOG_AGE=$(( $(date +%s) - $(stat -c %Y "$LOG" 2>/dev/null || echo 0) ))
+    [ "$LOG_AGE" -lt "$TUNNEL_SILENCE_THRESHOLD" ] && LOG_FRESH=1
+  fi
+
+  if [ "$PORT_OPEN" -eq 0 ] && [ "$LOG_FRESH" -eq 0 ]; then
+    echo "DEAD"
+  elif [ "$PORT_OPEN" -eq 0 ]; then
+    echo "NO_PORT"
+  elif [ "$LOG_FRESH" -eq 0 ]; then
+    echo "SILENT"
+  else
+    echo "OK"
+  fi
 }
 
 get_node_uptime() {
@@ -263,7 +313,7 @@ record_downtime_event() {
   local LICENSE="$1" OLD_PID="$2" NEW_PID="$3"
   local LAST_SEEN; LAST_SEEN=$(get_last_seen "$LICENSE")
   local NOW; NOW=$(date +%s)
-  local WENT_DOWN_AT="" DOWNTIME_DURATION="unknown" WENT_DOWN_UTC="unknown"
+  local WENT_DOWN_UTC="unknown" DOWNTIME_DURATION="unknown"
   if [ -n "$LAST_SEEN" ]; then
     WENT_DOWN_UTC=$(date -u -d "@${LAST_SEEN}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \
                     date -u -r "$LAST_SEEN" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
@@ -535,13 +585,15 @@ send_heartbeat() {
       local UPTIME; UPTIME=$(get_node_uptime "$LICENSE")
       local RC; RC=$(get_restart_count "$LICENSE")
       local PID_CHECK; PID_CHECK=$(check_pid_change "$LICENSE")
+      local PAUSE_TAG=""
+      is_paused "$LICENSE" && PAUSE_TAG=" 🛑PAUSED"
       if [ "$PID_CHECK" != "OK" ]; then
         local OLD_PID WENT_DOWN OFFLINE_DURATION
         OLD_PID=$(echo "$PID_CHECK"         | cut -d'|' -f2)
         WENT_DOWN=$(echo "$PID_CHECK"       | cut -d'|' -f4)
         OFFLINE_DURATION=$(echo "$PID_CHECK"| cut -d'|' -f5)
         local PENALTIES; PENALTIES=$(get_penalty_count "$LICENSE")
-        STATUS_LINES="${STATUS_LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>\n"
+        STATUS_LINES="${STATUS_LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>${PAUSE_TAG}\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES}⚠️ Node <code>${LICENSE}</code> was restarted silently!\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES} 🔴 Old PID: <code>${OLD_PID}</code> → 🟢 New PID: <code>${PID}</code>\n"
         RESTART_ALERT_LINES="${RESTART_ALERT_LINES} 📅 Last seen alive: <b>${WENT_DOWN}</b>\n"
@@ -553,13 +605,15 @@ send_heartbeat() {
         local PENALTY_ICON="🟢"
         [ "$PENALTIES" -ge "$PENALTY_WARN" ]     && PENALTY_ICON="🟡"
         [ "$PENALTIES" -ge "$PENALTY_CRITICAL" ] && PENALTY_ICON="🟠"
-        STATUS_LINES="${STATUS_LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — ${PENALTY_ICON} Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>\n"
+        STATUS_LINES="${STATUS_LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b> — ${PENALTY_ICON} Penalties: <b>${PENALTIES}/${PENALTY_MAX}</b>${PAUSE_TAG}\n"
       fi
       save_pid "$LICENSE" "$PID"
       update_last_seen "$LICENSE"
     else
       local RC; RC=$(get_restart_count "$LICENSE")
-      STATUS_LINES="${STATUS_LINES}🔴 <code>${LICENSE}</code> — <b>DOWN</b> — Restarts: <b>${RC}</b>\n"
+      local PAUSE_TAG=""
+      is_paused "$LICENSE" && PAUSE_TAG=" 🛑PAUSED"
+      STATUS_LINES="${STATUS_LINES}🔴 <code>${LICENSE}</code> — <b>DOWN</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
     fi
   done
   local DISK_INFO; DISK_INFO=$(get_disk_summary)
@@ -590,7 +644,7 @@ should_send_heartbeat() {
 }
 
 # ============================================================
-# Chain Status (from node logs — no API needed)
+# Chain Status (from node logs)
 # ============================================================
 check_chain_status_from_logs() {
   log "⛓ Checking on-chain status from node logs..."
@@ -702,8 +756,7 @@ except: print(0)
 }
 
 # ============================================================
-# Write status.json — PATCHED v3.1: injects guard health score
-# Only change from v3.0: get_score() + "score" field in nodes
+# Write status.json
 # ============================================================
 write_status_json() {
   local DENODE_VERSION
@@ -721,9 +774,8 @@ dt_log      = os.path.expanduser("$DOWNTIME_LOG")
 pen_file    = os.path.expanduser("$PENALTY_FILE")
 penalty_max = int("$PENALTY_MAX")
 drives      = [$(printf '"%s",' "${STORAGE_DRIVES[@]}" | sed 's/,$//')]
-
-# ── PATCH: guard state directory ──────────────────────────
-guard_dir = os.path.expanduser("~/.nodepulse_guard")
+guard_dir   = os.path.expanduser("~/.nodepulse_guard")
+paused_file = os.path.expanduser("$PAUSED_FILE")
 
 def read_kv(path):
     out = {}
@@ -735,18 +787,28 @@ def read_kv(path):
     except: pass
     return out
 
+def read_paused():
+    try:
+        return set(open(paused_file).read().splitlines())
+    except: return set()
+
 saved_pids  = read_kv(pid_file)
 last_seen   = read_kv(seen_file)
 restart_cnt = read_kv(rc_file)
 penalties   = read_kv(pen_file)
+paused_set  = read_paused()
 
-# ── PATCH: read health score from nodepulse-guard.sh state ─
 def get_score(lic):
     try:
         with open(os.path.join(guard_dir, "score_" + str(lic))) as f:
             return max(0, min(100, int(f.read().strip())))
-    except:
-        return None  # guard not yet running or score not written yet
+    except: return None
+
+def get_tunnel_status(lic):
+    try:
+        with open(os.path.join(guard_dir, "tunnel_" + str(lic))) as f:
+            return f.read().strip()
+    except: return None
 
 def get_last_downtime(lic):
     try:
@@ -813,6 +875,7 @@ for lic in licenses:
     nodes.append({
         "license":       lic,
         "status":        "running" if running else "down",
+        "paused":        str(lic) in paused_set,
         "pid":           pid or "",
         "uptime":        parse_etime(etime) if running else "",
         "restarts":      int(restart_cnt.get(str(lic), 0)),
@@ -823,7 +886,8 @@ for lic in licenses:
         "last_seen":     last_seen_str,
         "last_downtime": get_last_downtime(lic),
         "disk":          disk,
-        "score":         get_score(lic),   # ← PATCH: injected from nodepulse-guard
+        "score":         get_score(lic),
+        "tunnel":        get_tunnel_status(lic),
     })
 
 data = {
@@ -856,12 +920,49 @@ update_duckdns
 
 # 2. Check node processes
 for LICENSE in "${LICENSES[@]}"; do
+
+  # ── PAUSE CHECK ────────────────────────────────────────────
+  if is_paused "$LICENSE"; then
+    log "⏸️  Node $LICENSE is PAUSED — skipping all checks"
+    continue
+  fi
+  # ──────────────────────────────────────────────────────────
+
   if is_node_running "$LICENSE"; then
     PID=$(get_node_pid "$LICENSE")
     UPTIME=$(get_node_uptime "$LICENSE")
     log "✅ Node $LICENSE is running (PID: $PID, Uptime: $UPTIME)"
     save_pid "$LICENSE" "$PID"
     update_last_seen "$LICENSE"
+
+    # ── TUNNEL HEALTH CHECK ──────────────────────────────────
+    TUNNEL=$(check_tunnel_health "$LICENSE")
+    echo "$TUNNEL" > "$GUARD_DIR/tunnel_${LICENSE}"
+    case "$TUNNEL" in
+      DEAD)
+        log "🔌 Node $LICENSE — process running but tunnel appears DEAD (port closed + log silent)"
+        send_telegram "🔌 <b>Node ${LICENSE} — Tunnel Dead</b>
+🔑 License: <code>${LICENSE}</code>
+⚠️ Process is running but port is closed and log is silent
+🔄 Restarting to re-establish tunnel...
+🕐 $(now_utc) | $(now_local)
+📍 Host: $(hostname)"
+        OLD_PID=$(get_node_pid "$LICENSE")
+        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+        restart_node "$LICENSE"
+        ;;
+      NO_PORT)
+        log "🔌 Node $LICENSE — port not listening (log still active — may be re-tunneling)"
+        ;;
+      SILENT)
+        log "⚠️ Node $LICENSE — log silent >$((TUNNEL_SILENCE_THRESHOLD/60))min (port open — monitoring)"
+        ;;
+      OK)
+        log "🔗 Node $LICENSE — tunnel OK (port open + log active)"
+        ;;
+    esac
+    # ─────────────────────────────────────────────────────────
+
   else
     log "⚠️  Node $LICENSE is DOWN — attempting restart..."
     DOWN_COUNT=$(( DOWN_COUNT + 1 ))
@@ -875,7 +976,7 @@ for LICENSE in "${LICENSES[@]}"; do
   fi
 done
 
-[ "$DOWN_COUNT" -eq 0 ] && log "All 6 nodes running normally." || log "$DOWN_COUNT node(s) were restarted."
+[ "$DOWN_COUNT" -eq 0 ] && log "All nodes running normally." || log "$DOWN_COUNT node(s) were restarted."
 
 # 3. Check disk space
 check_disk_space
@@ -883,12 +984,14 @@ check_disk_space
 # 4. Check node logs for errors
 log "--- Checking node logs for errors ---"
 for LICENSE in "${LICENSES[@]}"; do
+  is_paused "$LICENSE" && continue
   check_node_errors "$LICENSE"
 done
 
 # 5. Check and update penalties
 log "--- Checking proof cycles and penalties ---"
 for LICENSE in "${LICENSES[@]}"; do
+  is_paused "$LICENSE" && continue
   check_and_update_penalties "$LICENSE"
   PENALTIES=$(get_penalty_count "$LICENSE")
   log "📊 Node $LICENSE — penalties: ${PENALTIES}/${PENALTY_MAX}"
