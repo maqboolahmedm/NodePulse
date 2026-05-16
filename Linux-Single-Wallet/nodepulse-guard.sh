@@ -25,7 +25,7 @@ LAST_REPORT_FILE="$GUARD_DIR/.last_report"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
 
 # Log silence threshold — seconds before flagging TUNNEL_DEAD
-TUNNEL_SILENCE_THRESHOLD=600
+TUNNEL_SILENCE_THRESHOLD=4800
 
 mkdir -p "$GUARD_DIR"
 touch "$GUARD_LOG" "$GUARD_COOLDOWN" "$GUARD_HEALTH" "$PAUSED_FILE"

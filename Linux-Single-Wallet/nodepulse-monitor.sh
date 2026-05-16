@@ -96,7 +96,7 @@ export XAUTHORITY="$HOME/.Xauthority"
 export DENODE_PASSWORD="YOUR_NODE_PASSWORD"
 
 # --- Tunnel health: log silence threshold (seconds) ---
-TUNNEL_SILENCE_THRESHOLD=600
+TUNNEL_SILENCE_THRESHOLD=4800
 
 # ============================================================
 # Time Functions
