@@ -401,10 +401,11 @@ check_and_update_penalties() {
 🔄 Restarting node — will auto re-join pool...
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
-      local OLD_PID; OLD_PID=$(get_node_pid "$LICENSE")
-      [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-      restart_node "$LICENSE"
-      set_penalty_count "$LICENSE" "0"
+      # AUTO-RESTART DISABLED — pool removal takes 15h
+      # local OLD_PID; OLD_PID=$(get_node_pid "$LICENSE")
+      # [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+      # restart_node "$LICENSE"
+      # set_penalty_count "$LICENSE" "0"
     fi
   fi
 }
@@ -948,8 +949,8 @@ for LICENSE in "${LICENSES[@]}"; do
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
         OLD_PID=$(get_node_pid "$LICENSE")
-        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-        restart_node "$LICENSE"
+        # [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+        # restart_node "$LICENSE"
         ;;
       NO_PORT)
         log "🔌 Node $LICENSE — port not listening (log still active — may be re-tunneling)"
