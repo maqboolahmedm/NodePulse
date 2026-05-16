@@ -639,8 +639,8 @@ for LICENSE in "${ALL_LICENSES[@]}"; do
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
         OLD_PID=$(get_node_pid "$LICENSE")
-        [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-        restart_node "$LICENSE"
+        # [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
+        # restart_node "$LICENSE"
         ;;
       NO_PORT)
         log "🔌 [${WL}] Node $LICENSE — port not listening (log active)"
