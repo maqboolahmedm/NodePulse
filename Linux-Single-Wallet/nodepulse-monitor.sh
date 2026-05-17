@@ -3,48 +3,48 @@
 # ============================================================
 # NodePulse Monitor & Auto-Restart Script
 # Linux Single-Wallet Version
-# v3.2 — Added: pause check, tunnel health detection
+# v3.2 — RC14 compatible
 # ============================================================
 
 # --- Telegram Config ---
-TELEGRAM_BOT_TOKEN="8826850348:AAHbd8FM1L2wHbayDSMPf99V-Cs7CXzOSq4"
-TELEGRAM_CHAT_ID="6611983178"
+TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
+TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
 
 # --- DuckDNS Config ---
-DUCKDNS_TOKEN="b66fcd39-911d-403c-9232-acedc3ff16c8"
-DUCKDNS_DOMAIN="maqbool-nodepulse"
+DUCKDNS_TOKEN="YOUR_DUCKDNS_TOKEN"
+DUCKDNS_DOMAIN="YOUR_DUCKDNS_DOMAIN"
 
 # --- Node Config ---
 DENODE_BIN="/usr/bin/denode"
-WALLET_ADDRESS="0x0caC3Ca8C0c58199FEb045E236459107b961A071"
-LICENSES=(1072 1864 1865 1866 1867 2157)
+WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
+LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3 YOUR_LICENSE_4 YOUR_LICENSE_5 YOUR_LICENSE_6)
 
 # Per-node ports
 declare -A NODE_PORT
-NODE_PORT[1072]=55050
-NODE_PORT[1864]=55051
-NODE_PORT[1865]=55052
-NODE_PORT[1866]=55053
-NODE_PORT[1867]=55054
-NODE_PORT[2157]=55055
+NODE_PORT[YOUR_LICENSE_1]=55050
+NODE_PORT[YOUR_LICENSE_2]=55051
+NODE_PORT[YOUR_LICENSE_3]=55052
+NODE_PORT[YOUR_LICENSE_4]=55053
+NODE_PORT[YOUR_LICENSE_5]=55054
+NODE_PORT[YOUR_LICENSE_6]=55055
 
 # Per-node private RPC endpoints
 declare -A NODE_RPC
-NODE_RPC[1072]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=6f415c07-f0a5-4ad7-9f7f-c88d040fe717"
-NODE_RPC[1864]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=a7964ac0-3435-43a0-96f2-7085b4f76f13"
-NODE_RPC[1865]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=70249e45-ed1f-4f36-9be8-caaf743c1e8d"
-NODE_RPC[1866]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=3cbad1ff-8db8-43e6-8f4e-d1e83784eddc"
-NODE_RPC[1867]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=f41225b4-f359-42fb-8377-f532a064db68"
-NODE_RPC[2157]="https://peaq.api.onfinality.io/rpc?apikey=https://peaq.api.onfinality.io/rpc?apikey=87a91a4b-025a-4f5c-858a-678c7696cc27"
+NODE_RPC[YOUR_LICENSE_1]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_1"
+NODE_RPC[YOUR_LICENSE_2]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_2"
+NODE_RPC[YOUR_LICENSE_3]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_3"
+NODE_RPC[YOUR_LICENSE_4]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_4"
+NODE_RPC[YOUR_LICENSE_5]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_5"
+NODE_RPC[YOUR_LICENSE_6]="https://peaq.api.onfinality.io/rpc?apikey=YOUR_RPC_APIKEY_6"
 
 # Per-node storage paths
 declare -A NODE_STORAGE
-NODE_STORAGE[1072]="/mnt/Denet-Storage/YOUR_LICENSE_1"
-NODE_STORAGE[1864]="/mnt/Denet-Storage/YOUR_LICENSE_2"
-NODE_STORAGE[1865]="/mnt/Denet-Storage/YOUR_LICENSE_3"
-NODE_STORAGE[1866]="/mnt/Denet-Storage/YOUR_LICENSE_4"
-NODE_STORAGE[1867]="/mnt/Denet-Storage/YOUR_LICENSE_5"
-NODE_STORAGE[2157]="/mnt/Denet-Storage/YOUR_LICENSE_6"
+NODE_STORAGE[YOUR_LICENSE_1]="YOUR_STORAGE_PATH/YOUR_LICENSE_1"
+NODE_STORAGE[YOUR_LICENSE_2]="YOUR_STORAGE_PATH/YOUR_LICENSE_2"
+NODE_STORAGE[YOUR_LICENSE_3]="YOUR_STORAGE_PATH/YOUR_LICENSE_3"
+NODE_STORAGE[YOUR_LICENSE_4]="YOUR_STORAGE_PATH/YOUR_LICENSE_4"
+NODE_STORAGE[YOUR_LICENSE_5]="YOUR_STORAGE_PATH/YOUR_LICENSE_5"
+NODE_STORAGE[YOUR_LICENSE_6]="YOUR_STORAGE_PATH/YOUR_LICENSE_6"
 
 # --- Log Config ---
 LOG_FILE="$HOME/.denode/monitor.log"
@@ -76,24 +76,24 @@ CYCLE_MINUTES=90
 # --- Disk Config ---
 DISK_ALERT_THRESHOLD=85
 STORAGE_DRIVES=(
-  "/mnt/Denet-Storage/1072"
-  "/mnt/Denet-Storage/1864"
-  "/mnt/Denet-Storage/1865"
-  "/mnt/Denet-Storage/1866"
-  "/mnt/Denet-Storage/1867"
-  "/mnt/Denet-Storage/2157"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_1"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_2"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_3"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_4"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_5"
+  "YOUR_STORAGE_PATH/YOUR_LICENSE_6"
 )
 
 # --- Daily Summary Config ---
 DAILY_SUMMARY_HOUR=8
 
 # --- Timezone Config ---
-LOCAL_TIMEZONE="Asia/Kolkata"
+LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
 # --- Display ---
 export DISPLAY=:0
 export XAUTHORITY="$HOME/.Xauthority"
-export DENODE_PASSWORD="maqbool@18PRAQS"
+export DENODE_PASSWORD="YOUR_NODE_PASSWORD"
 
 # --- Tunnel health: log silence threshold (seconds) ---
 TUNNEL_SILENCE_THRESHOLD=6000
@@ -134,17 +134,12 @@ get_node_pid() {
   ps aux | grep -v grep | grep "$DENODE_BIN" | grep -- "--license $1" | awk '{print $2}' | head -n 1
 }
 
-# ── Pause check — set by bot /stop command ──────────────────
 is_paused() {
   grep -qx "$1" "$PAUSED_FILE" 2>/dev/null
 }
 
 # ============================================================
 # Tunnel Health Check
-# Checks two signals:
-#   1. Is the node's port listening locally?
-#   2. Has the log file been updated recently?
-# If process is running but BOTH signals are dead → tunnel issue
 # Returns: OK | NO_PORT | SILENT | DEAD
 # ============================================================
 check_tunnel_health() {
@@ -155,12 +150,10 @@ check_tunnel_health() {
   local PORT_OPEN=0
   local LOG_FRESH=0
 
-  # Check if port is listening
   if [ -n "$PORT" ] && ss -tlnp 2>/dev/null | grep -q ":${PORT}"; then
     PORT_OPEN=1
   fi
 
-  # Check log freshness
   if [ -f "$LOG" ]; then
     local LOG_AGE=$(( $(date +%s) - $(stat -c %Y "$LOG" 2>/dev/null || echo 0) ))
     [ "$LOG_AGE" -lt "$TUNNEL_SILENCE_THRESHOLD" ] && LOG_FRESH=1
@@ -354,7 +347,7 @@ check_proof_status() {
   [ -z "$NODE_LOG" ] && echo "UNKNOWN" && return
   local RECENT; RECENT=$(tail -100 "$NODE_LOG" 2>/dev/null)
   echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent|Proof of Storage stage handling completed|Successfully submitted Fill Roothash" && echo "PROOF_OK" && return
-  echo "$RECENT" | grep -qiE "Failed to send hash proof|failed to submit Send Hash Proof"            && echo "MISSED"   && return
+  echo "$RECENT" | grep -qiE "Failed to send hash proof|failed to submit Send Hash Proof" && echo "MISSED" && return
   echo "UNKNOWN"
 }
 
@@ -395,16 +388,15 @@ check_and_update_penalties() {
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
     elif [ "$NEW_PENALTIES" -ge "$PENALTY_MAX" ]; then
+      # AUTO-RESTART DISABLED — actual pool removal takes 15 hours not 10 cycles
+      # Restarting here causes penalty loop — alert only
       send_telegram "🚫 <b>Node ${LICENSE} — REMOVED FROM POOL</b>
 🔑 License: <code>${LICENSE}</code>
 📊 Penalties reached: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
-🔄 Restarting node — will auto re-join pool...
+ℹ️ Actual removal takes 15h of inactivity — node will auto re-join
+⚠️ Monitor closely — restart manually if node is truly stuck
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
-      local OLD_PID; OLD_PID=$(get_node_pid "$LICENSE")
-      [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-      restart_node "$LICENSE"
-      set_penalty_count "$LICENSE" "0"
     fi
   fi
 }
@@ -485,10 +477,11 @@ get_disk_summary() {
 
 # ============================================================
 # Error Alerts
+# NOTE: "context deadline exceeded" removed — this is normal
+#       P2P connection noise in RC14, not a real node error
 # ============================================================
 ERROR_PATTERNS=(
   "roothash mismatch|Roothash Mismatch"
-  "context deadline exceeded|Transaction Timeout"
   "failed to unlock account|Password/Unlock Error"
   "already known|Duplicate Transaction"
   "connection refused|RPC Connection Refused"
@@ -546,12 +539,12 @@ send_daily_summary() {
   done
   local DISK_INFO; DISK_INFO=$(get_disk_summary)
   local OVERALL
-  [ "$DOWN_COUNT" -eq 0 ] && OVERALL="✅ All 6 nodes healthy" || OVERALL="⚠️ ${DOWN_COUNT} node(s) are DOWN"
+  [ "$DOWN_COUNT" -eq 0 ] && OVERALL="✅ All nodes healthy" || OVERALL="⚠️ ${DOWN_COUNT} node(s) are DOWN"
   send_telegram "📊 <b>DeNet Daily Summary Report</b>
 📅 $(now_utc)
 📅 $(now_local)
 📍 Host: $(hostname)
-<b>Node Status (${UP_COUNT}/6 online):</b>
+<b>Node Status (${UP_COUNT}/${#LICENSES[@]} online):</b>
 $(echo -e "$STATUS_LINES")
 <b>Overall:</b> ${OVERALL}
 💾 <b>Disk Usage:</b>
@@ -657,23 +650,19 @@ log_dir  = os.path.expanduser("$NODE_LOG_DIR")
 now_utc  = datetime.now(timezone.utc)
 results  = {}
 
-PROOF_OK_PATTERN   = re.compile(r'Proof of Storage stage handling completed|Collect Proofs handling completed', re.IGNORECASE)
-PROOF_FAIL_PATTERN = re.compile(r'Failed to send proof|failed to submit', re.IGNORECASE)
+PROOF_OK_PATTERN   = re.compile(r'Proof of Storage stage handling completed|Collect Proofs handling completed|Successfully submitted Fill Roothash', re.IGNORECASE)
+PROOF_FAIL_PATTERN = re.compile(r'Failed to send hash proof|failed to submit Send Hash Proof', re.IGNORECASE)
 STAGE_PATTERN      = re.compile(r'Current Stage:\s*(\w[\w ]+\w)', re.IGNORECASE)
 POOL_PATTERN       = re.compile(r'License ID is in (\d+) pool', re.IGNORECASE)
-TIMESTAMP_PATTERN  = re.compile(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
+TIMESTAMP_PATTERN  = re.compile(r'(\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
 
 def parse_log_timestamp(line):
     m = TIMESTAMP_PATTERN.search(line)
     if not m: return None
     try:
-        dt_naive = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
-        result = subprocess.run(
-            ['date', '-d', f'TZ="$LOCAL_TIMEZONE" {m.group(1)}', '+%s'],
-            capture_output=True, text=True, shell=False
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return datetime.fromtimestamp(int(result.stdout.strip()), tz=timezone.utc)
+        year = datetime.now().year
+        dt_str = f"{year}-{m.group(1)}"
+        dt_naive = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
         ist_offset = timedelta(hours=5, minutes=30)
         dt_ist = dt_naive.replace(tzinfo=timezone(ist_offset))
         return dt_ist.astimezone(timezone.utc)
@@ -773,7 +762,6 @@ rc_file     = os.path.expanduser("$RESTART_COUNT_FILE")
 dt_log      = os.path.expanduser("$DOWNTIME_LOG")
 pen_file    = os.path.expanduser("$PENALTY_FILE")
 penalty_max = int("$PENALTY_MAX")
-drives      = [$(printf '"%s",' "${STORAGE_DRIVES[@]}" | sed 's/,$//')]
 guard_dir   = os.path.expanduser("~/.nodepulse_guard")
 paused_file = os.path.expanduser("$PAUSED_FILE")
 
@@ -788,8 +776,7 @@ def read_kv(path):
     return out
 
 def read_paused():
-    try:
-        return set(open(paused_file).read().splitlines())
+    try: return set(open(paused_file).read().splitlines())
     except: return set()
 
 saved_pids  = read_kv(pid_file)
@@ -827,8 +814,7 @@ def get_ps_info(lic):
                 parts = line.split()
                 pid   = parts[1]
                 r2    = subprocess.run(["ps", "-o", "etime=", "-p", pid], capture_output=True, text=True)
-                etime = r2.stdout.strip()
-                return pid, etime
+                return pid, r2.stdout.strip()
     except: pass
     return None, None
 
@@ -850,15 +836,13 @@ def get_disk(drive):
     try:
         r = subprocess.run(["df", "-h", drive], capture_output=True, text=True)
         parts = r.stdout.splitlines()[1].split()
-        pct   = int(parts[4].replace("%",""))
-        return {"used": parts[2], "total": parts[1], "free": parts[3], "pct": pct}
+        return {"used": parts[2], "total": parts[1], "free": parts[3], "pct": int(parts[4].replace("%",""))}
     except: return None
 
 now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
 storage_paths = {$(for L in "${LICENSES[@]}"; do echo "\"${L}\": \"${NODE_STORAGE[$L]}\","; done)}
 
-nodes  = []
+nodes = []
 for lic in licenses:
     pid, etime  = get_ps_info(lic)
     running     = pid is not None
@@ -940,10 +924,10 @@ for LICENSE in "${LICENSES[@]}"; do
     echo "$TUNNEL" > "$GUARD_DIR/tunnel_${LICENSE}"
     case "$TUNNEL" in
       DEAD)
-        log "🔌 Node $LICENSE — process running but tunnel appears DEAD (port closed + log silent)"
+        log "🔌 Node $LICENSE — tunnel DEAD (port closed + log silent)"
         send_telegram "🔌 <b>Node ${LICENSE} — Tunnel Dead</b>
 🔑 License: <code>${LICENSE}</code>
-⚠️ Process is running but port is closed and log is silent
+⚠️ Process running but port closed and log silent
 🔄 Restarting to re-establish tunnel...
 🕐 $(now_utc) | $(now_local)
 📍 Host: $(hostname)"
@@ -952,13 +936,13 @@ for LICENSE in "${LICENSES[@]}"; do
         restart_node "$LICENSE"
         ;;
       NO_PORT)
-        log "🔌 Node $LICENSE — port not listening (log still active — may be re-tunneling)"
+        log "🔌 Node $LICENSE — port not listening (log active — may be re-tunneling)"
         ;;
       SILENT)
-        log "⚠️ Node $LICENSE — log silent >$((TUNNEL_SILENCE_THRESHOLD/60))min (port open — monitoring)"
+        log "⚠️ Node $LICENSE — log silent >$((TUNNEL_SILENCE_THRESHOLD/60))min (port open)"
         ;;
       OK)
-        log "🔗 Node $LICENSE — tunnel OK (port open + log active)"
+        log "🔗 Node $LICENSE — tunnel OK"
         ;;
     esac
     # ─────────────────────────────────────────────────────────

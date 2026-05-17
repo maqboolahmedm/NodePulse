@@ -3,7 +3,7 @@
 # ============================================================
 # DeNet Telegram Bot Listener — Multi Wallet Edition
 # Runs as a systemd service — always alive, instant response
-# v1.1 — added /stop /start /stopall /startall
+# v1.1 — /stop /start /stopall /startall
 # ============================================================
 
 # --- Telegram Config ---
@@ -12,15 +12,8 @@ TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
 
 # --- Node Config ---
 DENODE_BIN="/usr/bin/denode"
-
-# --- Multi Wallet Map ---
-# Format: WALLET_MAP[license]="0xWalletAddress"
-# Add one line per license pointing to its owner wallet.
-declare -A WALLET_MAP
-NODEPULSE_WALLET_MAP_ENTRIES
-
-# Derive license list from map keys
-LICENSES=($(echo "${!WALLET_MAP[@]}" | tr ' ' '\n' | sort -n))
+WALLET_ADDRESS="YOUR_WALLET_ADDRESS"
+LICENSES=(YOUR_LICENSE_1 YOUR_LICENSE_2 YOUR_LICENSE_3 YOUR_LICENSE_4 YOUR_LICENSE_5 YOUR_LICENSE_6)
 
 # --- Paths ---
 NODE_LOG_DIR="$HOME/.denode/logs"
@@ -37,9 +30,6 @@ GUARD_DIR="$HOME/.nodepulse_guard"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
 
 # --- Timezone Config ---
-# Set your local timezone. Examples:
-# "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
-# "America/New_York" (US East), "Asia/Manila" (Philippines)
 LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
 # --- Storage Drives ---
@@ -86,11 +76,6 @@ get_node_pid() {
 
 is_paused() {
   grep -qx "$1" "$PAUSED_FILE" 2>/dev/null
-}
-
-get_wallet() {
-  local LIC="$1"
-  echo "${WALLET_MAP[$LIC]}"
 }
 
 get_node_uptime() {
@@ -260,9 +245,6 @@ cmd_status() {
   local CHAT_ID="$1"
   local LINES="" RESTART_SECTION="" HAS_ALERT=0
   for LICENSE in "${LICENSES[@]}"; do
-    local WALLET SHORT_WALLET
-    WALLET=$(get_wallet "$LICENSE")
-    SHORT_WALLET="${WALLET:0:6}...${WALLET: -4}"
     if is_node_running "$LICENSE"; then
       local PID UPTIME RC PID_INFO PAUSE_TAG=""
       PID=$(get_node_pid "$LICENSE")
@@ -275,14 +257,14 @@ cmd_status() {
         OLD_PID=$(echo "$PID_INFO"     | cut -d'|' -f2)
         WENT_DOWN=$(echo "$PID_INFO"   | cut -d'|' -f4)
         OFFLINE_DUR=$(echo "$PID_INFO" | cut -d'|' -f5)
-        LINES="${LINES}⚠️ <code>${LICENSE}</code> [${SHORT_WALLET}] — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
+        LINES="${LINES}⚠️ <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
         RESTART_SECTION="${RESTART_SECTION}⚠️ <code>${LICENSE}</code> restarted silently!\n"
         RESTART_SECTION="${RESTART_SECTION}   🔴 Old PID: <code>${OLD_PID}</code> → 🟢 New: <code>${PID}</code>\n"
         RESTART_SECTION="${RESTART_SECTION}   📅 Last alive: <b>${WENT_DOWN}</b>\n"
         RESTART_SECTION="${RESTART_SECTION}   ⏱ Offline for: <b>${OFFLINE_DUR}</b>\n"
         HAS_ALERT=1
       else
-        LINES="${LINES}🟢 <code>${LICENSE}</code> [${SHORT_WALLET}] — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
+        LINES="${LINES}🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UPTIME}</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
       fi
     else
       local RC LAST_SEEN_TS LAST_SEEN_STR PAUSE_TAG=""
@@ -292,9 +274,9 @@ cmd_status() {
       if [ -n "$LAST_SEEN_TS" ]; then
         LAST_SEEN_STR=$(date -u -d "@${LAST_SEEN_TS}" '+%H:%M UTC' 2>/dev/null || \
                         date -u -r "$LAST_SEEN_TS" '+%H:%M UTC' 2>/dev/null)
-        LINES="${LINES}🔴 <code>${LICENSE}</code> [${SHORT_WALLET}] — <b>DOWN</b> — Last seen: ${LAST_SEEN_STR} — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
+        LINES="${LINES}🔴 <code>${LICENSE}</code> — <b>DOWN</b> — Last seen: ${LAST_SEEN_STR} — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
       else
-        LINES="${LINES}🔴 <code>${LICENSE}</code> [${SHORT_WALLET}] — <b>DOWN</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
+        LINES="${LINES}🔴 <code>${LICENSE}</code> — <b>DOWN</b> — Restarts: <b>${RC}</b>${PAUSE_TAG}\n"
       fi
     fi
   done
@@ -302,24 +284,13 @@ cmd_status() {
   [ "$HAS_ALERT" -eq 1 ] && ALERT_BLOCK="
 ⚠️ <b>Silent Restarts Detected:</b>
 $(echo -e "$RESTART_SECTION")"
-  send_message "$CHAT_ID" "📊 <b>DeNet Node Status</b> <i>(Multi-Wallet)</i>
+  send_message "$CHAT_ID" "📊 <b>DeNet Node Status</b>
 🕐 $(now_utc)
 🕐 $(now_local)
 📍 Host: $(hostname)
 ${ALERT_BLOCK}
 <b>Node Status:</b>
 $(echo -e "$LINES")"
-}
-
-cmd_wallets() {
-  local CHAT_ID="$1"
-  local MSG="<b>🔑 License → Wallet Mapping</b>\n\n"
-  for LICENSE in "${LICENSES[@]}"; do
-    local W
-    W=$(get_wallet "$LICENSE")
-    MSG+="<b>${LICENSE}</b>: <code>${W:0:6}...${W: -4}</code>\n"
-  done
-  send_message "$CHAT_ID" "$MSG"
 }
 
 cmd_restarts() {
@@ -356,8 +327,6 @@ Valid licenses: ${LICENSES[*]}"
 Use /start ${LICENSE} to unpause first."
     return
   fi
-  local WALLET
-  WALLET=$(get_wallet "$LICENSE")
   send_message "$CHAT_ID" "🔄 <b>Restarting Node ${LICENSE}...</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)
@@ -367,7 +336,7 @@ Use /start ${LICENSE} to unpause first."
   OLD_PID=$(get_node_pid "$LICENSE")
   if [ -n "$OLD_PID" ]; then kill "$OLD_PID" 2>/dev/null && sleep 2; fi
   nohup "$DENODE_BIN" \
-    --address "$WALLET" \
+    --address "$WALLET_ADDRESS" \
     --license "$LICENSE" \
     >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
   sleep 4
@@ -408,12 +377,11 @@ cmd_restart_all() {
       log "Skipping $LICENSE — paused"
       continue
     fi
-    local WALLET OLD_PID
-    WALLET=$(get_wallet "$LICENSE")
+    local OLD_PID
     OLD_PID=$(get_node_pid "$LICENSE")
     [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 1
     nohup "$DENODE_BIN" \
-      --address "$WALLET" \
+      --address "$WALLET_ADDRESS" \
       --license "$LICENSE" \
       >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
     sleep 4
@@ -530,7 +498,7 @@ cmd_penalties() {
 
 $(echo -e "$LINES")
 <b>Scale:</b> 0=Clean · 5=Watch · 8=Critical · 10=Pool removed
-<i>~90 min per cycle · 10 missed cycles ≈ 15 hours</i>${FOOTER}"
+<i>~90 min per cycle · actual pool removal = 15h inactivity</i>${FOOTER}"
 }
 
 cmd_chain() {
@@ -633,13 +601,11 @@ Valid licenses: ${LICENSES[*]}"
     send_message "$CHAT_ID" "⚠️ Node <code>${LICENSE}</code> unpaused — already running (PID $(get_node_pid "$LICENSE"))"
     return
   fi
-  local WALLET
-  WALLET=$(get_wallet "$LICENSE")
   send_message "$CHAT_ID" "▶️ <b>Starting Node ${LICENSE}...</b>
 🕐 $(now_utc)
 📍 Host: $(hostname)"
   nohup "$DENODE_BIN" \
-    --address "$WALLET" \
+    --address "$WALLET_ADDRESS" \
     --license "$LICENSE" \
     >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
   sleep 4
@@ -695,10 +661,8 @@ cmd_start_all() {
   local COUNT=0
   for LICENSE in "${LICENSES[@]}"; do
     if ! is_node_running "$LICENSE"; then
-      local WALLET
-      WALLET=$(get_wallet "$LICENSE")
       nohup "$DENODE_BIN" \
-        --address "$WALLET" \
+        --address "$WALLET_ADDRESS" \
         --license "$LICENSE" \
         >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
       COUNT=$(( COUNT + 1 ))
@@ -726,7 +690,7 @@ $(echo -e "$RESULT_LINES")
 
 cmd_help() {
   local CHAT_ID="$1"
-  send_message "$CHAT_ID" "🤖 <b>DeNet Node Monitor Bot</b> <i>(Multi-Wallet)</i>
+  send_message "$CHAT_ID" "🤖 <b>DeNet Node Monitor Bot</b>
 📍 Host: $(hostname)
 
 🔄 <b>Restart Commands:</b>
@@ -741,8 +705,7 @@ cmd_help() {
 /startall — Start all nodes
 
 📊 <b>Status Commands:</b>
-/status — Live status with wallet info
-/wallets — Show license → wallet mapping
+/status — Live status with PID change detection
 /chain — Blockchain status + last on-chain TX
 /penalties — Penalty count per node (0–10)
 /restarts — Restart count per node
@@ -764,7 +727,7 @@ log "  DeNet Bot Listener Started (MW v1.1)"
 log "  Host: $(hostname)"
 log "=========================================="
 
-send_message "$TELEGRAM_CHAT_ID" "🤖 <b>DeNet Node Monitor Bot Started</b> <i>(Multi-Wallet)</i>
+send_message "$TELEGRAM_CHAT_ID" "🤖 <b>DeNet Node Monitor Bot Started</b>
 📍 Host: $(hostname)
 🕐 $(now_utc)
 🕐 $(now_local)
@@ -786,7 +749,6 @@ while true; do
       TEXT_LOWER="${TRIGGER_CMD,,}"
       case "$TEXT_LOWER" in
         /status|/s)          cmd_status       "$TELEGRAM_CHAT_ID" ;;
-        /wallets)            cmd_wallets      "$TELEGRAM_CHAT_ID" ;;
         /chain|/txn)         cmd_chain        "$TELEGRAM_CHAT_ID" ;;
         /restarts|/rc)       cmd_restarts     "$TELEGRAM_CHAT_ID" ;;
         /penalties|/pen)     cmd_penalties    "$TELEGRAM_CHAT_ID" ;;
@@ -837,7 +799,6 @@ for update in results:
     log "Command received: $TEXT"
     case "$TEXT_LOWER" in
       /status|/s)                    cmd_status       "$CHAT_ID" ;;
-      /wallets)                      cmd_wallets      "$CHAT_ID" ;;
       /chain|/blockchain|/txn)       cmd_chain        "$CHAT_ID" ;;
       /restarts|/restart_counts|/rc) cmd_restarts     "$CHAT_ID" ;;
       /penalties|/penalty|/pen)      cmd_penalties    "$CHAT_ID" ;;

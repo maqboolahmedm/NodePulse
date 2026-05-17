@@ -3,7 +3,7 @@
 # ============================================================
 # DeNet Telegram Bot Listener — Single Wallet Edition
 # Runs as a systemd service — always alive, instant response
-# v1.1 — added /stop /start /stopall /startall
+# v1.1 — /stop /start /stopall /startall
 # ============================================================
 
 # --- Telegram Config ---
@@ -30,9 +30,6 @@ GUARD_DIR="$HOME/.nodepulse_guard"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
 
 # --- Timezone Config ---
-# Set your local timezone. Examples:
-# "Asia/Kolkata" (India), "Europe/Berlin" (Germany),
-# "America/New_York" (US East), "Asia/Manila" (Philippines)
 LOCAL_TIMEZONE="YOUR_TIMEZONE"
 
 # --- Storage Drives ---
@@ -501,7 +498,7 @@ cmd_penalties() {
 
 $(echo -e "$LINES")
 <b>Scale:</b> 0=Clean · 5=Watch · 8=Critical · 10=Pool removed
-<i>~90 min per cycle · 10 missed cycles ≈ 15 hours</i>${FOOTER}"
+<i>~90 min per cycle · actual pool removal = 15h inactivity</i>${FOOTER}"
 }
 
 cmd_chain() {
