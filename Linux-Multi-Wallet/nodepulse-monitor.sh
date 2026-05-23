@@ -3,7 +3,18 @@
 # ============================================================
 # NodePulse Monitor & Auto-Restart Script
 # Linux Multi-Wallet Version
-# v2.1 — RC14 compatible
+# v2.2 — RC14 compatible | All fixes applied
+# github.com/maqboolahmedm/NodePulse
+#
+# Fixes in this version:
+#   - single instance lock
+#   - DENODE_PASSWORD check per wallet at startup
+#   - storage mount check before every restart
+#   - tunnel check uses license-*.log first
+#   - proof string updated to "Successfully submitted proof"
+#   - context deadline exceeded removed from ERROR_PATTERNS
+#   - penalty restart disabled (alert only)
+#   - watchdog: restart loop detection
 # ============================================================
 
 # ============================================================
@@ -103,9 +114,19 @@ STATUS_JSON="/var/www/html/nodepulse/status.json"
 CHAIN_STATUS_FILE="$HOME/.denode/.chain_status"
 GUARD_DIR="$HOME/.nodepulse_guard"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
+LOCK_FILE="/tmp/nodepulse-monitor.lock"
 
 mkdir -p "$NODE_LOG_DIR" "$GUARD_DIR" "$(dirname $STATUS_JSON)" 2>/dev/null || true
 touch "$PID_STATE_FILE" "$LAST_SEEN_FILE" "$DOWNTIME_LOG" "$PENALTY_FILE" "$PAUSED_FILE"
+
+# ── Single instance lock ─────────────────────────────────────
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Already running — skipping" >> "$LOG_FILE"
+  exit 0
+fi
+trap "rm -f $LOCK_FILE" EXIT
+# ─────────────────────────────────────────────────────────────
 
 # ============================================================
 # Build combined license list
@@ -117,8 +138,7 @@ ALL_LICENSES=()
 [ ${#WALLET_4_LICENSES[@]} -gt 0 ] && ALL_LICENSES+=("${WALLET_4_LICENSES[@]}")
 
 get_wallet_password() {
-  local LICENSE="$1"
-  local WALLET="${NODE_WALLET[$LICENSE]}"
+  local WALLET="${NODE_WALLET[$1]}"
   if   [ "$WALLET" = "$WALLET_1_ADDRESS" ]; then echo "$WALLET_1_PASSWORD"
   elif [ "$WALLET" = "$WALLET_2_ADDRESS" ]; then echo "$WALLET_2_PASSWORD"
   elif [ "$WALLET" = "$WALLET_3_ADDRESS" ]; then echo "$WALLET_3_PASSWORD"
@@ -127,8 +147,7 @@ get_wallet_password() {
 }
 
 get_wallet_label() {
-  local LICENSE="$1"
-  local WALLET="${NODE_WALLET[$LICENSE]}"
+  local WALLET="${NODE_WALLET[$1]}"
   if   [ "$WALLET" = "$WALLET_1_ADDRESS" ]; then echo "W1"
   elif [ "$WALLET" = "$WALLET_2_ADDRESS" ]; then echo "W2"
   elif [ "$WALLET" = "$WALLET_3_ADDRESS" ]; then echo "W3"
@@ -147,8 +166,7 @@ log()       { echo "[$(now_utc) | $(now_local)] $1" | tee -a "$LOG_FILE"; }
 send_telegram() {
   curl -s --max-time 15 -X POST \
     "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-    -d chat_id="${TELEGRAM_CHAT_ID}" \
-    -d text="${1}" \
+    -d chat_id="${TELEGRAM_CHAT_ID}" -d text="${1}" \
     -d parse_mode="HTML" > /dev/null 2>&1
 }
 
@@ -168,17 +186,42 @@ is_paused() {
 }
 
 # ============================================================
-# Tunnel Health Check
+# Storage mount check
+# ============================================================
+check_storage_mounted() {
+  local LICENSE="$1"
+  local DRIVE="${NODE_STORAGE[$LICENSE]}"
+  local WL=$(get_wallet_label "$LICENSE")
+  if [ -z "$DRIVE" ]; then
+    log "⚠️ No storage path for node $LICENSE"
+    return 1
+  fi
+  if [ ! -d "$DRIVE" ] || ! df "$DRIVE" > /dev/null 2>&1; then
+    log "🔴 Storage not mounted for node $LICENSE [$WL]: $DRIVE"
+    send_telegram "🔴 <b>Storage Not Mounted</b>
+🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
+💾 Path: <code>${DRIVE}</code>
+⚠️ Node will NOT be restarted until storage is mounted
+🕐 $(now_utc) | $(now_local)"
+    return 1
+  fi
+  return 0
+}
+
+# ============================================================
+# Tunnel Health Check — license-*.log first
 # ============================================================
 check_tunnel_health() {
   local LICENSE="$1"
   local PORT="${NODE_PORT[$LICENSE]}"
-  local LOG="$NODE_LOG_DIR/node-${LICENSE}.log"
+  local LOG_A="$NODE_LOG_DIR/license-${LICENSE}.log"
+  local LOG_B="$NODE_LOG_DIR/node-${LICENSE}.log"
+  local LOG="${LOG_A}"; [ ! -f "$LOG" ] && LOG="$LOG_B"
   local PORT_OPEN=0 LOG_FRESH=0
   if [ -n "$PORT" ] && ss -tlnp 2>/dev/null | grep -q ":${PORT}"; then PORT_OPEN=1; fi
   if [ -f "$LOG" ]; then
-    local LOG_AGE=$(( $(date +%s) - $(stat -c %Y "$LOG" 2>/dev/null || echo 0) ))
-    [ "$LOG_AGE" -lt "$TUNNEL_SILENCE_THRESHOLD" ] && LOG_FRESH=1
+    local AGE=$(( $(date +%s) - $(stat -c %Y "$LOG" 2>/dev/null || echo 0) ))
+    [ "$AGE" -lt "$TUNNEL_SILENCE_THRESHOLD" ] && LOG_FRESH=1
   fi
   if [ "$PORT_OPEN" -eq 0 ] && [ "$LOG_FRESH" -eq 0 ]; then echo "DEAD"
   elif [ "$PORT_OPEN" -eq 0 ]; then echo "NO_PORT"
@@ -190,24 +233,16 @@ check_tunnel_health() {
 get_node_uptime() {
   local PID=$(get_node_pid "$1")
   [ -z "$PID" ] && echo "not running" && return
-  local ETIME=$(ps -o etime= -p "$PID" 2>/dev/null | tr -d ' ')
-  [ -z "$ETIME" ] && echo "unknown" && return
-  local DAYS=0 HOURS=0 MINS=0
-  if echo "$ETIME" | grep -q '-'; then
-    DAYS=$(echo "$ETIME" | cut -d'-' -f1); ETIME=$(echo "$ETIME" | cut -d'-' -f2)
-  fi
-  local PARTS; IFS=':' read -ra PARTS <<< "$ETIME"
-  case ${#PARTS[@]} in
-    3) HOURS=${PARTS[0]}; MINS=${PARTS[1]} ;;
-    2) MINS=${PARTS[0]} ;;
-  esac
-  DAYS=$((10#$DAYS)); HOURS=$((10#$HOURS)); MINS=$((10#$MINS))
+  local ET=$(ps -o etime= -p "$PID" 2>/dev/null | tr -d ' ')
+  [ -z "$ET" ] && echo "unknown" && return
+  local D=0 H=0 M=0
+  if echo "$ET" | grep -q '-'; then D=$(echo "$ET"|cut -d'-' -f1); ET=$(echo "$ET"|cut -d'-' -f2); fi
+  local P; IFS=':' read -ra P <<< "$ET"
+  case ${#P[@]} in 3) H=${P[0]}; M=${P[1]} ;; 2) M=${P[0]} ;; esac
+  D=$((10#$D)); H=$((10#$H)); M=$((10#$M))
   local R=""
-  [ "$DAYS"  -gt 0 ] && R="${DAYS}d "
-  [ "$HOURS" -gt 0 ] && R="${R}${HOURS}h "
-  [ "$MINS"  -gt 0 ] && R="${R}${MINS}m"
-  [ -z "$R"         ] && R="< 1m"
-  echo "$R"
+  [ "$D" -gt 0 ] && R="${D}d "; [ "$H" -gt 0 ] && R="${R}${H}h "; [ "$M" -gt 0 ] && R="${R}${M}m"
+  [ -z "$R" ] && R="< 1m"; echo "$R"
 }
 
 # ============================================================
@@ -217,14 +252,9 @@ get_saved_pid()    { local V=$(grep "^${1}=" "$PID_STATE_FILE" 2>/dev/null | cut
 save_pid()         { sed -i "/^${1}=/d" "$PID_STATE_FILE" 2>/dev/null; echo "${1}=${2}" >> "$PID_STATE_FILE"; }
 update_last_seen() { local N=$(date +%s); sed -i "/^${1}=/d" "$LAST_SEEN_FILE" 2>/dev/null; echo "${1}=${N}" >> "$LAST_SEEN_FILE"; }
 get_last_seen()    { local V=$(grep "^${1}=" "$LAST_SEEN_FILE" 2>/dev/null | cut -d= -f2); echo "${V:-}"; }
-
-format_duration() {
-  local SECS="$1"
-  local DAYS=$(( SECS / 86400 )) HOURS=$(( (SECS % 86400) / 3600 )) MINS=$(( (SECS % 3600) / 60 ))
-  local R=""
-  [ "$DAYS"  -gt 0 ] && R="${DAYS}d "
-  [ "$HOURS" -gt 0 ] && R="${R}${HOURS}h "
-  R="${R}${MINS}m"; echo "$R"
+format_duration()  {
+  local S="$1" D=$(($1/86400)) H=$((($1%86400)/3600)) M=$((($1%3600)/60))
+  local R=""; [ "$D" -gt 0 ] && R="${D}d "; [ "$H" -gt 0 ] && R="${R}${H}h "; R="${R}${M}m"; echo "$R"
 }
 
 # ============================================================
@@ -232,9 +262,9 @@ format_duration() {
 # ============================================================
 get_restart_count() { local C=$(grep "^${1}=" "$RESTART_COUNT_FILE" 2>/dev/null | cut -d= -f2); echo "${C:-0}"; }
 increment_restart_count() {
-  local NEW=$(( $(get_restart_count "$1") + 1 ))
+  local N=$(( $(get_restart_count "$1") + 1 ))
   sed -i "/^${1}=/d" "$RESTART_COUNT_FILE" 2>/dev/null
-  echo "${1}=${NEW}" >> "$RESTART_COUNT_FILE"
+  echo "${1}=${N}" >> "$RESTART_COUNT_FILE"
 }
 
 # ============================================================
@@ -253,73 +283,83 @@ check_proof_status() {
   [ -f "$LOG_A" ] && NODE_LOG="$LOG_A" || { [ -f "$LOG_B" ] && NODE_LOG="$LOG_B"; }
   [ -z "$NODE_LOG" ] && echo "UNKNOWN" && return
   local RECENT; RECENT=$(tail -100 "$NODE_LOG" 2>/dev/null)
-  echo "$RECENT" | grep -qiE "proof sent|proof submitted|storage proof|proof_of_storage|sendProof|proofsent|Proof of Storage stage handling completed|Successfully submitted Fill Roothash" && echo "PROOF_OK" && return
+  echo "$RECENT" | grep -qiE "Successfully submitted proof|Proof of Storage stage handling completed|Collect Proofs handling completed" && echo "PROOF_OK" && return
   echo "$RECENT" | grep -qiE "Failed to send hash proof|failed to submit Send Hash Proof" && echo "MISSED" && return
   echo "UNKNOWN"
 }
 
 check_and_update_penalties() {
-  local LICENSE="$1"
+  local LICENSE="$1" WL=$(get_wallet_label "$1")
   is_node_running "$LICENSE" || return
-  local PROOF_STATUS; PROOF_STATUS=$(check_proof_status "$LICENSE")
-  local CURRENT_PENALTIES; CURRENT_PENALTIES=$(get_penalty_count "$LICENSE")
-  local WL=$(get_wallet_label "$LICENSE")
-  if [ "$PROOF_STATUS" = "PROOF_OK" ]; then
-    if [ "$CURRENT_PENALTIES" -gt 0 ]; then
+  local STATUS; STATUS=$(check_proof_status "$LICENSE")
+  local CUR; CUR=$(get_penalty_count "$LICENSE")
+  if [ "$STATUS" = "PROOF_OK" ]; then
+    if [ "$CUR" -gt 0 ]; then
       reset_penalty "$LICENSE"
       send_telegram "✅ <b>Node ${LICENSE} [${WL}] — Penalties Reset</b>
-📊 Previous: <b>${CURRENT_PENALTIES}</b> → Now: <b>0</b>
+📊 Was: <b>${CUR}</b> → Now: <b>0</b>
 🕐 $(now_utc) | $(now_local)"
     fi
     return
   fi
-  if [ "$PROOF_STATUS" = "MISSED" ]; then
-    local NEW_PENALTIES; NEW_PENALTIES=$(increment_penalty "$LICENSE")
-    log "⚠️ Node $LICENSE [${WL}] missed proof — penalties: ${NEW_PENALTIES}/${PENALTY_MAX}"
-    if [ "$NEW_PENALTIES" -eq "$PENALTY_WARN" ]; then
+  if [ "$STATUS" = "MISSED" ]; then
+    local N; N=$(increment_penalty "$LICENSE")
+    log "⚠️ Node $LICENSE [$WL] missed proof — penalties: ${N}/${PENALTY_MAX}"
+    if [ "$N" -eq "$PENALTY_WARN" ]; then
       send_telegram "⚠️ <b>Node ${LICENSE} [${WL}] — Penalty Warning</b>
-📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
-⏱ ~$(( (PENALTY_MAX - NEW_PENALTIES) * CYCLE_MINUTES / 60 ))h before pool removal
+📊 Penalties: <b>${N}/${PENALTY_MAX}</b>
 🕐 $(now_utc) | $(now_local)"
-    elif [ "$NEW_PENALTIES" -ge "$PENALTY_CRITICAL" ] && [ "$NEW_PENALTIES" -lt "$PENALTY_MAX" ]; then
+    elif [ "$N" -ge "$PENALTY_CRITICAL" ] && [ "$N" -lt "$PENALTY_MAX" ]; then
       send_telegram "🚨 <b>Node ${LICENSE} [${WL}] — CRITICAL Penalty</b>
-📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
-⚠️ Only $(( PENALTY_MAX - NEW_PENALTIES )) cycle(s) left!
+📊 Penalties: <b>${N}/${PENALTY_MAX}</b>
+⚠️ Only $(( PENALTY_MAX - N )) cycle(s) left
 🕐 $(now_utc) | $(now_local)"
-    elif [ "$NEW_PENALTIES" -ge "$PENALTY_MAX" ]; then
-      # AUTO-RESTART DISABLED — actual pool removal takes 15 hours not 10 cycles
-      send_telegram "🚫 <b>Node ${LICENSE} [${WL}] — REMOVED FROM POOL</b>
-📊 Penalties: <b>${NEW_PENALTIES}/${PENALTY_MAX}</b>
-ℹ️ Actual removal takes 15h of inactivity — node will auto re-join
-⚠️ Monitor closely — restart manually if truly stuck
+    elif [ "$N" -ge "$PENALTY_MAX" ]; then
+      # AUTO-RESTART DISABLED — actual pool removal takes 15h
+      send_telegram "🚫 <b>Node ${LICENSE} [${WL}] — Penalty Threshold</b>
+📊 Penalties: <b>${N}/${PENALTY_MAX}</b>
+ℹ️ Actual pool removal takes 15h — node will auto re-join
+⚠️ Restart manually only if truly stuck
 🕐 $(now_utc) | $(now_local)"
     fi
   fi
 }
 
 # ============================================================
-# Restart Node
+# Restart Node — per-wallet password + storage check
 # ============================================================
 restart_node() {
   local LICENSE="$1"
   local WALLET="${NODE_WALLET[$LICENSE]}"
   local PASSWORD=$(get_wallet_password "$LICENSE")
   local WL=$(get_wallet_label "$LICENSE")
-  local OLD_PID=$(get_node_pid "$LICENSE")
-  [ -z "$OLD_PID" ] && OLD_PID=$(get_saved_pid "$LICENSE")
 
-  local LAST_SEEN OFFLINE_DURATION WENT_DOWN_UTC
-  LAST_SEEN=$(get_last_seen "$LICENSE")
-  if [ -n "$LAST_SEEN" ]; then
-    local NOW=$(date +%s)
-    OFFLINE_DURATION=$(format_duration $(( NOW - LAST_SEEN )))
-    WENT_DOWN_UTC=$(date -u -d "@${LAST_SEEN}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || \
-                    date -u -r "$LAST_SEEN"     '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
-  else
-    OFFLINE_DURATION="unknown"; WENT_DOWN_UTC="unknown"
+  # Storage must be mounted
+  if ! check_storage_mounted "$LICENSE"; then
+    log "❌ Restart aborted for $LICENSE [$WL] — storage not mounted"
+    return 1
   fi
 
-  log "Restarting node $LICENSE [${WL}] (offline ~${OFFLINE_DURATION})..."
+  # Password must be set
+  if [ -z "$PASSWORD" ]; then
+    log "❌ Restart aborted for $LICENSE [$WL] — wallet password not set"
+    send_telegram "🔴 <b>Restart Aborted — Password Missing</b>
+🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
+⚠️ Wallet password is not configured
+🕐 $(now_utc) | $(now_local)"
+    return 1
+  fi
+
+  local OLD_PID=$(get_node_pid "$LICENSE")
+  [ -z "$OLD_PID" ] && OLD_PID=$(get_saved_pid "$LICENSE")
+  local LS=$(get_last_seen "$LICENSE")
+  local OFFLINE="unknown" WENT_DOWN="unknown"
+  if [ -n "$LS" ]; then
+    OFFLINE=$(format_duration $(( $(date +%s) - LS )))
+    WENT_DOWN=$(date -u -d "@${LS}" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$LS" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null)
+  fi
+
+  log "Restarting node $LICENSE [$WL] (offline ~${OFFLINE})..."
   export DENODE_PASSWORD="$PASSWORD"
   nohup "$DENODE_BIN" --address "$WALLET" --license "$LICENSE" \
     >> "$NODE_LOG_DIR/node-${LICENSE}.log" 2>&1 &
@@ -331,22 +371,19 @@ restart_node() {
     save_pid "$LICENSE" "$NEW_PID"
     update_last_seen "$LICENSE"
     local TOTAL=$(get_restart_count "$LICENSE")
-    echo "${LICENSE}|$(now_utc)|${WENT_DOWN_UTC}|${OFFLINE_DURATION}|${OLD_PID:-unknown}|${NEW_PID}" >> "$DOWNTIME_LOG"
-    log "✅ Node $LICENSE [${WL}] restarted (PID: $NEW_PID)"
+    echo "${LICENSE}|$(now_utc)|${WENT_DOWN}|${OFFLINE}|${OLD_PID:-unknown}|${NEW_PID}" >> "$DOWNTIME_LOG"
+    log "✅ Node $LICENSE [$WL] restarted (PID: $NEW_PID)"
     send_telegram "✅ <b>Node Restarted</b>
 🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
 🆔 PID: <code>${OLD_PID:-unknown}</code> → <code>${NEW_PID}</code>
-🔄 Total Restarts: <b>${TOTAL}</b>
-⏱ Offline: <b>${OFFLINE_DURATION}</b>
-🕐 $(now_utc) | $(now_local)
-📍 Host: $(hostname)"
+🔄 Total: <b>${TOTAL}</b> | ⏱ Offline: <b>${OFFLINE}</b>
+🕐 $(now_utc) | $(now_local)"
   else
-    log "❌ Node $LICENSE [${WL}] FAILED to restart!"
+    log "❌ Node $LICENSE [$WL] FAILED to restart!"
     send_telegram "❌ <b>Node FAILED to Restart</b>
 🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
 ⚠️ Manual intervention required!
-🕐 $(now_utc)
-📍 Host: $(hostname)"
+🕐 $(now_utc) | $(now_local)"
   fi
 }
 
@@ -355,82 +392,97 @@ restart_node() {
 # ============================================================
 check_disk_space() {
   for LICENSE in "${ALL_LICENSES[@]}"; do
-    local DRIVE="${NODE_STORAGE[$LICENSE]}"
+    local DRIVE="${NODE_STORAGE[$LICENSE]}" WL=$(get_wallet_label "$LICENSE")
     [ -z "$DRIVE" ] && continue
     if [ ! -d "$DRIVE" ]; then
       send_telegram "⚠️ <b>Drive Not Mounted</b>
-💾 Drive: <code>${DRIVE}</code>
-🔑 License: <code>${LICENSE}</code> [$(get_wallet_label $LICENSE)]
-🕐 $(now_utc)"
-      continue
+💾 <code>${DRIVE}</code> | 🔑 <code>${LICENSE}</code> [${WL}]
+🕐 $(now_utc)"; continue
     fi
-    local USAGE=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
-    local USED=$(df -h "$DRIVE" | awk 'NR==2 {print $3}')
-    local TOTAL=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
-    if [ "$USAGE" -ge "$DISK_ALERT_THRESHOLD" ]; then
-      send_telegram "⚠️ <b>Disk Space Warning</b>
-💾 Drive: <code>${DRIVE}</code>
-🔑 License: <code>${LICENSE}</code> [$(get_wallet_label $LICENSE)]
-📊 Usage: <b>${USAGE}%</b> — ${USED}/${TOTAL}
+    local U=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
+    local UD=$(df -h "$DRIVE" | awk 'NR==2 {print $3}')
+    local T=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
+    if [ "$U" -ge "$DISK_ALERT_THRESHOLD" ]; then
+      send_telegram "⚠️ <b>Disk Warning</b>
+💾 <code>${DRIVE}</code> | [${WL}] <code>${LICENSE}</code>
+📊 <b>${U}%</b> — ${UD}/${T}
 🕐 $(now_utc)"
     fi
   done
 }
 
 get_disk_summary() {
-  local LINES=""
+  local L=""
   for LICENSE in "${ALL_LICENSES[@]}"; do
-    local DRIVE="${NODE_STORAGE[$LICENSE]}"
-    [ -z "$DRIVE" ] || [ ! -d "$DRIVE" ] && LINES="${LINES}❌ ${LICENSE} — NOT MOUNTED\n" && continue
-    local USAGE=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
-    local USED=$(df -h "$DRIVE" | awk 'NR==2 {print $3}')
-    local TOTAL=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
-    local FREE=$(df -h "$DRIVE" | awk 'NR==2 {print $4}')
-    local ICON="🟢"; [ "$USAGE" -ge "$DISK_ALERT_THRESHOLD" ] && ICON="🔴"
-    local WL=$(get_wallet_label "$LICENSE")
-    LINES="${LINES}${ICON} [${WL}] <code>${LICENSE}</code>: ${USAGE}% — ${USED}/${TOTAL} (free: ${FREE})\n"
+    local DRIVE="${NODE_STORAGE[$LICENSE]}" WL=$(get_wallet_label "$LICENSE")
+    [ -z "$DRIVE" ] || [ ! -d "$DRIVE" ] && L="${L}❌ [${WL}] ${LICENSE} — NOT MOUNTED\n" && continue
+    local U=$(df "$DRIVE" | awk 'NR==2 {gsub("%",""); print $5}')
+    local UD=$(df -h "$DRIVE" | awk 'NR==2 {print $3}')
+    local T=$(df -h "$DRIVE" | awk 'NR==2 {print $2}')
+    local F=$(df -h "$DRIVE" | awk 'NR==2 {print $4}')
+    local I="🟢"; [ "$U" -ge "$DISK_ALERT_THRESHOLD" ] && I="🔴"
+    L="${L}${I} [${WL}] <code>${LICENSE}</code>: ${U}% — ${UD}/${T} (free: ${F})\n"
   done
-  echo -e "$LINES"
+  echo -e "$L"
 }
 
 # ============================================================
-# Error Alerts
-# NOTE: "context deadline exceeded" removed — normal P2P noise
+# Error Alerts — context deadline exceeded removed (P2P noise)
 # ============================================================
 ERROR_PATTERNS=(
   "roothash mismatch|Roothash Mismatch"
   "failed to unlock account|Password/Unlock Error"
   "already known|Duplicate Transaction"
-  "connection refused|RPC Connection Refused"
   "i/o timeout|Network I/O Timeout"
 )
 
 check_node_errors() {
-  local LICENSE="$1"
+  local LICENSE="$1" WL=$(get_wallet_label "$1")
   local LOG_A="$NODE_LOG_DIR/license-${LICENSE}.log"
   local LOG_B="$NODE_LOG_DIR/node-${LICENSE}.log"
   local NODE_LOG=""
   [ -f "$LOG_A" ] && NODE_LOG="$LOG_A" || { [ -f "$LOG_B" ] && NODE_LOG="$LOG_B"; }
   [ -z "$NODE_LOG" ] && return
-  local RECENT_LINES; RECENT_LINES=$(tail -50 "$NODE_LOG" 2>/dev/null)
-  local WL=$(get_wallet_label "$LICENSE")
-  for PATTERN_ENTRY in "${ERROR_PATTERNS[@]}"; do
-    local PATTERN="${PATTERN_ENTRY%%|*}" LABEL="${PATTERN_ENTRY##*|}"
-    if echo "$RECENT_LINES" | grep -qi "$PATTERN"; then
-      local STATE_KEY="${LICENSE}_${PATTERN// /_}"
-      local LAST_ALERTED=""
-      [ -f "$ERROR_STATE_FILE" ] && LAST_ALERTED=$(grep "^${STATE_KEY}=" "$ERROR_STATE_FILE" 2>/dev/null | cut -d= -f2)
-      local NOW; NOW=$(date +%s)
-      if [ -z "$LAST_ALERTED" ] || [ $(( NOW - LAST_ALERTED )) -ge 3600 ]; then
-        local ERROR_LINE; ERROR_LINE=$(echo "$RECENT_LINES" | grep -i "$PATTERN" | tail -1)
-        send_telegram "⚠️ <b>Node Error Detected</b>
-🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
-🔴 Error: <b>${LABEL}</b>
-📋 Detail: <code>${ERROR_LINE}</code>
+  local RECENT; RECENT=$(tail -50 "$NODE_LOG" 2>/dev/null)
+  for PE in "${ERROR_PATTERNS[@]}"; do
+    local PATTERN="${PE%%|*}" LABEL="${PE##*|}"
+    if echo "$RECENT" | grep -qi "$PATTERN"; then
+      local KEY="${LICENSE}_${PATTERN// /_}" LAST="" NOW=$(date +%s)
+      [ -f "$ERROR_STATE_FILE" ] && LAST=$(grep "^${KEY}=" "$ERROR_STATE_FILE" 2>/dev/null | cut -d= -f2)
+      if [ -z "$LAST" ] || [ $(( NOW - LAST )) -ge 3600 ]; then
+        local LINE; LINE=$(echo "$RECENT" | grep -i "$PATTERN" | tail -1)
+        send_telegram "⚠️ <b>Node Error</b>
+🔑 <code>${LICENSE}</code> [<b>${WL}</b>]
+🔴 <b>${LABEL}</b>
+📋 <code>${LINE}</code>
 🕐 $(now_utc) | $(now_local)"
-        sed -i "/^${STATE_KEY}=/d" "$ERROR_STATE_FILE" 2>/dev/null
-        echo "${STATE_KEY}=${NOW}" >> "$ERROR_STATE_FILE"
+        sed -i "/^${KEY}=/d" "$ERROR_STATE_FILE" 2>/dev/null
+        echo "${KEY}=${NOW}" >> "$ERROR_STATE_FILE"
       fi
+    fi
+  done
+}
+
+# ============================================================
+# Watchdog — restart loop detection
+# ============================================================
+watchdog_check() {
+  local NOW=$(date +%s)
+  for LICENSE in "${ALL_LICENSES[@]}"; do
+    local C=$(get_restart_count "$LICENSE"); [ "$C" -lt 3 ] && continue
+    local LAST_ENTRY=$(grep "^${LICENSE}|" "$DOWNTIME_LOG" 2>/dev/null | tail -1)
+    [ -z "$LAST_ENTRY" ] && continue
+    local LAST_TS=$(echo "$LAST_ENTRY" | cut -d'|' -f2)
+    local LAST_EPOCH=$(date -d "$LAST_TS" +%s 2>/dev/null || echo 0)
+    if [ $(( NOW - LAST_EPOCH )) -lt 1800 ] && ! is_paused "$LICENSE"; then
+      local WL=$(get_wallet_label "$LICENSE")
+      log "🔁 Restart loop detected for $LICENSE [$WL] — auto-pausing"
+      echo "$LICENSE" >> "$PAUSED_FILE"
+      send_telegram "🔁 <b>Restart Loop — Node Auto-Paused</b>
+🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
+🔄 ${C} restarts in last 30 min
+🛑 Paused — use /start ${LICENSE} to resume
+🕐 $(now_utc) | $(now_local)"
     fi
   done
 }
@@ -439,53 +491,43 @@ check_node_errors() {
 # Heartbeat
 # ============================================================
 send_heartbeat() {
-  local W1_LINES="" W2_LINES="" W3_LINES="" W4_LINES=""
+  local W1="" W2="" W3="" W4=""
   for LICENSE in "${ALL_LICENSES[@]}"; do
     local WL=$(get_wallet_label "$LICENSE")
-    local RC=$(get_restart_count "$LICENSE")
-    local PEN=$(get_penalty_count "$LICENSE")
-    local PEN_ICON="🟢"
-    [ "$PEN" -ge "$PENALTY_WARN" ]     && PEN_ICON="🟡"
-    [ "$PEN" -ge "$PENALTY_CRITICAL" ] && PEN_ICON="🟠"
-    local PAUSE_TAG=""; is_paused "$LICENSE" && PAUSE_TAG=" 🛑PAUSED"
-    local TUNNEL_TAG=""
-    local T; T=$(cat "$GUARD_DIR/tunnel_${LICENSE}" 2>/dev/null || echo "")
-    [ "$T" = "DEAD" ]    && TUNNEL_TAG=" 🔌DEAD"
-    [ "$T" = "SILENT" ]  && TUNNEL_TAG=" 🔇SILENT"
-    [ "$T" = "NO_PORT" ] && TUNNEL_TAG=" ⚠️NO_PORT"
+    local RC=$(get_restart_count "$LICENSE") PEN=$(get_penalty_count "$LICENSE")
+    local PI="🟢"; [ "$PEN" -ge "$PENALTY_WARN" ] && PI="🟡"; [ "$PEN" -ge "$PENALTY_CRITICAL" ] && PI="🟠"
+    local PT=""; is_paused "$LICENSE" && PT=" 🛑PAUSED"
+    local TT=""
+    local TF=$(cat "$GUARD_DIR/tunnel_${LICENSE}" 2>/dev/null || echo "")
+    [ "$TF" = "DEAD" ] && TT=" 🔌DEAD"; [ "$TF" = "SILENT" ] && TT=" 🔇SILENT"
     if is_node_running "$LICENSE"; then
-      local PID=$(get_node_pid "$LICENSE"); local UP=$(get_node_uptime "$LICENSE")
-      local LINE="🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UP}</b> — R: <b>${RC}</b> — ${PEN_ICON} P: <b>${PEN}/${PENALTY_MAX}</b>${PAUSE_TAG}${TUNNEL_TAG}\n"
+      local PID=$(get_node_pid "$LICENSE") UP=$(get_node_uptime "$LICENSE")
+      local LINE="🟢 <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UP}</b> — R: <b>${RC}</b> — ${PI} P: <b>${PEN}/${PENALTY_MAX}</b>${PT}${TT}\n"
       save_pid "$LICENSE" "$PID"; update_last_seen "$LICENSE"
     else
-      local LINE="🔴 <code>${LICENSE}</code> — <b>DOWN</b> — R: <b>${RC}</b>${PAUSE_TAG}\n"
+      local LINE="🔴 <code>${LICENSE}</code> — <b>DOWN</b> — R: <b>${RC}</b>${PT}\n"
     fi
-    case "$WL" in
-      W1) W1_LINES="${W1_LINES}${LINE}" ;;
-      W2) W2_LINES="${W2_LINES}${LINE}" ;;
-      W3) W3_LINES="${W3_LINES}${LINE}" ;;
-      W4) W4_LINES="${W4_LINES}${LINE}" ;;
-    esac
+    case "$WL" in W1) W1="${W1}${LINE}" ;; W2) W2="${W2}${LINE}" ;; W3) W3="${W3}${LINE}" ;; W4) W4="${W4}${LINE}" ;; esac
   done
-  local MSG="💓 <b>DeNet Node Monitor HeartBeat</b>
+  local MSG="💓 <b>NodePulse HeartBeat (MW)</b>
 📍 Host: $(hostname)
 🕐 $(now_utc) | $(now_local)"
-  [ -n "$W1_LINES" ] && MSG="${MSG}
+  [ -n "$W1" ] && MSG="${MSG}
 
 <b>💼 Wallet 1:</b>
-$(echo -e "$W1_LINES")"
-  [ -n "$W2_LINES" ] && MSG="${MSG}
+$(echo -e "$W1")"
+  [ -n "$W2" ] && MSG="${MSG}
 
 <b>💼 Wallet 2:</b>
-$(echo -e "$W2_LINES")"
-  [ -n "$W3_LINES" ] && MSG="${MSG}
+$(echo -e "$W2")"
+  [ -n "$W3" ] && MSG="${MSG}
 
 <b>💼 Wallet 3:</b>
-$(echo -e "$W3_LINES")"
-  [ -n "$W4_LINES" ] && MSG="${MSG}
+$(echo -e "$W3")"
+  [ -n "$W4" ] && MSG="${MSG}
 
 <b>💼 Wallet 4:</b>
-$(echo -e "$W4_LINES")"
+$(echo -e "$W4")"
   send_telegram "$MSG"
   date +%s > "$HEARTBEAT_FILE"
   log "💓 Heartbeat sent."
@@ -493,45 +535,36 @@ $(echo -e "$W4_LINES")"
 
 should_send_heartbeat() {
   [ ! -f "$HEARTBEAT_FILE" ] && return 0
-  local DIFF=$(( $(date +%s) - $(cat "$HEARTBEAT_FILE") ))
-  [ "$DIFF" -ge 3600 ] && return 0; return 1
+  [ $(( $(date +%s) - $(cat "$HEARTBEAT_FILE") )) -ge 3600 ] && return 0; return 1
 }
 
 # ============================================================
 # Daily Summary
 # ============================================================
 send_daily_summary() {
-  local LINES="" UP=0 DOWN=0
+  local LINES="" UP=0 TOTAL=${#ALL_LICENSES[@]}
   for LICENSE in "${ALL_LICENSES[@]}"; do
     local WL=$(get_wallet_label "$LICENSE")
     if is_node_running "$LICENSE"; then
-      local PID=$(get_node_pid "$LICENSE"); local UP_T=$(get_node_uptime "$LICENSE")
-      LINES="${LINES}🟢 [${WL}] <code>${LICENSE}</code> — PID <code>${PID}</code> — Up: <b>${UP_T}</b>\n"
-      UP=$(( UP + 1 ))
+      LINES="${LINES}🟢 [${WL}] <code>${LICENSE}</code> — Up: <b>$(get_node_uptime $LICENSE)</b>\n"; UP=$(( UP+1 ))
     else
       LINES="${LINES}🔴 [${WL}] <code>${LICENSE}</code> — DOWN\n"
-      DOWN=$(( DOWN + 1 ))
     fi
   done
-  local TOTAL=${#ALL_LICENSES[@]}
-  send_telegram "📊 <b>DeNet Daily Summary</b>
+  send_telegram "📊 <b>Daily Summary (MW)</b>
 📅 $(now_utc) | $(now_local)
-📍 Host: $(hostname)
-
-<b>Nodes (${UP}/${TOTAL} online):</b>
+<b>Nodes (${UP}/${TOTAL}):</b>
 $(echo -e "$LINES")
 💾 <b>Disk:</b>
 $(get_disk_summary)"
-  date +%s > "$DAILY_SUMMARY_FILE"
-  log "📊 Daily summary sent."
+  date +%s > "$DAILY_SUMMARY_FILE"; log "📊 Daily summary sent."
 }
 
 should_send_daily_summary() {
-  local CURRENT_HOUR=$((10#$(TZ="${LOCAL_TIMEZONE}" date '+%H')))
-  [ "$CURRENT_HOUR" -ne "$DAILY_SUMMARY_HOUR" ] && return 1
+  local H=$((10#$(TZ="${LOCAL_TIMEZONE}" date '+%H')))
+  [ "$H" -ne "$DAILY_SUMMARY_HOUR" ] && return 1
   [ ! -f "$DAILY_SUMMARY_FILE" ] && return 0
-  local DIFF=$(( $(date +%s) - $(cat "$DAILY_SUMMARY_FILE") ))
-  [ "$DIFF" -lt 82800 ] && return 1; return 0
+  [ $(( $(date +%s) - $(cat "$DAILY_SUMMARY_FILE") )) -lt 82800 ] && return 1; return 0
 }
 
 # ============================================================
@@ -539,8 +572,7 @@ should_send_daily_summary() {
 # ============================================================
 update_duckdns() {
   [ -z "$DUCKDNS_TOKEN" ] || [ -z "$DUCKDNS_DOMAIN" ] && return
-  local R=$(curl -s --max-time 10 \
-    "https://www.duckdns.org/update?domains=${DUCKDNS_DOMAIN}&token=${DUCKDNS_TOKEN}&ip=")
+  local R=$(curl -s --max-time 10 "https://www.duckdns.org/update?domains=${DUCKDNS_DOMAIN}&token=${DUCKDNS_TOKEN}&ip=")
   [ "$R" = "OK" ] && log "🌐 DuckDNS updated." || log "⚠️ DuckDNS failed: $R"
 }
 
@@ -548,148 +580,114 @@ update_duckdns() {
 # Write status.json
 # ============================================================
 write_status_json() {
-  local DENODE_VERSION=$("$DENODE_BIN" --version 2>/dev/null | head -1 || echo "unknown")
+  local VER=$("$DENODE_BIN" --version 2>/dev/null | head -1 || echo "unknown")
   python3 - <<PYEOF
 import json, os, subprocess
 from datetime import datetime, timezone
 
 all_licenses = [$(printf '"%s",' "${ALL_LICENSES[@]}" | sed 's/,$//')]
-pid_file  = os.path.expanduser("$PID_STATE_FILE")
-seen_file = os.path.expanduser("$LAST_SEEN_FILE")
-rc_file   = os.path.expanduser("$RESTART_COUNT_FILE")
-pen_file  = os.path.expanduser("$PENALTY_FILE")
-dt_log    = os.path.expanduser("$DOWNTIME_LOG")
-penalty_max = int("$PENALTY_MAX")
-guard_dir   = os.path.expanduser("~/.nodepulse_guard")
-paused_file = os.path.expanduser("$PAUSED_FILE")
+pid_file   = os.path.expanduser("$PID_STATE_FILE")
+seen_file  = os.path.expanduser("$LAST_SEEN_FILE")
+rc_file    = os.path.expanduser("$RESTART_COUNT_FILE")
+pen_file   = os.path.expanduser("$PENALTY_FILE")
+dt_log     = os.path.expanduser("$DOWNTIME_LOG")
+guard_dir  = os.path.expanduser("~/.nodepulse_guard")
+paused_file= os.path.expanduser("$PAUSED_FILE")
+penalty_max= int("$PENALTY_MAX")
 
 wallet_map = {}
-$(for L in "${ALL_LICENSES[@]}"; do
-  echo "wallet_map['${L}'] = '$(get_wallet_label $L)'"
-done)
+$(for L in "${ALL_LICENSES[@]}"; do echo "wallet_map['${L}'] = '$(get_wallet_label $L)'"; done)
 
 def read_kv(path):
-    out = {}
+    out={}
     try:
         for line in open(path):
-            if "=" in line:
-                k, v = line.strip().split("=", 1)
-                out[k] = v
+            if "=" in line: k,v=line.strip().split("=",1); out[k]=v
     except: pass
     return out
-
-def read_paused():
-    try: return set(open(paused_file).read().splitlines())
-    except: return set()
 
 saved_pids  = read_kv(pid_file)
 last_seen   = read_kv(seen_file)
 restart_cnt = read_kv(rc_file)
 penalties   = read_kv(pen_file)
-paused_set  = read_paused()
+try: paused_set=set(open(paused_file).read().splitlines())
+except: paused_set=set()
 
 def get_score(lic):
     try:
-        with open(os.path.join(guard_dir, "score_" + str(lic))) as f:
-            return max(0, min(100, int(f.read().strip())))
+        with open(os.path.join(guard_dir,"score_"+str(lic))) as f: return max(0,min(100,int(f.read().strip())))
     except: return None
 
-def get_tunnel_status(lic):
+def get_tunnel(lic):
     try:
-        with open(os.path.join(guard_dir, "tunnel_" + str(lic))) as f:
-            return f.read().strip()
+        with open(os.path.join(guard_dir,"tunnel_"+str(lic))) as f: return f.read().strip()
     except: return None
 
 def get_last_downtime(lic):
     try:
-        lines = [l for l in open(dt_log) if l.startswith(str(lic)+"|")]
+        lines=[l for l in open(dt_log) if l.startswith(str(lic)+"|")]
         if not lines: return None
-        parts = lines[-1].strip().split("|")
-        return {"restarted_at": parts[1], "last_alive": parts[2],
-                "offline_duration": parts[3], "old_pid": parts[4], "new_pid": parts[5]}
+        p=lines[-1].strip().split("|")
+        return {"restarted_at":p[1],"last_alive":p[2],"offline_duration":p[3],"old_pid":p[4],"new_pid":p[5]}
     except: return None
 
 def get_ps_info(lic):
     try:
-        r = subprocess.run(["ps", "aux"], capture_output=True, text=True)
+        r=subprocess.run(["ps","aux"],capture_output=True,text=True)
         for line in r.stdout.splitlines():
             if "/usr/bin/denode" in line and f"--license {lic}" in line and "grep" not in line:
-                parts = line.split()
-                pid = parts[1]
-                r2 = subprocess.run(["ps", "-o", "etime=", "-p", pid], capture_output=True, text=True)
-                return pid, r2.stdout.strip()
+                p=line.split(); pid=p[1]
+                r2=subprocess.run(["ps","-o","etime=","-p",pid],capture_output=True,text=True)
+                return pid,r2.stdout.strip()
     except: pass
-    return None, None
+    return None,None
 
 def parse_etime(et):
     if not et: return "unknown"
-    days, hours, mins = 0, 0, 0
-    if "-" in et:
-        days, et = et.split("-", 1); days = int(days)
-    parts = et.split(":")
-    if len(parts) == 3: hours, mins = int(parts[0]), int(parts[1])
-    elif len(parts) == 2: mins = int(parts[0])
-    r = ""
-    if days:  r += f"{days}d "
-    if hours: r += f"{hours}h "
-    r += f"{mins}m"
-    return r.strip() or "< 1m"
+    d,h,m=0,0,0
+    if "-" in et: d,et=et.split("-",1); d=int(d)
+    p=et.split(":")
+    if len(p)==3: h,m=int(p[0]),int(p[1])
+    elif len(p)==2: m=int(p[0])
+    r=""
+    if d: r+=f"{d}d "
+    if h: r+=f"{h}h "
+    r+=f"{m}m"; return r.strip() or "< 1m"
 
-def get_disk(storage_path):
+def get_disk(drive):
     try:
-        r = subprocess.run(["df", "-h", storage_path], capture_output=True, text=True)
-        parts = r.stdout.splitlines()[1].split()
-        return {"used": parts[2], "total": parts[1], "free": parts[3], "pct": int(parts[4].replace("%",""))}
+        r=subprocess.run(["df","-h",drive],capture_output=True,text=True)
+        p=r.stdout.splitlines()[1].split()
+        return {"used":p[2],"total":p[1],"free":p[3],"pct":int(p[4].replace("%",""))}
     except: return None
 
-now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-nodes = []
+now_ts=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+storage={$(for L in "${ALL_LICENSES[@]}"; do echo "\"${L}\":\"${NODE_STORAGE[$L]}\","; done)}
+nodes=[]
 for lic in all_licenses:
-    pid, etime = get_ps_info(lic)
-    running = pid is not None
-    saved_pid = saved_pids.get(str(lic), "")
-    pid_changed = saved_pid and pid and saved_pid != pid
-    ls_ts = last_seen.get(str(lic), "")
-    last_seen_str = ""
+    pid,etime=get_ps_info(lic); running=pid is not None
+    saved=saved_pids.get(str(lic),"")
+    ls_ts=last_seen.get(str(lic),""); lss=""
     if ls_ts:
-        try:
-            dt = datetime.fromtimestamp(int(ls_ts), tz=timezone.utc)
-            last_seen_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        try: dt=datetime.fromtimestamp(int(ls_ts),tz=timezone.utc); lss=dt.strftime("%Y-%m-%d %H:%M:%S UTC")
         except: pass
-    storage_paths = {$(for L in "${ALL_LICENSES[@]}"; do echo "\"${L}\": \"${NODE_STORAGE[$L]}\","; done)}
-    disk = get_disk(storage_paths.get(str(lic), ""))
-    nodes.append({
-        "license":       lic,
-        "wallet_label":  wallet_map.get(str(lic), "??"),
-        "status":        "running" if running else "down",
-        "paused":        str(lic) in paused_set,
-        "pid":           pid or "",
-        "uptime":        parse_etime(etime) if running else "",
-        "restarts":      int(restart_cnt.get(str(lic), 0)),
-        "penalties":     int(penalties.get(str(lic), 0)),
-        "penalty_max":   penalty_max,
-        "pid_changed":   bool(pid_changed),
-        "old_pid":       saved_pid if pid_changed else "",
-        "last_seen":     last_seen_str,
-        "last_downtime": get_last_downtime(lic),
-        "disk":          disk,
-        "score":         get_score(lic),
-        "tunnel":        get_tunnel_status(lic),
-    })
+    nodes.append({"license":lic,"wallet_label":wallet_map.get(str(lic),"??"),
+        "status":"running" if running else "down","paused":str(lic) in paused_set,
+        "pid":pid or "","uptime":parse_etime(etime) if running else "",
+        "restarts":int(restart_cnt.get(str(lic),0)),
+        "penalties":int(penalties.get(str(lic),0)),"penalty_max":penalty_max,
+        "pid_changed":bool(saved and pid and saved!=pid),
+        "old_pid":saved if (saved and pid and saved!=pid) else "",
+        "last_seen":lss,"last_downtime":get_last_downtime(lic),
+        "disk":get_disk(storage.get(str(lic),"")),"score":get_score(lic),"tunnel":get_tunnel(lic)})
 
-data = {
-    "app":     "NodePulse",
-    "version": "${DENODE_VERSION}",
-    "host":    "$(hostname)",
-    "updated": now_ts,
-    "nodes":   nodes,
-    "wallets": list(set(wallet_map.values()))
-}
-
-out = "$STATUS_JSON"
-os.makedirs(os.path.dirname(out), exist_ok=True)
-with open(out, "w") as f:
-    json.dump(data, f, indent=2)
+cs_path=os.path.expanduser("$CHAIN_STATUS_FILE")
+data={"app":"NodePulse","version":"${VER}","host":"$(hostname)","updated":now_ts,"nodes":nodes,
+      "wallets":list(set(wallet_map.values())),
+      "chain_status":json.load(open(cs_path)) if os.path.exists(cs_path) else None}
+out="$STATUS_JSON"
+os.makedirs(os.path.dirname(out),exist_ok=True)
+with open(out,"w") as f: json.dump(data,f,indent=2)
 print(f"status.json written → {out}")
 PYEOF
   log "📡 status.json updated."
@@ -698,77 +696,53 @@ PYEOF
 # ============================================================
 # Main Loop
 # ============================================================
-log "========== DeNet Multi-Wallet Monitor Started =========="
+log "========== NodePulse Monitor Started (MW v2.2) =========="
 log "Total nodes: ${#ALL_LICENSES[@]}"
 
 update_duckdns
 
 DOWN_COUNT=0
 for LICENSE in "${ALL_LICENSES[@]}"; do
-
-  # ── PAUSE CHECK ───────────────────────────────────────────
-  if is_paused "$LICENSE"; then
-    log "⏸️  Node $LICENSE is PAUSED — skipping"
-    continue
-  fi
-  # ─────────────────────────────────────────────────────────
-
+  if is_paused "$LICENSE"; then log "⏸️  Node $LICENSE PAUSED — skipping"; continue; fi
   WL=$(get_wallet_label "$LICENSE")
   if is_node_running "$LICENSE"; then
-    PID=$(get_node_pid "$LICENSE")
-    UP=$(get_node_uptime "$LICENSE")
+    PID=$(get_node_pid "$LICENSE"); UP=$(get_node_uptime "$LICENSE")
     log "✅ [${WL}] Node $LICENSE running (PID: $PID, Up: $UP)"
-    save_pid "$LICENSE" "$PID"
-    update_last_seen "$LICENSE"
-
-    # ── TUNNEL HEALTH CHECK ─────────────────────────────────
+    save_pid "$LICENSE" "$PID"; update_last_seen "$LICENSE"
     TUNNEL=$(check_tunnel_health "$LICENSE")
     echo "$TUNNEL" > "$GUARD_DIR/tunnel_${LICENSE}"
     case "$TUNNEL" in
       DEAD)
         log "🔌 [${WL}] Node $LICENSE — tunnel DEAD"
-        send_telegram "🔌 <b>Node ${LICENSE} — Tunnel Dead</b>
-🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
-⚠️ Process running but port closed and log silent
-🔄 Restarting to re-establish tunnel...
+        send_telegram "🔌 <b>Node ${LICENSE} [${WL}] — Tunnel Dead</b>
+⚠️ Port closed and log silent — restarting...
 🕐 $(now_utc) | $(now_local)"
         OLD_PID=$(get_node_pid "$LICENSE")
         [ -n "$OLD_PID" ] && kill "$OLD_PID" 2>/dev/null && sleep 2
-        restart_node "$LICENSE"
-        ;;
+        restart_node "$LICENSE" ;;
       NO_PORT) log "🔌 [${WL}] Node $LICENSE — port not listening (log active)" ;;
-      SILENT)  log "⚠️ [${WL}] Node $LICENSE — log silent >$((TUNNEL_SILENCE_THRESHOLD/60))min" ;;
+      SILENT)  log "⚠️ [${WL}] Node $LICENSE — log silent (port open)" ;;
       OK)      log "🔗 [${WL}] Node $LICENSE — tunnel OK" ;;
     esac
-    # ───────────────────────────────────────────────────────
-
   else
     log "⚠️ [${WL}] Node $LICENSE DOWN — restarting..."
     DOWN_COUNT=$(( DOWN_COUNT + 1 ))
-    send_telegram "⚠️ <b>Node Down Detected</b>
-🔑 License: <code>${LICENSE}</code> [<b>${WL}</b>]
+    send_telegram "⚠️ <b>Node Down</b>
+🔑 <code>${LICENSE}</code> [<b>${WL}</b>]
 🔄 Attempting restart...
-🕐 $(now_utc) | $(now_local)
-📍 Host: $(hostname)"
+🕐 $(now_utc) | $(now_local)"
     restart_node "$LICENSE"
   fi
 done
 
-[ "$DOWN_COUNT" -eq 0 ] && log "All ${#ALL_LICENSES[@]} nodes running normally." || log "$DOWN_COUNT node(s) restarted."
-
-for LICENSE in "${ALL_LICENSES[@]}"; do
-  is_paused "$LICENSE" && continue
-  check_node_errors "$LICENSE"
-done
-
-for LICENSE in "${ALL_LICENSES[@]}"; do
-  is_paused "$LICENSE" && continue
-  check_and_update_penalties "$LICENSE"
-done
+[ "$DOWN_COUNT" -eq 0 ] && log "All ${#ALL_LICENSES[@]} nodes running." || log "$DOWN_COUNT node(s) restarted."
 
 check_disk_space
+for LICENSE in "${ALL_LICENSES[@]}"; do is_paused "$LICENSE" && continue; check_node_errors "$LICENSE"; done
+for LICENSE in "${ALL_LICENSES[@]}"; do is_paused "$LICENSE" && continue; check_and_update_penalties "$LICENSE"; done
+watchdog_check
 should_send_heartbeat     && send_heartbeat
 should_send_daily_summary && send_daily_summary
 write_status_json
 
-log "========== DeNet Multi-Wallet Monitor Finished =========="
+log "========== NodePulse Monitor Finished =========="

@@ -3,8 +3,15 @@
 # ============================================================
 # NodePulse Guard — Community Intelligence Agent
 # Linux Single Wallet Version
-# v1.1 — RC14 compatible
+# v1.2 — RC14 compatible | All fixes applied
 # github.com/maqboolahmedm/NodePulse
+#
+# Fixes in this version:
+#   - log priority: license-*.log checked first (RC14 native log)
+#   - proof string: updated to "Successfully submitted proof"
+#   - RPC_ERROR: excludes P2P peer noise (getnodeinfo)
+#   - TUNNEL_DEAD: alert only — no restart trigger
+#   - single instance lock
 # ============================================================
 
 TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
@@ -23,13 +30,22 @@ GUARD_COOLDOWN="$GUARD_DIR/cooldowns"
 GUARD_HEALTH="$GUARD_DIR/health_scores"
 LAST_REPORT_FILE="$GUARD_DIR/.last_report"
 PAUSED_FILE="$GUARD_DIR/paused_nodes"
+LOCK_FILE="/tmp/nodepulse-guard.lock"
 
-# Log silence threshold — seconds before flagging TUNNEL_DEAD
-# 6000s = 100 min — covers the ~60 min HoldData silent phase
+# 6000s = 100 min — covers the ~60 min RC14 HoldData silent phase
 TUNNEL_SILENCE_THRESHOLD=6000
 
 mkdir -p "$GUARD_DIR"
 touch "$GUARD_LOG" "$GUARD_COOLDOWN" "$GUARD_HEALTH" "$PAUSED_FILE"
+
+# ── Single instance lock ─────────────────────────────────────
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] [GUARD] Already running — skipping this run" >> "$GUARD_LOG"
+  exit 0
+fi
+trap "rm -f $LOCK_FILE" EXIT
+# ─────────────────────────────────────────────────────────────
 
 now_utc()   { date -u '+%Y-%m-%d %H:%M:%S UTC'; }
 now_local() { TZ="${LOCAL_TIMEZONE}" date '+%H:%M:%S %Z'; }
@@ -87,12 +103,14 @@ set_cooldown() {
 }
 
 # ============================================================
-# Watcher — analyzes node log for issues
+# Watcher
 # ============================================================
 watch_node() {
   local LICENSE="$1"
-  local LOG_A="$NODE_LOG_DIR/node-${LICENSE}.log"
-  local LOG_B="$NODE_LOG_DIR/license-${LICENSE}.log"
+  # FIX: license-*.log is RC14 native log — check it first
+  # node-*.log is nohup redirect — only updated at startup
+  local LOG_A="$NODE_LOG_DIR/license-${LICENSE}.log"
+  local LOG_B="$NODE_LOG_DIR/node-${LICENSE}.log"
   local LOG_FILE; [ -f "$LOG_A" ] && LOG_FILE="$LOG_A" || LOG_FILE="$LOG_B"
   [ ! -f "$LOG_FILE" ] && echo "NO_LOG~No log file found~0~none" && return
 
@@ -111,7 +129,6 @@ try:
 except Exception as e:
     print(f"READ_ERROR~Cannot read log: {e}~0~none"); sys.exit(0)
 
-# ── Tunnel dead check via log file modification time ─────────
 log_age_secs = int(time.time() - os.path.getmtime(log_file))
 log_silent   = log_age_secs > silence_threshold
 
@@ -124,7 +141,6 @@ STG  = re.compile(r'(?:Current Stage|Next Stage):\s*([\w ]+\w)')
 issues, last_proof_min, last_stage, pool_number, last_seen_ts = [], None, "", "", None
 
 for line in reversed(lines):
-    # Strip ANSI color codes
     clean = re.sub(r'\x1b\[[0-9;]*m', '', line)
     m = TS.search(clean)
     ts = None
@@ -143,28 +159,35 @@ for line in reversed(lines):
         if m3:
             s = m3.group(1).strip()
             if s not in ('Next Stage',): last_stage = s
+
+    # FIX: updated proof strings — team confirmed "Successfully submitted proof"
     if last_proof_min is None and (
+        'Successfully submitted proof' in clean or
         'Collect Proofs handling completed' in clean or
-        'Stage Collect Proofs handling completed' in clean or
-        'Proof of Storage stage handling completed' in clean or
-        'Successfully submitted Fill Roothash' in clean
+        'Proof of Storage stage handling completed' in clean
     ):
         eff = ts or last_seen_ts
         if eff: last_proof_min = (now - eff).total_seconds() / 60
+
     ll = clean.lower()
-    if   'gas price less than block base fee' in ll:                                issues.append('LOW_GAS')
-    elif 'replacement transaction underpriced' in ll:                               issues.append('TX_UNDERPRICED')
-    elif 'insufficient funds' in ll:                                                issues.append('NO_FUNDS')
-    elif 'connection refused' in ll or 'dial tcp' in ll:                            issues.append('RPC_ERROR')
-    elif 'context deadline exceeded' in ll and 'getnodeinfo' in ll:                 pass  # P2P noise — ignore
+    if   'gas price less than block base fee' in ll:
+        issues.append('LOW_GAS')
+    elif 'replacement transaction underpriced' in ll:
+        issues.append('TX_UNDERPRICED')
+    elif 'insufficient funds' in ll:
+        issues.append('NO_FUNDS')
+    # FIX: exclude P2P peer noise — only flag actual RPC endpoint failures
+    elif ('connection refused' in ll or 'dial tcp' in ll) and 'getnodeinfo' not in ll:
+        issues.append('RPC_ERROR')
+    elif 'context deadline exceeded' in ll and 'getnodeinfo' in ll:
+        pass  # P2P peer noise — ignore
     elif 'transaction was not mined' in ll or 'failed to wait for transaction mining' in ll:
-                                                                                    issues.append('TX_NOT_MINED')
+        issues.append('TX_NOT_MINED')
     elif 'failed to send hash proof' in ll or ('failed to submit send hash proof' in ll and 'replacement' not in ll):
-                                                                                    issues.append('PROOF_FAIL')
+        issues.append('PROOF_FAIL')
 
 counts = Counter(issues)
 
-# ── Chain status ──────────────────────────────────────────────
 if last_proof_min is not None:
     if   last_proof_min < 95:  chain = "HEALTHY"
     elif last_proof_min < 190: chain = "PENDING"
@@ -173,7 +196,6 @@ else: chain = "UNKNOWN"
 
 age_str = f"{int(last_proof_min)}m" if last_proof_min else "unknown"
 
-# ── Serious issues ────────────────────────────────────────────
 serious = []
 if counts['NO_FUNDS']       >= 1: serious.append(('NO_FUNDS',       95))
 if counts['TX_NOT_MINED']   >= 3: serious.append(('TX_NOT_MINED',   80))
@@ -182,10 +204,11 @@ if counts['RPC_ERROR']      >= 2: serious.append(('RPC_ERROR',      75))
 if counts['LOW_GAS']        >= 3: serious.append(('LOW_GAS',        50))
 if counts['TX_UNDERPRICED'] >= 3: serious.append(('TX_UNDERPRICED', 45))
 
-# ── Tunnel dead detection ─────────────────────────────────────
-# Skip if node is in HoldData phase — log silence is normal there
-holding_data = any("Holding data" in l for l in lines[-20:])
-if log_silent and not holding_data and last_proof_min is not None and last_proof_min < 190:
+# FIX: skip TUNNEL_DEAD during HoldData — log silence is normal
+# Also skip if node just completed a proof cycle (Stage listener stopped = normal)
+holding_data   = any("Holding data" in l for l in lines[-20:])
+cycle_complete = any("Proofer service completed successfully" in l for l in lines[-10:])
+if log_silent and not holding_data and not cycle_complete and last_proof_min is not None and last_proof_min < 190:
     serious.insert(0, ('TUNNEL_DEAD', 85))
 
 if not serious:
@@ -212,7 +235,7 @@ PYEOF
 # Main
 # ============================================================
 log "=========================================="
-log "  NodePulse Guard Started"
+log "  NodePulse Guard Started (SW v1.2)"
 log "  Nodes: ${#LICENSES[@]} | Cooldown: ${COOLDOWN_MINUTES}min"
 log "=========================================="
 
@@ -222,13 +245,11 @@ ALL_HEALTHY=1
 
 for LICENSE in "${LICENSES[@]}"; do
 
-  # ── PAUSE CHECK ────────────────────────────────────────────
   if is_paused "$LICENSE"; then
     log "⏸️  Node $LICENSE is PAUSED — skipping guard"
     REPORT_LINES="${REPORT_LINES}⏸️ <code>${LICENSE}</code> — PAUSED\n"
     continue
   fi
-  # ──────────────────────────────────────────────────────────
 
   RESULT=$(watch_node "$LICENSE")
   CODE=$(echo "$RESULT" | cut -d'~' -f1)
@@ -259,17 +280,18 @@ for LICENSE in "${LICENSES[@]}"; do
       fi
       ;;
     TUNNEL_DEAD)
+      # FIX: alert only — guard does not trigger restarts
       ALL_HEALTHY=0; ISSUES=$(( ISSUES + 1 ))
       REPORT_LINES="${REPORT_LINES}🔌 <code>${LICENSE}</code> — TUNNEL_DEAD | ${MSG}\n"
       if ! is_in_cooldown "$LICENSE" "$CODE"; then
         set_cooldown "$LICENSE" "$CODE"
         update_health_score "$LICENSE" "-10"
-        send_telegram "🔌 <b>NodePulse Guard — Tunnel Dead</b>
+        send_telegram "🔌 <b>NodePulse Guard — Tunnel Alert</b>
 🔑 License: <code>${LICENSE}</code>
 📋 ${MSG}
 🎯 Confidence: <b>${CONF}%</b> | 💊 Health: <b>${SCORE}/100</b>
-⚠️ Node process running but log is silent — tunnel likely dropped
-🔄 Monitor will restart node on next run
+⚠️ Log silent — possible tunnel issue
+ℹ️ Check manually if this persists beyond 2 guard cycles
 🕐 $(now_utc) | $(now_local)"
       fi
       ;;
